@@ -9,9 +9,18 @@ python -m http.server 5517 --directory jamschool-site
 ## 구조
 | 경로 | 내용 |
 |---|---|
-| `index.html` | 홈 (빌드 결과물 — 직접 고치지 말 것) |
+| `index.html` | 홈 (빌드 결과물 — 직접 고치지 말 것, git에 올리지 않음) |
 | `product-<id>.html` | 상품 상세 10종 (빌드 결과물) |
+| `blog/` | 수면 가이드 목록·글·RSS(`feed.xml`) (빌드 결과물) |
 | `src/index.tpl.html`, `src/product.tpl.html` | 페이지 템플릿 |
+| `src/blog-index.tpl.html`, `src/blog-post.tpl.html` | 블로그 목록·글 템플릿 (`<base href="../">`) |
+| `content/blog/*.md` | **블로그 글 원고** (머리말 `key: value` + 마크다운). `_topics.json` 은 AI가 쓸 주제 대기열 |
+| `content/drafts/` | 검증을 통과하지 못한 AI 초안 (발행 안 됨, 사람이 고쳐서 `content/blog/` 로 옮기면 발행) |
+| `tools/blog/lib.mjs` | 머리말·마크다운 변환, `## 자주 묻는 질문` → FAQ 아코디언·FAQPage |
+| `tools/blog-ai/generate.mjs` | AI 글 작성·검증 |
+| `tools/export-site.mjs` | 서빙 파일만 `_site/` 로 내보내기 (`--preview` 면 noindex) |
+| `.github/workflows/site.yml` | 푸시·예약 시 빌드 → GitHub Pages 배포, 예약 시 AI 글 1편 |
+| `assets/css/sections.css` | 기능·롤링 후기·가격·왜 잠스쿨·블로그 섹션 스타일 |
 | `src/partials/` | 헤더·푸터·모달/드로어/시트·SVG 아이콘 |
 | `assets/js/data.js` | **상품·가격·옵션·리뷰·FAQ·시험성적 — 내용 수정은 여기 한 곳** |
 | `assets/js/render.js` | 브라우저/빌드 공용 마크업 함수 |
@@ -28,7 +37,7 @@ python -m http.server 5517 --directory jamschool-site
 ## 수정 → 반영
 1. `assets/js/data.js` 또는 `src/` 템플릿 수정
 2. `build.bat` 더블클릭 (또는 `node build.mjs`)
-3. 정적 HTML·구조화 데이터(JSON-LD)·sitemap·llms.txt가 같이 갱신됨
+3. 정적 HTML·구조화 데이터(JSON-LD)·sitemap·llms.txt·블로그가 같이 갱신됨
 
 FAQ·시험 결과·스펙 표·리뷰는 HTML 원문에 들어가 있어 JS 없이도 검색엔진·AI가 읽습니다.
 
@@ -48,9 +57,27 @@ node build.mjs
 ```
 `prepare_detail.py` 안의 EXCLUDE(가격표·이벤트·옛 안내 제외)와 CUT(이미지 일부 삭제) 목록은 공식몰 상세가 바뀌면 다시 확인해야 한다. 250KB 넘는 움직이는 GIF는 MP4 루프로 바꾼다.
 
-## 미리보기 배포 (GitHub Pages)
-https://zzangusz-art.github.io/jamschool-preview/ — 상위 폴더의 `deploy-preview.bat` 더블클릭으로 빌드·복사·푸시(반영 1~2분).
-미리보기 사본(`../deploy-preview/`)에만 noindex·robots Disallow를 넣는다. 운영 배포에는 이 폴더(jamschool-site)의 빌드 결과를 쓴다.
+## 수면 가이드 (블로그)
+- 글 추가: `content/blog/<slug>.md` 를 만들고 빌드. 머리말 필수 항목 `title` `description` `slug` `date` `category`(구매 가이드·사용 팁·제품 이야기·생활 공간), 선택 `tags` `product`(29 등) `author`
+- 본문 `## 자주 묻는 질문` 아래 `### Q. 질문` + 답 문단은 글 하단 FAQ 아코디언과 FAQPage 구조화 데이터가 된다. `##` 제목이 3개 이상이면 목차가 붙는다
+- 홈 `#blog` 섹션에는 최신 3편, `sitemap.xml`·`llms.txt`·RSS에 자동 추가
+- 검증만: `node tools/blog-ai/generate.mjs --check` (모든 글을 아래 규칙으로 검사)
+
+### AI 자동 발행
+GitHub Actions가 **월·목 오전 10시(KST)** 에 `_topics.json` 의 다음 `todo` 주제로 글 1편을 쓰고, 검증을 통과하면 `content/blog/` 에 커밋해 바로 배포한다.
+- 처음 한 번: GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret → 이름 `ANTHROPIC_API_KEY`. 키가 없으면 글 작성 단계만 건너뛰고 배포는 정상 진행
+- 지금 1편 쓰기: 저장소 Actions 탭 → site → Run workflow (`수면 가이드 글 1편 AI 작성` 체크)
+- 로컬에서: `set ANTHROPIC_API_KEY=...` 후 `npm ci` → `node tools/blog-ai/generate.mjs` (특정 주제는 `--topic <id>`)
+- 모델 `claude-opus-5-5`, 서버 측 폴백(`fallbacks: "default"`) 사용 — 기본 모델이 일시적으로 응답하지 못하면 Anthropic이 다른 모델로 대신 처리할 수 있음
+- 사실 근거는 `assets/js/data.js` 에서 뽑은 팩트 시트뿐. 검증 규칙: 머리말 형식, 본문 800~4,500자, `##` 3개 이상, FAQ 2개 이상, 의료 효과·최상급·보장 표현 금지, 타사 브랜드명·외부 링크 금지, 팩트 시트에 없는 숫자+단위 금지. 한 번 고쳐 쓰게 하고도 실패하면 `content/drafts/` 에 남기고 주제는 `draft` 로 표시
+- 주제 추가: `_topics.json` 에 `{ "id", "title", "angle"(다룰 내용·주의점), "category", "keywords", "status": "todo" }` 를 넣으면 순서대로 쓴다
+- 발행 전 사람 검토를 원하면 `site.yml` 의 예약(schedule)을 지우고 필요할 때 Run workflow 로 돌린 뒤 결과를 확인
+
+## 배포 (GitHub Pages)
+이 폴더가 곧 git 저장소다(`zzangusz-art/jamschool-preview`, 소스만 올리고 빌드 결과물은 `.gitignore`).
+- 반영: 상위 폴더 `deploy-preview.bat` 더블클릭 → 빌드·글 검증 → 커밋 → AI가 올린 글 받아오기(`git pull --rebase`) → 푸시 → Actions가 빌드해 2~3분 뒤 https://zzangusz-art.github.io/jamschool-preview/ 반영
+- 미리보기 배포는 `export-site.mjs --preview` 로 모든 페이지 noindex·robots Disallow. 운영 도메인에 올릴 때는 `node build.mjs` 후 `node tools/export-site.mjs <폴더>` (preview 옵션 없이)
+- AI가 GitHub에서 글을 커밋하므로, 로컬에서 작업하기 전에 `git pull` 로 받아 두면 충돌이 없다
 
 ## 결제 연동
 장바구니는 브라우저 저장(localStorage) 미리보기입니다. ‘주문하기/구매하기’는 공식몰 결제 페이지와 네이버페이(스마트스토어)로 연결됩니다. 자체 결제를 붙이려면 PG 연동이 별도로 필요합니다.
