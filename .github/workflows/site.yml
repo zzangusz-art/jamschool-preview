@@ -1,0 +1,73 @@
+# 잠스쿨 공식홈: 빌드 → GitHub Pages 배포, 월·목 오전 10시(KST) 수면 가이드 글 1편 AI 자동 발행
+# 필요한 설정: 저장소 Settings → Secrets and variables → Actions → ANTHROPIC_API_KEY
+# (키가 없으면 글 작성 단계만 건너뛰고 사이트 배포는 그대로 진행)
+name: site
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 1 * * 1,4'   # UTC 01:00 = KST 10:00, 월·목
+  workflow_dispatch:
+    inputs:
+      generate:
+        description: '수면 가이드 글 1편 AI 작성'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  PREVIEW_URL: https://zzangusz-art.github.io/jamschool-preview/
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: 수면 가이드 AI 글 작성
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.generate)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::warning::ANTHROPIC_API_KEY 미설정 — 글 작성을 건너뜁니다"; exit 0; fi
+          npm ci --no-audit --no-fund
+          node tools/blog-ai/generate.mjs
+          git config user.name "jamschool-blog-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add content
+          if git diff --cached --quiet; then echo "새 글 없음"; else git commit -m "수면 가이드: AI 글 자동 발행" && git push; fi
+
+      - name: 빌드
+        run: node build.mjs
+
+      - name: 기존 글 검증
+        run: node tools/blog-ai/generate.mjs --check
+
+      - name: 미리보기용 내보내기(noindex)
+        run: node tools/export-site.mjs _site --preview "$PREVIEW_URL"
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

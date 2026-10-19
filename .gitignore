@@ -1,0 +1,11 @@
+node_modules/
+_site/
+*.log
+
+# 빌드 결과물 (node build.mjs 가 src/·content/·assets/js/data.js 로 다시 만든다 — GitHub Actions가 배포 때 빌드)
+/index.html
+/product-*.html
+/blog/
+/sitemap.xml
+/robots.txt
+/llms.txt

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script>document.documentElement.classList.add('js')</script>
+<base href="../">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title><!--@title--> | 잠스쿨 수면 가이드</title>
+<meta name="description" content="<!--@desc-->">
+<link rel="canonical" href="<!--@canonical-->">
+<link rel="alternate" type="application/rss+xml" title="잠스쿨 수면 가이드" href="blog/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="잠스쿨 공식몰">
+<meta property="og:title" content="<!--@title-->">
+<meta property="og:description" content="<!--@desc-->">
+<meta property="og:image" content="<!--@ogimg-->">
+<meta property="article:published_time" content="<!--@date-->">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+<link rel="stylesheet" href="assets/css/sections.css">
+<!--@jsonld-->
+</head>
+<body class="page-blog">
+<!--@include:sprite-->
+<!--@include:header-->
+<main id="main" class="post">
+  <article class="wrap post__wrap">
+    <nav class="crumb" aria-label="현재 위치" style="padding:14px 0;font-size:13px;color:var(--sub)"><a href="index.html">홈</a> › <a href="blog/">수면 가이드</a> › <span aria-current="page"><!--@cat--></span></nav>
+    <header>
+      <p class="post__cat"><!--@cat--></p>
+      <h1 class="post__title"><!--@title--></h1>
+      <p class="post__lead"><!--@desc--></p>
+      <p class="post__meta"><span><!--@author--></span><time datetime="<!--@date-->"><!--@datetxt--></time><span><!--@minutes-->분 읽기</span></p>
+    </header>
+    <!--@toc-->
+    <div class="prose"><!--@body--></div>
+    <!--@faq-->
+    <!--@cta-->
+    <p class="note post-note">이 글은 잠스쿨 공식몰 상품 정보와 공인 시험기관 성적서를 바탕으로 작성했습니다. 가격·이벤트는 바뀔 수 있으니 구매 전 상품 페이지에서 확인해 주세요. 허리 통증 등 증상이 있다면 의료진과 먼저 상담하세요.</p>
+    <!--@related-->
+  </article>
+</main>
+<!--@include:footer-->
+<!--@include:layers-->
+<script src="assets/js/data.js"></script>
+<script src="assets/js/render.js"></script>
+<script src="assets/js/ui.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => { const a = document.querySelector('.post-faq .acc'); if (a) UI.accordion(a); });</script>
+</body>
+</html>

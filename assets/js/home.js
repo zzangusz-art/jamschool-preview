@@ -308,5 +308,32 @@
       $$('[data-c]', faq).forEach(it => { it.hidden = !(f === 'all' || it.dataset.c === f); });
     }));
   }
+  // ───────── PRICE: 두께 탭 + 카드에서 바로 담기
+  const priceTabs = $('#price-tabs');
+  if (priceTabs) tabs(priceTabs, (i, t) => {
+    $$('#price .price-grid').forEach(p => { p.hidden = p.id !== t.getAttribute('aria-controls'); });
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-add29]'); if (!b) return;
+    const [t, s] = b.dataset.add29.split('-');
+    addToCart(P29, { t, s, c: 'gray' });
+  });
+
+  // ───────── 롤링 후기: 멈춤 버튼(움직이는 콘텐츠 정지 수단), 카드 누르면 전문 모달
+  const roll = $('.roll'), rollBtn = $('#roll-toggle');
+  if (roll && rollBtn) {
+    if (reduce) rollBtn.hidden = true;
+    rollBtn.addEventListener('click', () => {
+      const on = roll.classList.toggle('is-paused');
+      rollBtn.setAttribute('aria-pressed', on);
+      rollBtn.textContent = on ? '롤링 다시 시작' : '롤링 멈춤';
+    });
+    roll.addEventListener('click', e => {
+      const c = e.target.closest('[data-rv]'); if (!c) return;
+      const r = JAM.REVIEWS[+c.dataset.rv];
+      $('#rvm-body').innerHTML = `<p class="rv__top"><span class="stars" style="--v:5" aria-label="별점 5점"></span></p><p class="rvm-text" style="margin-top:10px">${esc(r.text)}</p><p class="rvm-foot">${esc(r.id)}${r.opt ? ' · ' + esc(r.opt) : ''} · 스마트스토어 구매평 (원문에서 일부 발췌)</p>`;
+      openLayer('rvm', c);
+    });
+  }
   loops.forEach(f => f(true));
 })();

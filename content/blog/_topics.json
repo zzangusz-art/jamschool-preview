@@ -1,0 +1,27 @@
+[
+  { "id": "thickness-7cm-vs-12cm", "title": "7cm와 12cm 두께 고르기", "angle": "", "category": "구매 가이드", "keywords": ["3단 접이식 매트리스 두께"], "status": "done", "slug": "thickness-7cm-vs-12cm", "date": "2026-10-19" },
+  { "id": "size-guide-ms-ss-q", "title": "사이즈 고르기", "angle": "", "category": "구매 가이드", "keywords": ["접이식 매트리스 사이즈"], "status": "done", "slug": "size-guide-ms-ss-q", "date": "2026-10-18" },
+  { "id": "foam-density-31kg", "title": "폼 밀도 31kg/m³의 뜻", "angle": "", "category": "제품 이야기", "keywords": ["매트리스 밀도"], "status": "done", "slug": "foam-density-31kg", "date": "2026-10-17" },
+  { "id": "floor-use-care", "title": "바닥 사용 관리법", "angle": "", "category": "사용 팁", "keywords": ["바닥 매트리스 관리"], "status": "done", "slug": "floor-use-care", "date": "2026-10-16" },
+
+  { "id": "firm-mattress-back", "title": "허리가 신경 쓰일 때 접이식 매트리스를 고르는 기준", "angle": "탄탄한 지지감을 원하는 사람이 확인할 것(밀도, 두께, 바닥형/침대형). 의료 효과는 말하지 말고, 증상이 있으면 의료진 상담을 권한다.", "category": "구매 가이드", "keywords": ["허리 편한 매트리스", "탄탄한 접이식 매트리스"], "status": "todo" },
+  { "id": "fold-seam-comfort", "title": "접히는 부분, 누우면 불편하지 않을까", "angle": "3단 구조의 이음매가 걱정되는 사람에게: 패널 구조, 구매평 속 실제 반응, 예민하다면 얇은 패드 활용.", "category": "제품 이야기", "keywords": ["3단 매트리스 이음매", "접이식 매트리스 단점"], "status": "todo" },
+  { "id": "topper-on-bed", "title": "기존 침대 위에 3단 매트리스를 토퍼처럼 올려도 될까", "angle": "침대형 7cm를 침대 위에 올리는 경우, 바닥형을 올리는 경우, 미끄럼 방지 바닥면.", "category": "구매 가이드", "keywords": ["매트리스 토퍼", "침대 위 접이식 매트리스"], "status": "todo" },
+  { "id": "folded-size-storage", "title": "접었을 때 크기와 보관 자리 정하기", "angle": "옵션별 접은 크기(폭×67×21/36cm)와 무게, 원룸에서 보관 자리 재는 법.", "category": "생활 공간", "keywords": ["접이식 매트리스 보관", "접은 크기"], "status": "todo" },
+  { "id": "radon-test-reading", "title": "매트리스 라돈 검사 결과, 이렇게 읽습니다", "angle": "한일원자력 라돈 7.6Bq/m³ 미만과 환경부 권고 148Bq/m³의 의미, 성적서에서 볼 항목.", "category": "제품 이야기", "keywords": ["매트리스 라돈", "라돈 검사"], "status": "todo" },
+  { "id": "new-mattress-smell", "title": "새 매트리스 냄새, 받자마자 써도 될까", "angle": "3단계 탈취 공정, 4단계 유해물질 제거, 압축 포장 복원 2일, 냄새에 민감할 때 환기법, 탈취제 주의.", "category": "사용 팁", "keywords": ["새 매트리스 냄새", "압축 매트리스 복원"], "status": "todo" },
+  { "id": "harmful-substance-tests", "title": "SGS·KATRI 유해물질 시험, 무엇을 확인한 걸까", "angle": "SGS 6대 유해물질, KATRI 중금속·폼알데하이드·아릴아민·알레르기성 염료 결과를 항목별로 풀어 쓴다.", "category": "제품 이야기", "keywords": ["매트리스 유해물질", "SGS 시험"], "status": "todo" },
+  { "id": "waterproof-cover", "title": "방수 속커버, 꼭 필요할까", "angle": "땀 약 250ml 안내, 아이·반려동물이 있는 집, 이벤트 기간 증정, 커버 세탁과 함께 쓰는 법.", "category": "사용 팁", "keywords": ["매트리스 방수커버"], "status": "todo" },
+  { "id": "buy-official-mall", "title": "공식몰에서 사기 전에 확인할 배송·반품·체험 조건", "angle": "14일 무료체험(기간 한정), 반품·교환 배송비, 7일 이내 접수, 압축 포장 개봉 주의, 당일 출고 기준.", "category": "구매 가이드", "keywords": ["매트리스 반품", "무료체험 매트리스"], "status": "todo" },
+  { "id": "price-per-day", "title": "3단 접이식 매트리스 가격, 하루로 나누면 얼마일까", "angle": "옵션별 판매가와 2년 폼 보증 기준 하루 비용, 다나와 시세 범위로 본 가격대. 경쟁사명 금지.", "category": "구매 가이드", "keywords": ["접이식 매트리스 가격", "가성비 매트리스"], "status": "todo" },
+  { "id": "first-studio-mattress", "title": "자취방 첫 매트리스로 3단 접이식을 고를 때", "angle": "원룸 공간 활용, 낮에는 소파로, 잦은 이사, 사이즈·두께 추천 조합.", "category": "생활 공간", "keywords": ["자취방 매트리스", "원룸 매트리스"], "status": "todo" },
+  { "id": "guest-mattress", "title": "손님용 매트리스, 평소엔 어디에 둘까", "angle": "손님용으로 쓸 때 사이즈 선택, 접어서 보관, 두 장 나란히 쓰기.", "category": "생활 공간", "keywords": ["손님용 매트리스", "게스트 매트리스"], "status": "todo" },
+  { "id": "car-camping", "title": "차박·캠핑에 3단 접이식 매트리스를 쓴다면", "angle": "멀티싱글 7cm 3.5kg, 접은 크기, 공식몰 FAQ의 차박 권장 사이즈. 차량 실내 치수는 직접 재라고 안내.", "category": "생활 공간", "keywords": ["차박 매트리스", "캠핑 매트리스"], "status": "todo" },
+  { "id": "living-room-sofa", "title": "거실에서 소파로 쓰는 3단 매트리스 접는 법", "angle": "두 장 겹쳐 앉고 한 장 세우는 소파 형태, 낮에는 재택근무, 밤에는 침대.", "category": "사용 팁", "keywords": ["매트리스 소파", "접이식 소파 매트리스"], "status": "todo" },
+  { "id": "parents-room", "title": "부모님 방에 들일 매트리스, 무엇을 볼까", "angle": "바닥 생활에 익숙한 경우 바닥형, 무게와 접고 펴기, 미끄럼 방지, 전기장판 사용.", "category": "생활 공간", "keywords": ["부모님 매트리스", "바닥 매트리스"], "status": "todo" },
+  { "id": "winter-electric-blanket", "title": "겨울에 전기장판과 함께 쓸 때 알아 둘 것", "angle": "열에 강한 소재, 전기장판·돌침대·온열 제품 사용 가능, 커버 관리. 화재·안전 수치는 만들지 않는다.", "category": "사용 팁", "keywords": ["전기장판 매트리스", "겨울 매트리스"], "status": "todo" },
+  { "id": "cover-washing", "title": "누빔 커버 세탁, 줄지 않게 빠는 법", "angle": "지퍼 3개 분리, 찬물 단독 세탁, 중성세제·세탁망, 건조기 피하기, 세탁 부주의 시 교환·반품 불가.", "category": "사용 팁", "keywords": ["매트리스 커버 세탁"], "status": "todo" },
+  { "id": "kids-family", "title": "아이와 함께 자는 집의 바닥 매트리스", "angle": "두 장 나란히, 방수 속커버, 접어서 청소, 유해물질 시험 결과. 아이 수면 효과는 말하지 않는다.", "category": "생활 공간", "keywords": ["아이 매트리스", "가족 바닥 매트리스"], "status": "todo" },
+  { "id": "two-year-warranty", "title": "2년 폼 교체 보증은 어떻게 이용하나요", "angle": "보증 내용(2년 안에 폼이 꺼지면 무상 교체), 고객센터 연락처, 운영 시간. 절차는 고객센터 확인으로 안내.", "category": "구매 가이드", "keywords": ["매트리스 보증", "폼 교체"], "status": "todo" },
+  { "id": "gray-or-ivory", "title": "그레이와 아이보리, 색상은 어떻게 고를까", "angle": "가격 동일, 방 분위기, 관리 측면(오염 눈에 띄는 정도는 일반론으로 짧게), 구매평 속 색상 이야기.", "category": "구매 가이드", "keywords": ["매트리스 색상"], "status": "todo" }
+]
