@@ -105,6 +105,17 @@ function eventsHTML(p) {
   const ev = [['기간 한정', '14일 무료체험'], ['기간 한정', '구매 금액 상관없이 무료 배송'], ['선착순', '방수 속커버 무료 증정'], ['이벤트', '우수 구매평 5만원 이마트 상품권']];
   return `<div class="pd-events"><p class="pd-events__t">진행 중인 혜택</p><ul>${ev.map(([a, b]) => `<li><span>${esc(a)}</span>${esc(b)}</li>`).join('')}</ul><button class="link-more" type="button" data-open="terms" style="margin-top:8px;font-size:14px">조건 보기${svg('i-right')}</button></div>`;
 }
+// 가격 아래 신뢰 배지(3단 접이식): 출고·보증은 조건 시트, 국내 생산·시험은 홈 해당 섹션으로(14일 체험은 바로 아래 '진행 중인 혜택'에 있어 뺐다)
+function trustHTML29(p) {
+  if (p.id !== 29) return '';
+  const it = [
+    ['button', 'data-open="terms"', 'i-truck', '오후 1시 당일 출고', '주말·공휴일 제외'],
+    ['button', 'data-open="terms"', 'i-shield', '2년 폼 교체', '꺼지면 무상'],
+    ['a', 'href="index.html#korea"', 'i-flag', '국산 100%', '폼부터 겉커버까지'],
+    ['a', 'href="index.html#safety"', 'i-layers', '시험성적서 공개', 'KATRI · SGS · 한일원자력'],
+  ];
+  return `<ul class="pd-trust" aria-label="구매 조건과 근거">${it.map(([tag, attr, ic, t, sub]) => `<li><${tag} class="pd-trust__i" ${tag === 'button' ? 'type="button" ' : ''}${attr}>${svg(ic)}<span><b>${esc(t)}</b>${esc(sub)}</span></${tag}></li>`).join('')}</ul>`;
+}
 function infoHTML(p) {
   const r = R.rate(p);
   return `<div class="pd-info">
@@ -117,6 +128,7 @@ function infoHTML(p) {
       <p class="pd-price__now"><b class="rate">${r}%</b><b id="pd-price">${won(p.price)}</b>${p.full ? '<span class="from">부터</span>' : ''}</p>
       ${p.id === 29 ? `<p class="pd-price__cp">회원 쿠폰 적용 시 <b>${won(p.price - 10000)}</b>부터<button class="pd-cp-btn" type="button" data-open="coupon">쿠폰 받기</button></p>` : ''}
     </div>
+    ${trustHTML29(p)}
     ${eventsHTML(p)}
     <dl class="pd-meta">
       <div><dt>원산지</dt><dd>대한민국</dd></div>
@@ -153,6 +165,19 @@ function detailHTML(p) {
 function noticeHTML(p) {
   const rows = NOTICE[p.id]; if (!rows) return '';
   return `<h3 class="pd-h3">상품정보 제공고시</h3><table class="info-tbl info-tbl--notice"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${v.map(esc).join('<br>')}</td></tr>`).join('')}</tbody></table>`;
+}
+// 3단 상세 위 '한눈에 보기' — 상세 이미지 속 핵심 수치를 텍스트로 한 번 더(TESTS·OPTIONS 데이터에서)
+function keysHTML(p) {
+  if (p.id !== 29) return '';
+  const k = [
+    ['폼 밀도', '31.30kg/m³', 'KATRI 시험성적서 측정값'],
+    ['내구성', '10만 회', '반복 압축 시험 KS M 6672:2016'],
+    ['유해물질', '미검출', 'SGS 6대 유해물질 · KATRI 폼알데하이드'],
+    ['라돈', '7.6Bq/m³ 미만', '한일원자력 · 환경부 권고 148Bq/m³'],
+    ['두께', '7cm · 12cm', '침대형 · 바닥형'],
+    ['생산', '대한민국', '폼부터 겉커버까지 국내 생산'],
+  ];
+  return `<section class="pd-keys" aria-labelledby="pd-keys-t"><h3 class="pd-keys__t" id="pd-keys-t">한눈에 보는 3단 접이식 매트리스</h3><dl class="pd-keys__g">${k.map(([a, b, c]) => `<div><dt>${esc(a)}</dt><dd><b>${esc(b)}</b><span>${esc(c)}</span></dd></div>`).join('')}</dl><p class="note">특허 제10-2378668호 「다층구조의 침대 매트리스」 · 시험 결과는 시료 기준이며, 성적서 이미지는 <a href="index.html#safety">홈 ‘기술력과 안전성’</a>에서 볼 수 있습니다.</p></section>`;
 }
 function specHTML(p) {
   return specBase(p) + noticeHTML(p);
@@ -194,14 +219,14 @@ function mainHTML(p) {
     <div class="pd__top">${galleryHTML(p)}${infoHTML(p)}</div>
   </div>
   <nav class="pd-tabs" aria-label="상품 정보 메뉴"><div class="wrap"><a href="#detail" aria-current="true">상세정보</a><a href="#spec">제품 정보</a><a href="#reviews">구매평 <small>${p.reviews.toLocaleString('ko-KR')}</small></a><a href="#qna">Q&amp;A</a><a href="#ship">배송·교환</a></div></nav>
-  <section class="pd-sec" id="detail" aria-labelledby="detail-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="detail-t">상세정보</h2><div class="dt-wrap is-folded" id="dt-wrap">${detailHTML(p)}<div class="dt-more"><button class="btn btn--line" type="button" id="dt-more" aria-expanded="false" aria-controls="dt-wrap">상세정보 펼쳐보기${svg('i-down')}</button></div></div></div></section>
+  <section class="pd-sec" id="detail" aria-labelledby="detail-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="detail-t">상세정보</h2>${keysHTML(p)}<div class="dt-wrap is-folded" id="dt-wrap">${detailHTML(p)}<div class="dt-more"><button class="btn btn--line" type="button" id="dt-more" aria-expanded="false" aria-controls="dt-wrap">상세정보 펼쳐보기${svg('i-down')}</button></div></div></div></section>
   <section class="pd-sec" id="spec" aria-labelledby="spec-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="spec-t">제품 정보</h2>${specHTML(p)}</div></section>
   <section class="pd-sec" id="reviews" aria-labelledby="reviews-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="reviews-t">구매평</h2>${reviewsHTMLp(p)}</div></section>
   <section class="pd-sec" id="qna" aria-labelledby="qna-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="qna-t">자주 묻는 질문</h2>${qnaHTML(p)}</div></section>
   <section class="pd-sec" id="ship" aria-labelledby="ship-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="ship-t">배송 · 교환 · 반품</h2>${SHIP}</div></section>
   <section class="section section--soft" aria-labelledby="rel-t"><div class="wrap"><div class="sec-head"><h2 class="h-sec" id="rel-t" style="font-size:clamp(22px,5vw,30px)">함께 보면 좋은 상품</h2></div><div class="pgrid">${related.map(x => R.productCard(x)).join('')}</div></div></section>
 </main>
-<div class="buybar" id="buybar"><button class="icon-btn pd-wish" type="button" data-wish="${p.id}" aria-pressed="false" aria-label="찜하기">${R.ICON.heart}</button><button class="btn btn--primary" type="button" id="bb-buy">구매하기</button></div>
+<div class="buybar" id="buybar"><button class="icon-btn pd-wish" type="button" data-wish="${p.id}" aria-pressed="false" aria-label="찜하기">${R.ICON.heart}</button><a class="buybar__rv" href="#reviews"><span>구매평</span><b>${p.reviews.toLocaleString('ko-KR')}</b></a><button class="btn btn--primary" type="button" id="bb-buy">구매하기</button></div>
 <div class="layer sheet" id="buy" role="dialog" aria-modal="true" aria-labelledby="buy-t" aria-hidden="true" hidden><div class="layer__dim"></div><div class="sheet__box"><div class="sheet__grip" aria-hidden="true"></div><div class="drawer__head" style="border:0"><h2 id="buy-t">옵션 선택</h2><button class="icon-btn" type="button" data-close aria-label="닫기">${svg('i-x')}</button></div><div class="drawer__body" id="buy-slot"></div><div class="drawer__foot"><div class="pd-btns" style="margin:0"><button class="btn btn--line" type="button" id="sh-cart">장바구니</button><button class="btn btn--primary" type="button" id="sh-buy">구매하기</button></div></div></div></div>`;
 }
 function productLD(p) {

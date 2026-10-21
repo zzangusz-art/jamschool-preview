@@ -127,3 +127,25 @@
 .dt-txt p { font-size: 17px; font-weight: 600; line-height: 1.7; color: var(--ink); }
 .dt-txt p + p { margin-top: 8px; }
 .info-tbl--notice td { line-height: 1.7; }
+/* 가격 아래 신뢰 배지(3단) */
+.pd-trust { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+.pd-trust__i { display: flex; align-items: center; gap: 10px; width: 100%; height: 100%; padding: 12px; border-radius: 12px; background: var(--soft); text-align: left; color: var(--body); font-size: 12px; line-height: 1.4; transition: background-color .2s; }
+.pd-trust__i:hover { background: var(--sky-50); }
+.pd-trust__i svg { flex: none; width: 22px; height: 22px; color: var(--sky-ink); }
+.pd-trust__i b { display: block; font-size: 15px; color: var(--ink); }
+/* 상세 위 '한눈에 보기' 핵심 수치 */
+.pd-keys { max-width: 860px; margin: 0 auto 24px; padding: 22px 20px; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
+.pd-keys__t { font-size: 18px; margin-bottom: 14px; }
+.pd-keys__g { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
+@media (min-width: 768px) { .pd-keys__g { grid-template-columns: repeat(3, 1fr); } }
+.pd-keys__g div { padding: 14px; border-radius: 12px; background: var(--soft); }
+.pd-keys__g dt { font-size: 13px; font-weight: 600; color: var(--sub); }
+.pd-keys__g dd { margin: 4px 0 0; }
+.pd-keys__g dd b { display: block; font-size: 19px; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+.pd-keys__g dd span { display: block; margin-top: 2px; font-size: 12px; color: var(--sub); line-height: 1.45; }
+.pd-keys .note { margin-top: 12px; }
+.pd-keys .note a { color: var(--sky-ink); text-decoration: underline; text-underline-offset: 3px; }
+/* 모바일 구매 바: 찜 · 구매평 · 구매하기 */
+.buybar { grid-template-columns: 52px auto 1fr; }
+.buybar__rv { display: grid; place-items: center; align-content: center; min-width: 76px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; font-size: 12px; color: var(--sub); line-height: 1.25; }
+.buybar__rv b { font-size: 15px; color: var(--ink); }
