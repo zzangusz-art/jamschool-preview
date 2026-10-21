@@ -5,6 +5,8 @@
   const root = $('.pd'); if (!root) return;
   const p = PRODUCTS.find(x => x.id === +root.dataset.id);
 
+  SHOP.recent.push(p.id);
+
   // 찜 초기 상태
   $$(`[data-wish="${p.id}"]`).forEach(b => b.setAttribute('aria-pressed', wish.has(p.id)));
 
@@ -121,13 +123,12 @@
     closeLayer($('#buy'));
     toast('장바구니에 담았습니다.', { action: '보기', onAction: () => openLayer('cart') });
   }
+  // 구매하기: 고른 옵션만 주문서로(장바구니는 그대로). 결제 방식은 data.js CHECKOUT.mode 를 따른다
   function doBuy(e) {
     if (needOptions()) return;
-    $('#order-mall').href = p.mall;
-    const np = $('#order-npay');
-    if (p.store) { np.hidden = false; np.href = p.store; } else np.hidden = true;
+    const opener = e && e.currentTarget;
     closeLayer($('#buy'));
-    setTimeout(() => openLayer('order', e && e.currentTarget), 80);
+    setTimeout(() => SHOP.buyNow(items(), opener), 80);
   }
   $('#pd-cart').addEventListener('click', doCart);
   $('#pd-buy').addEventListener('click', doBuy);

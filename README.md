@@ -12,7 +12,9 @@ python -m http.server 5517 --directory jamschool-site
 | `index.html` | 홈 (빌드 결과물 — 직접 고치지 말 것, git에 올리지 않음) |
 | `product-<id>.html` | 상품 상세 10종 (빌드 결과물) |
 | `blog/` | 수면 가이드 목록·글·RSS(`feed.xml`) (빌드 결과물) |
+| `shop.html` · `cart.html` · `checkout.html` · `order-complete.html` | 전체 상품(진열)·장바구니·주문서·주문 완료 (빌드 결과물, 장바구니 이후는 noindex) |
 | `src/index.tpl.html`, `src/product.tpl.html` | 페이지 템플릿 |
+| `src/page.tpl.html`, `src/pages/*.html` | 진열·장바구니·주문서·주문 완료 공용 틀과 본문 |
 | `src/blog-index.tpl.html`, `src/blog-post.tpl.html` | 블로그 목록·글 템플릿 (`<base href="../">`) |
 | `content/blog/*.md` | **블로그 글 원고** (머리말 `key: value` + 마크다운). `_topics.json` 은 AI가 쓸 주제 대기열 |
 | `content/drafts/` | 검증을 통과하지 못한 AI 초안 (발행 안 됨, 사람이 고쳐서 `content/blog/` 로 옮기면 발행) |
@@ -20,6 +22,9 @@ python -m http.server 5517 --directory jamschool-site
 | `tools/blog-ai/generate.mjs` | AI 글 작성·검증 |
 | `tools/export-site.mjs` | 서빙 파일만 `_site/` 로 내보내기 (`--preview` 면 noindex) |
 | `.github/workflows/site.yml` | 푸시·예약 시 빌드 → GitHub Pages 배포, 예약 시 AI 글 1편 |
+| `assets/js/shop-core.js` | 쇼핑 공용(빠른 보기·3단 옵션·장바구니 담기·최근 본 상품·주문서로 넘기기) — 모든 페이지에서 ui.js 다음에 불러옴 |
+| `assets/js/shop.js` · `cart.js` · `checkout.js` · `complete.js` | 진열(분류·정렬·찜) · 장바구니(선택·옵션 변경·되돌리기) · 주문서(검증·우편번호·결제 수단) · 주문 완료 |
+| `assets/css/shop.css` | 진열·장바구니·주문서·주문 완료 스타일 |
 | `assets/css/sections.css` | 기능·롤링 후기·가격·왜 잠스쿨·블로그 섹션 스타일 |
 | `src/partials/` | 헤더·푸터·모달/드로어/시트·SVG 아이콘 |
 | `assets/js/data.js` | **상품·가격·옵션·리뷰·FAQ·시험성적 — 내용 수정은 여기 한 곳** |
@@ -79,8 +84,17 @@ GitHub Actions가 **월·목 오전 10시(KST)** 에 `_topics.json` 의 다음 `
 - 미리보기 배포는 `export-site.mjs --preview` 로 모든 페이지 noindex·robots Disallow. 운영 도메인에 올릴 때는 `node build.mjs` 후 `node tools/export-site.mjs <폴더>` (preview 옵션 없이)
 - AI가 GitHub에서 글을 커밋하므로, 로컬에서 작업하기 전에 `git pull` 로 받아 두면 충돌이 없다
 
-## 결제 연동
-장바구니는 브라우저 저장(localStorage) 미리보기입니다. ‘주문하기/구매하기’는 공식몰 결제 페이지와 네이버페이(스마트스토어)로 연결됩니다. 자체 결제를 붙이려면 PG 연동이 별도로 필요합니다.
+## 주문·결제
+흐름: 전체 상품(`shop.html`, `?cat=mattress|bedding`) → 상품 상세 → 장바구니(`cart.html`) 또는 바로 구매 → 주문서(`checkout.html`) → 주문 완료(`order-complete.html`).
+- 장바구니·찜·최근 본 상품은 브라우저 저장(localStorage). 바로 구매 상품과 주문 완료 요약은 sessionStorage(개인정보는 가린 값만, 30분 뒤 안 보임)
+- 주문서 금액은 저장된 값이 아니라 `data.js` 상품 가격으로 다시 계산
+- 결제 방식은 `assets/js/data.js` 의 `CHECKOUT.mode`
+  - `preview`(지금): 주문서 검증까지 진행 → 결제 버튼은 "미리보기라 결제되지 않음" 안내 + 상품별 공식몰·네이버페이 링크 + 주문 완료 화면 미리보기(상단에 '실제 주문 아님' 표시)
+  - `handoff`: 자체 결제 없이 운영할 때. 구매하기·주문하기 → 공식몰/네이버페이 선택 창
+  - `pg`: PG 계약 후. `checkout.js` 의 `requestPayment()` 에 결제창 호출을 넣고, **결제 승인과 금액 검증은 서버에서**(정적 사이트만으로는 안 됨). 결제가 끝나면 주문한 상품만 장바구니에서 빠짐
+- 주소 검색은 다음(카카오) 우편번호 서비스를 버튼 누를 때만 불러오고, 못 불러오면 직접 입력으로 바뀜
+- 결제 수단·배송비·적립률·쿠폰·택배사는 `CHECKOUT` 에서 수정. 제주·도서산간 추가 배송비 금액은 공식몰에 없어 금액 없이 안내 문구만 띄움
+- 주문서 동의 문구(개인정보 수집·이용, 매트리스 압축 포장 반품 안내)는 운영 전에 고객사 개인정보처리방침과 맞춰 확인할 것
 
 ## 영상 다시 만들기
 `../motion/render.bat` — 3D 장면(three.js)을 headless Chrome으로 프레임 렌더 → ffmpeg 인코딩. 원본 마스터는 `../motion/masters/`.

@@ -1,4 +1,4 @@
-// 잠스쿨 공식홈 정적 빌드: src/*.tpl.html + assets/js/data.js → index.html, product-<id>.html, sitemap.xml, llms.txt
+// 잠스쿨 공식홈 정적 빌드: src/*.tpl.html + assets/js/data.js → index.html, product-<id>.html, shop·cart·checkout·order-complete, blog/, sitemap.xml, llms.txt
 // 실행: node build.mjs   (데이터 수정은 assets/js/data.js 한 곳에서)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -181,7 +181,7 @@ function mainHTML(p) {
   const cat = p.cat === 'mattress' ? '매트리스' : '침구·건강용품';
   return `<main id="main" class="pd" data-id="${p.id}">
   <div class="wrap">
-    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a>${svg('i-right')}<a href="index.html#best">${cat}</a>${svg('i-right')}<span aria-current="page">${esc(p.short)}</span></nav>
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a>${svg('i-right')}<a href="shop.html?cat=${p.cat}">${cat}</a>${svg('i-right')}<span aria-current="page">${esc(p.short)}</span></nav>
     <div class="pd__top">${galleryHTML(p)}${infoHTML(p)}</div>
   </div>
   <nav class="pd-tabs" aria-label="상품 정보 메뉴"><div class="wrap"><a href="#detail" aria-current="true">상세정보</a><a href="#spec">제품 정보</a><a href="#reviews">구매평 <small>${p.reviews.toLocaleString('ko-KR')}</small></a><a href="#qna">Q&amp;A</a><a href="#ship">배송·교환</a></div></nav>
@@ -215,7 +215,7 @@ function productLD(p) {
     ];
     prod.review = REVIEWS.slice(0, 3).map(r => ({ '@type': 'Review', author: { '@type': 'Person', name: r.id }, reviewRating: { '@type': 'Rating', ratingValue: 5, bestRating: 5 }, reviewBody: r.text }));
   }
-  const graph = [ORG, prod, { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: p.short, item: url }] }];
+  const graph = [ORG, prod, { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '전체 상품', item: SITE + 'shop.html' }, { '@type': 'ListItem', position: 3, name: p.short, item: url }] }];
   if (p.id === 29) graph.push({ '@type': 'FAQPage', mainEntity: FAQ.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.join(' ') } })) });
   return ld({ '@context': 'https://schema.org', '@graph': graph });
 }
@@ -230,6 +230,114 @@ for (const p of PRODUCTS) {
   s = fill(s, 'extra-js', '');
   wr(`product-${p.id}.html`, picturize(s));
 }
+
+// ───────── 진열·장바구니·주문서·주문 완료 (src/page.tpl.html + src/pages/*.html)
+const { CATEGORIES, CHECKOUT } = JAM;
+const pageTpl = includes(rd('src/page.tpl.html'));
+const NOINDEX = '<meta name="robots" content="noindex, nofollow">';
+const steps = n => `<ol class="steps" aria-label="주문 단계">${['장바구니', '주문서', '주문 완료'].map((t, i) => `<li${i + 1 === n ? ' aria-current="step"' : i + 1 < n ? ' class="is-done"' : ''}><span>${i + 1 < n ? svg('i-check') : i + 1}</span>${t}</li>`).join('')}</ol>`;
+function page(file, o) {
+  let s = pageTpl;
+  s = fill(s, 'robots', o.noindex ? NOINDEX : '');
+  s = fill(s, 'title', esc(o.title)); s = fill(s, 'desc', esc(o.desc)); s = fill(s, 'canonical', SITE + file);
+  s = fill(s, 'ogimg', SITE + (o.ogimg || 'assets/video/hero-desktop.jpg')); s = fill(s, 'jsonld', o.jsonld || '');
+  s = fill(s, 'bodyclass', o.bodyclass); s = fill(s, 'main', o.main);
+  s = fill(s, 'js', o.js.map(f => `<script src="assets/js/${f}"></script>`).join('\n'));
+  wr(file, picturize(s));
+}
+
+// 전체 상품(진열)
+function shopMain() {
+  const p29 = PRODUCTS.find(p => p.id === 29);
+  const n = id => PRODUCTS.filter(p => p.cat === id).length;
+  const mat = PRODUCTS.filter(p => p.cat === 'mattress');
+  const cmp = mat.map(p => `<tr><th scope="row"><a href="${R.href(p)}">${R.pic(p.imgs[0], 'alt="" width="64" height="64" loading="lazy"')}<span>${esc(p.short)}</span></a></th><td data-k="특징">${esc(p.summary)}</td><td data-k="판매가"><b>${won(p.price)}${p.full ? '부터' : ''}</b></td><td data-k="구매평"><span class="star1" aria-hidden="true">★</span> ${p.rating.toFixed(2)} <span class="cmp-tbl__n">(${p.reviews.toLocaleString('ko-KR')})</span></td></tr>`).join('');
+  return `<main id="main" class="shop">
+  <div class="wrap">
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a>${svg('i-right')}<span aria-current="page">전체 상품</span></nav>
+    <header class="shop-head">
+      <div class="shop-head__txt"><p class="eyebrow">SHOP</p><h1 class="shop-head__t">잠스쿨 전체 상품</h1><p class="shop-head__d">매트리스부터 베개·쿠션까지, 공식몰에서 파는 상품 ${PRODUCTS.length}가지를 한곳에 모았습니다.</p></div>
+      <ul class="shop-perks">
+        <li>${svg('i-truck')}<span><b>기본 무료배송</b>오후 1시 이전 결제 시 당일 출고</span></li>
+        <li>${svg('i-cal')}<span><b>14일 무료체험</b>3단 접이식 매트리스 · 기간 한정</span></li>
+        <li>${svg('i-shield')}<span><b>2년 폼 교체 보증</b>3단 접이식 매트리스</span></li>
+        <li>${svg('i-star')}<span><b>결제 금액 1% 적립</b>공식몰 회원 주문</span></li>
+      </ul>
+    </header>
+    <a class="shop-feat" href="${R.href(p29)}">
+      <div class="shop-feat__img">${R.pic(p29.imgs[0], 'alt="" width="600" height="600" fetchpriority="high"')}</div>
+      <div class="shop-feat__txt"><p class="shop-feat__k"><span class="badge badge--best">BEST</span>구매평 ${p29.reviews.toLocaleString('ko-KR')}건 · 평점 ${p29.rating.toFixed(2)}</p><h2 class="shop-feat__t">${esc(p29.short)}</h2><p class="shop-feat__d">${esc(p29.summary)}</p><p class="shop-feat__p"><span class="rate">${R.rate(p29)}%</span><b>${won(p29.price)}</b>부터</p><span class="link-more">두께·사이즈 고르러 가기${svg('i-right')}</span></div>
+    </a>
+    <div class="shop-list">
+    <div class="shop-bar" id="shop-bar">
+      <div class="chips" role="tablist" aria-label="상품 분류" id="shop-cats">
+        <button class="chip" type="button" role="tab" aria-selected="true" data-f="all">전체<span class="chip__n">${PRODUCTS.length}</span></button>
+        ${CATEGORIES.map(c => `<button class="chip" type="button" role="tab" aria-selected="false" tabindex="-1" data-f="${c.id}">${esc(c.label)}<span class="chip__n">${n(c.id)}</span></button>`).join('')}
+        <button class="chip" type="button" role="tab" aria-selected="false" tabindex="-1" data-f="wish">찜한 상품<span class="chip__n" id="wish-n">0</span></button>
+      </div>
+      <div class="shop-bar__r">
+        <p class="shop-count" aria-live="polite"><b id="shop-n">${PRODUCTS.length}</b>개 상품</p>
+        <label class="sr-only" for="shop-sort">정렬</label>
+        <select class="inp select select--sm" id="shop-sort"><option value="reco">추천순</option><option value="rv">구매평 많은순</option><option value="rating">평점 높은순</option><option value="low">낮은 가격순</option><option value="high">높은 가격순</option><option value="rate">할인율 높은순</option></select>
+      </div>
+    </div>
+    <p class="shop-desc" id="shop-desc" aria-live="polite"></p>
+    <div class="pgrid shop-grid" id="shop-grid">${PRODUCTS.map(p => R.productCard(p)).join('')}</div>
+    <div class="shop-empty" id="shop-empty" hidden><p class="cp-empty__t">아직 찜한 상품이 없습니다</p><p class="cp-empty__d">상품 사진의 하트를 누르면 이곳에 모입니다.</p></div>
+    </div>
+    <section class="shop-cmp" aria-labelledby="cmp-t">
+      <div class="sec-head" style="margin-bottom:18px"><p class="eyebrow">COMPARE</p><h2 class="shop-cmp__t" id="cmp-t">매트리스 ${mat.length}종 한눈에 보기</h2><p class="shop-cmp__d">쿠션감과 두께를 먼저 보고 고르세요. 3단 접이식은 두께와 사이즈에 따라 가격이 달라집니다.</p></div>
+      <div class="cmp-wrap"><table class="cmp-tbl"><thead><tr><th scope="col">상품</th><th scope="col">특징</th><th scope="col">판매가</th><th scope="col">구매평</th></tr></thead><tbody>${cmp}</tbody></table></div>
+      <p class="note" style="margin-top:10px">판매가와 구매평 수는 2026년 10월 공식몰 기준입니다.</p>
+    </section>
+    <section class="cp-more" id="shop-recent" aria-labelledby="recent-t" hidden><h2 class="cp-more__t" id="recent-t">최근 본 상품</h2><div class="mini-row" id="recent-row"></div></section>
+  </div>
+</main>`;
+}
+page('shop.html', {
+  title: '전체 상품 — 3단 접이식 매트리스·베개·쿠션 | 잠스쿨 공식몰',
+  desc: `잠스쿨 공식몰 전체 상품 ${PRODUCTS.length}가지. 3단 접이식 매트리스(${won(p29min())}부터), 떡실신·양면·메모리폼 매트리스, 경추 베개·다리베개·쿨매트. 기본 무료배송, 오후 1시 이전 결제 시 당일 출고.`,
+  bodyclass: 'page-shop', main: shopMain(), js: ['shop.js'], ogimg: PRODUCTS[0].imgs[0],
+  jsonld: ld({ '@context': 'https://schema.org', '@graph': [ORG,
+    { '@type': 'CollectionPage', '@id': SITE + 'shop.html#page', name: '잠스쿨 전체 상품', url: SITE + 'shop.html', inLanguage: 'ko-KR', isPartOf: { '@id': SITE + '#site' },
+      mainEntity: { '@type': 'ItemList', numberOfItems: PRODUCTS.length, itemListElement: PRODUCTS.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: SITE + R.href(p), name: p.name })) } },
+    { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '전체 상품', item: SITE + 'shop.html' }] }] }),
+});
+function p29min() { return Math.min(...Object.values(O.price)); }
+
+// 장바구니·주문서·주문 완료: 검색 노출 안 함(운영에서도 noindex)
+{
+  let main = rd('src/pages/cart.html');
+  main = fill(main, 'steps', steps(1)); main = fill(main, 'shipnote', esc(CHECKOUT.shipNote));
+  main = fill(main, 'recos', PRODUCTS.filter(p => p.cat === 'bedding').map(p => R.productCard(p)).join(''));
+  page('cart.html', { title: '장바구니 | 잠스쿨 공식몰', desc: '잠스쿨 공식몰 장바구니', noindex: true, bodyclass: 'page-cart', main, js: ['cart.js'] });
+}
+{
+  const PAY = CHECKOUT.pay.map((m, i) => `<button class="paym__opt${m.id === 'npay' ? ' paym__opt--npay' : ''}" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${m.id}">${m.id === 'npay' ? '<b class="npay-mark" aria-hidden="true">N</b>' : ''}${esc(m.label)}</button>`).join('');
+  const dl = rows => `<dl class="agree__dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
+  const AGREE = [
+    { id: 'ag-order', t: '주문할 상품의 정보와 결제 금액을 확인했으며, 결제에 동의합니다' },
+    { id: 'ag-priv', t: '개인정보 수집·이용에 동의합니다 (비회원 주문)', body: dl([
+      ['수집 항목', '주문하는 분 이름·휴대폰 번호·이메일(선택), 받는 분 이름·휴대폰 번호·주소·배송 메모, 결제 기록'],
+      ['이용 목적', '주문 확인, 상품 배송, 결제·환불, 교환·반품과 고객 상담'],
+      ['보유 기간', '전자상거래법에 따라 계약·청약철회·대금결제·재화 공급 기록은 5년, 소비자 불만·분쟁 처리 기록은 3년 보관한 뒤 파기합니다.'],
+      ['처리 위탁', `상품 배송을 위해 ${CHECKOUT.couriers}에 받는 분 정보를 맡깁니다.`],
+    ]) + '<p>동의하지 않을 수 있으며, 동의하지 않으면 비회원으로 주문할 수 없습니다.</p>' },
+    { id: 'ag-mat', mat: true, t: '매트리스는 압축 포장으로 배송되며, 포장을 연 뒤에는 단순 변심 반품이 어려울 수 있음을 확인했습니다', body: '<p>14일 무료체험 대상 상품은 체험 조건을 따릅니다(반품 시 왕복 배송비 매트리스 36,000원 고객 부담). 교환·반품은 받은 날부터 7일 이내에 고객센터(010-9610-8868)로 먼저 요청해 주세요. 제품 하자는 배송비를 받지 않습니다.</p>' },
+  ];
+  const agree = AGREE.map(a => `<div class="agree__item"${a.mat ? ' data-mat hidden' : ''}><label class="ck"><input type="checkbox" class="ag" id="${a.id}"${a.mat ? ' disabled' : ''}><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>${esc(a.t)}</span></label>${a.body ? `<button class="agree__more" type="button" aria-expanded="false" aria-controls="${a.id}-d">내용 보기</button><div class="agree__d" id="${a.id}-d" hidden>${a.body}</div>` : ''}</div>`).join('');
+  let main = rd('src/pages/checkout.html');
+  main = fill(main, 'steps', steps(2)); main = fill(main, 'shipnote', esc(CHECKOUT.shipNote)); main = fill(main, 'couriers', esc(CHECKOUT.couriers));
+  main = fill(main, 'paym', PAY); main = fill(main, 'agree', agree);
+  main = fill(main, 'pvnote', CHECKOUT.mode === 'pg' ? '' : '<p class="co-pv" role="note"><b>미리보기</b>결제 연동 전이라 마지막 단계에서 실제 결제는 진행되지 않습니다. 화면 흐름만 확인해 주세요.</p>');
+  page('checkout.html', { title: '주문서 작성 | 잠스쿨 공식몰', desc: '잠스쿨 공식몰 주문서', noindex: true, bodyclass: 'page-checkout', main, js: ['checkout.js'] });
+}
+{
+  let main = rd('src/pages/order-complete.html');
+  main = fill(main, 'steps', steps(3));
+  page('order-complete.html', { title: '주문 완료 | 잠스쿨 공식몰', desc: '잠스쿨 공식몰 주문 완료', noindex: true, bodyclass: 'page-done', main, js: ['complete.js'] });
+}
+console.log('shop pages: shop.html, cart.html, checkout.html, order-complete.html');
 
 // ───────── sitemap / robots / llms.txt
 
@@ -277,7 +385,7 @@ ${POSTS.map(p => `<item><title>${esc(p.title)}</title><link>${SITE}blog/${p.slug
 console.log(`blog: ${POSTS.length} posts`);
 
 const today = new Date().toISOString().slice(0, 10);
-wr('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}</loc><lastmod>${today}</lastmod></url>\n${PRODUCTS.map(p => `<url><loc>${SITE}product-${p.id}.html</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n<url><loc>${SITE}blog/</loc><lastmod>${today}</lastmod></url>\n${POSTS.map(p => `<url><loc>${SITE}blog/${p.slug}.html</loc><lastmod>${p.updated || p.date}</lastmod></url>`).join('\n')}\n</urlset>\n`);
+wr('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}</loc><lastmod>${today}</lastmod></url>\n<url><loc>${SITE}shop.html</loc><lastmod>${today}</lastmod></url>\n${PRODUCTS.map(p => `<url><loc>${SITE}product-${p.id}.html</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n<url><loc>${SITE}blog/</loc><lastmod>${today}</lastmod></url>\n${POSTS.map(p => `<url><loc>${SITE}blog/${p.slug}.html</loc><lastmod>${p.updated || p.date}</lastmod></url>`).join('\n')}\n</urlset>\n`);
 wr('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${SITE}sitemap.xml\n`);
 const P29 = PRODUCTS[0];
 wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
@@ -301,7 +409,7 @@ wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 - 오후 1시 이전 결제 확인 시 당일 출고(주말·공휴일 제외), 평균 1~3일.
 - 교환·반품: 수령 후 7일 이내 고객센터 접수. 단순 변심 왕복 배송비 매트리스 36,000원.
 
-## 그 밖의 제품
+## 그 밖의 제품 (전체 목록 ${SITE}shop.html)
 ${PRODUCTS.slice(1).map(p => `- ${p.name}: ${p.summary}. ${won(p.price)}. ${SITE}product-${p.id}.html`).join('\n')}
 
 ## 가격대 (${MARKET.source} ${MARKET.basis}, ${MARKET.date} 조회)

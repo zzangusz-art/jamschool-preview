@@ -219,5 +219,30 @@
 
   const CS = { tel: '010-9610-8868', telHref: 'tel:01096108868', hours: '평일 09:00 ~ 17:00 (토·일·공휴일 휴무)', mail: 'jamsale33@gmail.com', kakao: 'https://pf.kakao.com/_XxhVxeT/chat' };
 
-  window.JAM = { PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS };
+  // 진열 페이지(shop.html) 분류 — PRODUCTS 의 cat 과 같은 id
+  const CATEGORIES = [
+    { id: 'mattress', label: '매트리스', desc: '3단 접이식 · 폭신한 매트리스 · 양면 매트리스 · 메모리폼 토퍼' },
+    { id: 'bedding', label: '침구·건강용품', desc: '경추 베개 · 다리베개 · 등받이쿠션 · 쿨매트 · 손목보호대' },
+  ];
+
+  // 주문·결제 설정
+  //  mode 'preview' : 장바구니 → 주문서까지 진행하고, 결제 버튼은 "미리보기라 결제되지 않음"을 알린 뒤 공식몰·네이버페이로 안내 (지금 미리보기)
+  //       'handoff' : 자체 결제 없이 운영할 때. 구매하기·주문하기 → 공식몰/네이버페이 선택 창(예전 방식)
+  //       'pg'      : PG 계약 후. assets/js/checkout.js 의 requestPayment() 에 결제창 호출을 넣는다
+  // 배송비·적립률·쿠폰은 공식몰 안내 기준(2026-10). 제주·도서산간 추가 배송비 금액은 공식몰에 적혀 있지 않아 금액을 표시하지 않는다.
+  const CHECKOUT = {
+    mode: 'preview',
+    shipFee: 0,
+    shipNote: '제주·도서산간 지역은 추가 배송비가 있으며, 주문 확인 후 고객센터에서 안내합니다.',
+    pointRate: 0.01,
+    memberCoupon: 10000,
+    couriers: '로젠택배, 대신택배',
+    pay: [
+      { id: 'card', label: '신용·체크카드', note: '결제 창에서 카드사와 할부 개월을 고릅니다.' },
+      { id: 'bank', label: '무통장입금', note: '입금 계좌는 주문 완료 화면에서 안내합니다. 오후 1시 이전 입금이 확인되면 당일 출고합니다(주말·공휴일 제외).' },
+      { id: 'npay', label: '네이버페이', note: '네이버페이 결제 창에서 결제합니다. 네이버페이 포인트를 쓸 수 있습니다.' },
+    ],
+  };
+
+  window.JAM = { PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT };
 })();

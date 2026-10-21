@@ -3,6 +3,7 @@
   const { $, $$, won, esc, toast, openLayer, accordion, tabs, cart, lightbox, readyThumbs, reduce } = UI;
   const { PRODUCTS, OPTIONS_29: O, TESTS, USES } = JAM;
   const P29 = PRODUCTS.find(p => p.id === 29);
+  const { optButtons, bindRadios, addToCart } = SHOP;
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const eio = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   const eo = t => 1 - Math.pow(1 - t, 3);
@@ -146,72 +147,7 @@
       });
     });
   }
-  document.addEventListener('click', e => {
-    const q = e.target.closest('[data-quick]');
-    if (q) { e.preventDefault(); openQuick(+q.dataset.quick, q); }
-  });
-  function optButtons(kind, list, sel) {
-    return list.map(o => `<button type="button" role="radio" class="${kind === 's' ? 'size-opt' : kind === 'c' ? 'color-opt' : ''}" aria-checked="${o.id === sel}" data-v="${o.id}">${kind === 'c' ? `<i style="background:${o.hex}"></i>${esc(o.label)}` : kind === 's' ? `<b>${esc(o.label)}</b><small>${o.w} × 200</small>` : `${esc(o.label)}<small>${esc(o.sub)}</small>`}</button>`).join('');
-  }
-  function bindRadios(root, onPick) {
-    $$('[role="radiogroup"]', root).forEach(g => {
-      const bs = $$('[role="radio"]', g);
-      bs.forEach((b, i) => {
-        b.tabIndex = b.getAttribute('aria-checked') === 'true' || (i === 0 && !bs.some(x => x.getAttribute('aria-checked') === 'true')) ? 0 : -1;
-        b.addEventListener('click', () => pick(b));
-        b.addEventListener('keydown', ev => {
-          const d = ev.key === 'ArrowRight' || ev.key === 'ArrowDown' ? 1 : ev.key === 'ArrowLeft' || ev.key === 'ArrowUp' ? -1 : 0;
-          if (!d) return; ev.preventDefault(); const n = bs[(i + d + bs.length) % bs.length]; n.focus(); pick(n);
-        });
-      });
-      function pick(b) { bs.forEach(x => { x.setAttribute('aria-checked', x === b); x.tabIndex = x === b ? 0 : -1; }); onPick(g.dataset.k, b.dataset.v); }
-    });
-  }
-  function openQuick(id, opener) {
-    const p = PRODUCTS.find(x => x.id === id); if (!p) return;
-    const st = { t: '12', s: 'SS', c: 'gray', qty: 1 };
-    const price = () => p.full ? O.price[`${st.t}-${st.s}`] : p.price;
-    const body = $('#quick-body');
-    body.innerHTML = `<div class="qv">
-      <div class="qv__gal"><div class="qv__main">${RENDER.pic(p.imgs[0], `alt="${esc(p.name)}" width="1000" height="1000"`)}</div>
-        <div class="qv__thumbs">${p.imgs.slice(0, 6).map((s, i) => `<button type="button" aria-label="${i + 1}번째 이미지" aria-current="${i === 0}">${RENDER.pic(s, 'alt="" width="120" height="120" loading="lazy"')}</button>`).join('')}</div></div>
-      <div class="qv__info">
-        <div class="pd-info__badges">${p.badges.map(RENDER.badge).join('')}</div>
-        <h3 class="qv__name">${esc(p.name)}</h3>
-        <p class="pcard__rv"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><b>${p.rating.toFixed(2)}</b><span>구매평 ${p.reviews.toLocaleString('ko-KR')}</span></p>
-        <p class="pcard__list" style="margin-top:12px" id="qv-list">${won(p.list)}</p>
-        <p class="qv__price"><span class="rate" id="qv-rate">${RENDER.rate(p)}%</span><b id="qv-price">${won(price())}</b></p>
-        ${p.full ? `<div class="field" style="margin-top:18px"><p class="field__label">두께</p><div class="seg" role="radiogroup" data-k="t" aria-label="두께">${optButtons('t', O.thickness, st.t)}</div></div>
-        <div class="field"><p class="field__label">사이즈</p><div class="sizes" role="radiogroup" data-k="s" aria-label="사이즈">${optButtons('s', O.size, st.s)}</div></div>
-        <div class="field"><p class="field__label">색상</p><div class="colors" role="radiogroup" data-k="c" aria-label="색상">${optButtons('c', O.color, st.c)}</div></div>`
-        : `<ul class="qv__pts">${(p.points.length ? p.points : [p.summary]).map(x => `<li>${esc(x)}</li>`).join('')}</ul>`}
-        <div class="qv__btns"><a class="btn btn--line" href="${RENDER.href(p)}">상세 보기</a><button class="btn btn--primary" type="button" id="qv-add">장바구니 담기</button></div>
-      </div></div>`;
-    $('#quick-t').textContent = p.short;
-    const main = $('.qv__main img', body);
-    $$('.qv__thumbs button', body).forEach((b, i) => b.addEventListener('click', () => {
-      RENDER.swap(main, p.imgs[i]); $$('.qv__thumbs button', body).forEach(x => x.setAttribute('aria-current', x === b));
-    }));
-    const syncPrice = () => { const v = price(), base = v === p.price; $('#qv-price').textContent = won(v); $('#qv-list').hidden = !base; $('#qv-rate').hidden = !base; };
-    bindRadios(body, (k, v) => { st[k] = v; syncPrice(); });
-    syncPrice();
-    $('#qv-add').addEventListener('click', () => {
-      addToCart(p, p.full ? st : null);
-      UI.closeLayer($('#quick'));
-    });
-    openLayer('quick', opener);
-  }
-  function optLabel(st) {
-    const t = O.thickness.find(x => x.id === st.t), s = O.size.find(x => x.id === st.s), c = O.color.find(x => x.id === st.c);
-    return `${t.label} ${t.sub} / ${s.label} ${s.w}×200 / ${c.label}`;
-  }
-  function addToCart(p, st) {
-    const item = st
-      ? { key: `29-${st.t}-${st.s}-${st.c}`, id: 29, name: p.name, opt: optLabel(st), price: O.price[`${st.t}-${st.s}`], img: st.c === 'ivory' ? p.imgs[8] : p.imgs[0] }
-      : { key: String(p.id), id: p.id, name: p.name, opt: '', price: p.price, img: p.imgs[0] };
-    cart.add(item);
-    toast('장바구니에 담았습니다.', { action: '보기', onAction: () => openLayer('cart') });
-  }
+  // 빠른 보기·옵션 버튼·장바구니 담기는 shop-core.js(SHOP) 공용
 
   // ───────── GUIDE: 추천 → 옵션 → 도식·스펙
   (function guide() {

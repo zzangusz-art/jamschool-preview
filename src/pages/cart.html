@@ -1,0 +1,67 @@
+<main id="main" class="cartp">
+  <div class="wrap">
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a><svg aria-hidden="true"><use href="#i-right"/></svg><a href="shop.html">전체 상품</a><svg aria-hidden="true"><use href="#i-right"/></svg><span aria-current="page">장바구니</span></nav>
+    <!--@steps-->
+    <h1 class="page-t">장바구니 <span class="page-t__n" id="cp-n"></span></h1>
+
+    <div class="cartp__grid" id="cp-grid">
+      <section class="cartp__list" aria-label="담은 상품">
+        <div class="cp-tools">
+          <label class="ck"><input type="checkbox" id="cp-all" checked><span class="ck__box" aria-hidden="true"></span><span>전체 선택 <span class="cp-tools__n">(<b id="cp-seln">0</b>/<span id="cp-totn">0</span>)</span></span></label>
+          <button type="button" class="link-btn" id="cp-del-sel">선택 삭제</button>
+        </div>
+        <ul class="cp-items" id="cp-items" aria-live="polite">
+          <li class="cp-item cp-item--sk" aria-hidden="true"><div class="sk cp-sk__img"></div><div><div class="sk sk-line" style="width:70%"></div><div class="sk sk-line" style="width:45%;margin-top:10px"></div><div class="sk sk-line" style="width:30%;margin-top:22px"></div></div></li>
+          <li class="cp-item cp-item--sk" aria-hidden="true"><div class="sk cp-sk__img"></div><div><div class="sk sk-line" style="width:60%"></div><div class="sk sk-line" style="width:35%;margin-top:10px"></div><div class="sk sk-line" style="width:30%;margin-top:22px"></div></div></li>
+        </ul>
+        <div class="cp-empty" id="cp-empty" hidden>
+          <svg aria-hidden="true"><use href="#i-bag"/></svg>
+          <p class="cp-empty__t">장바구니가 비어 있습니다</p>
+          <p class="cp-empty__d">마음에 드는 상품을 담아 두면 이 브라우저에서 다시 볼 수 있습니다.</p>
+          <div class="cp-empty__btns"><a class="btn btn--primary" href="shop.html">전체 상품 보기</a><a class="btn btn--line" href="product-29.html">3단 접이식 매트리스</a></div>
+        </div>
+        <ul class="cp-notes">
+          <li>장바구니는 이 브라우저에 저장됩니다. 다른 기기에서는 보이지 않습니다.</li>
+          <li>오후 1시 이전 결제(입금)가 확인되면 당일 출고합니다. 주말·공휴일 제외.</li>
+          <li>매트리스는 압축 포장으로 배송되며, 받은 뒤 원래 크기로 돌아오기까지 2일 정도 걸립니다.</li>
+        </ul>
+      </section>
+
+      <aside class="sumbox" aria-labelledby="cp-sum-t">
+        <h2 class="sumbox__t" id="cp-sum-t">결제 예정 금액</h2>
+        <div class="sum-row"><span>상품 금액</span><span id="cp-sub">0원</span></div>
+        <div class="sum-row"><span>배송비</span><span id="cp-ship">무료</span></div>
+        <div class="sum-row total"><span>합계</span><span id="cp-total">0원</span></div>
+        <p class="sumbox__pt">회원 주문 시 <b id="cp-pt">0P</b> 적립 예정 (결제 금액의 1%)</p>
+        <button class="btn btn--primary btn--block" type="button" id="cp-order" disabled>주문하기</button>
+        <a class="btn btn--line btn--block" href="shop.html" style="margin-top:8px">쇼핑 계속하기</a>
+        <p class="note" style="margin-top:12px"><!--@shipnote--></p>
+      </aside>
+    </div>
+
+    <section class="cp-more" aria-labelledby="cp-reco-t">
+      <div class="sec-head sec-head--row" style="margin-bottom:20px"><h2 class="cp-more__t" id="cp-reco-t">함께 쓰면 좋은 상품</h2><a class="link-more" href="shop.html?cat=bedding">침구·건강용품 전체<svg aria-hidden="true"><use href="#i-right"/></svg></a></div>
+      <div class="pgrid" id="cp-reco"><!--@recos--></div>
+    </section>
+    <section class="cp-more" id="cp-recent-sec" aria-labelledby="cp-recent-t" hidden>
+      <h2 class="cp-more__t" id="cp-recent-t">최근 본 상품</h2>
+      <div class="mini-row" id="cp-recent"></div>
+    </section>
+  </div>
+</main>
+
+<div class="paybar" id="cp-bar" hidden>
+  <div class="paybar__sum"><span>합계 <b id="cp-bar-n">0</b>개</span><b id="cp-bar-total">0원</b></div>
+  <button class="btn btn--primary" type="button" id="cp-bar-order">주문하기</button>
+</div>
+
+<!-- 3단 옵션 변경 시트 -->
+<div class="layer sheet" id="optm" role="dialog" aria-modal="true" aria-labelledby="optm-t" aria-hidden="true" hidden>
+  <div class="layer__dim"></div>
+  <div class="sheet__box">
+    <div class="sheet__grip" aria-hidden="true"></div>
+    <div class="drawer__head" style="border:0"><h2 id="optm-t">옵션 변경</h2><button class="icon-btn" type="button" data-close aria-label="닫기"><svg><use href="#i-x"/></svg></button></div>
+    <div class="drawer__body" id="optm-body"></div>
+    <div class="drawer__foot"><div class="sum-row total" style="margin:0 0 12px"><span>변경 후 금액</span><span id="optm-price">0원</span></div><button class="btn btn--primary btn--block" type="button" id="optm-ok">변경하기</button></div>
+  </div>
+</div>

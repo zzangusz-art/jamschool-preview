@@ -178,7 +178,7 @@
     const body = $('#cart-body'), foot = $('#cart-foot');
     if (!body) return;
     if (!cart.items.length) {
-      body.innerHTML = `<div class="cart-empty">${I.bag}<p>장바구니가 비어 있습니다.</p><a class="btn btn--line btn--sm" href="index.html#best" style="margin-top:16px">베스트 상품 보기</a></div>`;
+      body.innerHTML = `<div class="cart-empty">${I.bag}<p>장바구니가 비어 있습니다.</p><a class="btn btn--line btn--sm" href="shop.html" style="margin-top:16px">전체 상품 보기</a></div>`;
       foot.hidden = true; return;
     }
     foot.hidden = false;
@@ -296,8 +296,11 @@
       closeLayer($('#coupon'));
       toast('가입축하 쿠폰 10,000원을 받았습니다.', { action: '회원가입', onAction: () => { location.href = 'https://jamschool.co.kr/'; } });
     }));
-    // 주문
-    $('#cart-order')?.addEventListener('click', e => { closeLayer($('#cart')); setTimeout(() => openLayer('order', e.currentTarget), 120); });
+    // 주문: 장바구니 전체를 주문서로 (shop-core.js 가 없는 페이지는 주문서로 바로 이동)
+    $('#cart-order')?.addEventListener('click', e => {
+      const opener = e.currentTarget; closeLayer($('#cart'));
+      setTimeout(() => window.SHOP ? SHOP.checkoutCart(null, opener) : (location.href = 'checkout.html'), 120);
+    });
     renderCart();
     reveal();
   }

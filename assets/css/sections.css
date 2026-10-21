@@ -179,3 +179,9 @@
 
 /* FAQ·블로그 분류 칩: 개수가 적어 모바일에서도 줄바꿈으로 전부 보이게 */
 .faq-filter, .blog-filter { flex-wrap: wrap; overflow: visible; }
+
+/* 장바구니 드로어: 장바구니 페이지 · 주문하기 */
+.cart-btns { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 14px; }
+/* 홈 BEST → 전체 상품 */
+.best-more { margin-top: 36px; text-align: center; }
+.best-more .btn { min-width: 220px; }

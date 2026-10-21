@@ -1,0 +1,130 @@
+<main id="main" class="co">
+  <div class="wrap">
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a><svg aria-hidden="true"><use href="#i-right"/></svg><a href="cart.html">장바구니</a><svg aria-hidden="true"><use href="#i-right"/></svg><span aria-current="page">주문서</span></nav>
+    <!--@steps-->
+    <h1 class="page-t">주문서 작성</h1>
+    <!--@pvnote-->
+
+    <div class="co-empty" id="co-empty" hidden>
+      <p class="cp-empty__t">주문할 상품이 없습니다</p>
+      <p class="cp-empty__d">장바구니에 상품을 담거나 상품 페이지에서 ‘구매하기’를 눌러 주세요.</p>
+      <div class="cp-empty__btns"><a class="btn btn--primary" href="shop.html">전체 상품 보기</a><a class="btn btn--line" href="cart.html">장바구니</a></div>
+    </div>
+
+    <form class="co__grid" id="co-form" novalidate hidden>
+      <div class="co__main">
+        <div class="co-member">
+          <p><b>비회원으로 주문합니다.</b> 회원으로 주문하면 결제 금액의 1%가 적립되고 가입축하 쿠폰을 쓸 수 있습니다.</p>
+          <a class="btn btn--line btn--sm" href="https://jamschool.co.kr/">로그인 · 회원가입</a>
+        </div>
+
+        <section class="co-sec" aria-labelledby="co-items-t">
+          <h2 class="co-sec__t" id="co-items-t">주문 상품 <span class="co-sec__n" id="co-n"></span></h2>
+          <ul class="co-items" id="co-items"></ul>
+        </section>
+
+        <section class="co-sec" aria-labelledby="co-buyer-t">
+          <h2 class="co-sec__t" id="co-buyer-t">주문하는 분</h2>
+          <div class="fld-grid">
+            <div class="fld"><label class="fld__l" for="b-name">이름<em>필수</em></label><input class="inp" id="b-name" name="b-name" autocomplete="name" required maxlength="20"><p class="fld__err" id="b-name-e"></p></div>
+            <div class="fld"><label class="fld__l" for="b-tel">휴대폰 번호<em>필수</em></label><input class="inp" id="b-tel" name="b-tel" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="010-0000-0000" required maxlength="13"><p class="fld__err" id="b-tel-e"></p></div>
+            <div class="fld fld--full"><label class="fld__l" for="b-mail">이메일<span>주문 내역을 메일로 받으려면</span></label><input class="inp" id="b-mail" name="b-mail" type="email" autocomplete="email" maxlength="60"><p class="fld__err" id="b-mail-e"></p></div>
+          </div>
+        </section>
+
+        <section class="co-sec" aria-labelledby="co-ship-t">
+          <div class="co-sec__head"><h2 class="co-sec__t" id="co-ship-t">배송지</h2><label class="ck ck--sm"><input type="checkbox" id="same"><span class="ck__box" aria-hidden="true"></span><span>주문하는 분과 같아요</span></label></div>
+          <div class="fld-grid">
+            <div class="fld"><label class="fld__l" for="r-name">받는 분<em>필수</em></label><input class="inp" id="r-name" name="r-name" autocomplete="shipping name" required maxlength="20"><p class="fld__err" id="r-name-e"></p></div>
+            <div class="fld"><label class="fld__l" for="r-tel">휴대폰 번호<em>필수</em></label><input class="inp" id="r-tel" name="r-tel" type="tel" inputmode="numeric" autocomplete="shipping tel-national" placeholder="010-0000-0000" required maxlength="13"><p class="fld__err" id="r-tel-e"></p></div>
+            <div class="fld fld--full">
+              <label class="fld__l" for="r-zip">주소<em>필수</em></label>
+              <div class="zip-row"><input class="inp" id="r-zip" name="r-zip" autocomplete="shipping postal-code" inputmode="numeric" placeholder="우편번호" readonly required maxlength="5"><button class="btn btn--ink btn--sm" type="button" id="zip-btn">주소 검색</button></div>
+              <input class="inp" id="r-addr1" name="r-addr1" autocomplete="shipping address-line1" placeholder="주소 검색을 눌러 주소를 고르세요" readonly required aria-label="기본 주소" style="margin-top:8px">
+              <input class="inp" id="r-addr2" name="r-addr2" autocomplete="shipping address-line2" placeholder="동·호수 등 상세 주소" required maxlength="60" aria-label="상세 주소" style="margin-top:8px">
+              <p class="fld__err" id="r-addr-e"></p>
+              <p class="co-jeju" id="co-jeju" hidden><!--@shipnote--></p>
+            </div>
+            <div class="fld fld--full">
+              <label class="fld__l" for="r-memo">배송 메모</label>
+              <select class="inp select" id="r-memo" name="r-memo">
+                <option value="">선택하지 않음</option>
+                <option>문 앞에 놓아 주세요</option>
+                <option>경비실에 맡겨 주세요</option>
+                <option>배송 전에 연락 주세요</option>
+                <option>택배함에 넣어 주세요</option>
+                <option value="direct">직접 입력</option>
+              </select>
+              <input class="inp" id="r-memo-x" name="r-memo-x" maxlength="50" placeholder="배송 기사님께 전할 말 (50자 이내)" aria-label="배송 메모 직접 입력" hidden style="margin-top:8px">
+            </div>
+          </div>
+        </section>
+
+        <section class="co-sec" aria-labelledby="co-dc-t">
+          <h2 class="co-sec__t" id="co-dc-t">할인 · 적립</h2>
+          <div class="co-dc">
+            <div class="co-dc__row"><span>회원 쿠폰</span><span class="co-dc__v">로그인 후 쓸 수 있습니다</span></div>
+            <div class="co-dc__row"><span>적립금</span><span class="co-dc__v">비회원 주문은 적립되지 않습니다</span></div>
+          </div>
+        </section>
+
+        <section class="co-sec" aria-labelledby="co-pay-t">
+          <h2 class="co-sec__t" id="co-pay-t">결제 수단</h2>
+          <div class="paym" role="radiogroup" aria-labelledby="co-pay-t" id="paym"><!--@paym--></div>
+          <p class="paym__note" id="paym-note" aria-live="polite"></p>
+          <div class="fld" id="bank-fld" hidden style="margin-top:14px"><label class="fld__l" for="dep">입금자명<em>필수</em></label><input class="inp" id="dep" name="dep" maxlength="20"><p class="fld__err" id="dep-e"></p></div>
+          <p class="fld__err" id="pay-e"></p>
+        </section>
+
+        <section class="co-sec" aria-labelledby="co-agree-t">
+          <h2 class="co-sec__t" id="co-agree-t">주문 동의</h2>
+          <label class="ck ck--all"><input type="checkbox" id="ag-all"><span class="ck__box" aria-hidden="true"></span><span>아래 내용에 모두 동의합니다</span></label>
+          <div class="agree" id="agree"><!--@agree--></div>
+          <p class="fld__err" id="ag-e"></p>
+        </section>
+      </div>
+
+      <aside class="sumbox co__sum" aria-labelledby="co-sum-t">
+        <h2 class="sumbox__t" id="co-sum-t">최종 결제 금액</h2>
+        <div class="sum-row"><span>상품 금액</span><span id="co-sub">0원</span></div>
+        <div class="sum-row"><span>배송비</span><span id="co-ship">무료</span></div>
+        <div class="sum-row"><span>할인</span><span>0원</span></div>
+        <div class="sum-row total"><span>결제 금액</span><span id="co-total">0원</span></div>
+        <button class="btn btn--primary btn--block co-pay" type="submit" id="co-pay">결제하기</button>
+        <ul class="co-sum__notes">
+          <li>오후 1시 이전 결제 확인 시 당일 출고 (주말·공휴일 제외)</li>
+          <li>배송 평균 1~3일 · <!--@couriers--></li>
+          <li>교환·반품은 받은 날부터 7일 이내 고객센터 <a href="tel:01096108868">010-9610-8868</a></li>
+        </ul>
+      </aside>
+    </form>
+  </div>
+</main>
+
+<div class="paybar" id="co-bar" hidden>
+  <div class="paybar__sum"><span>결제 금액</span><b id="co-bar-total">0원</b></div>
+  <button class="btn btn--primary" type="submit" form="co-form" id="co-bar-pay">결제하기</button>
+</div>
+
+<!-- 주소 검색 (다음 우편번호 서비스, 누를 때만 불러옴) -->
+<div class="layer modal" id="zipm" role="dialog" aria-modal="true" aria-labelledby="zipm-t" aria-hidden="true" hidden>
+  <div class="layer__dim"></div>
+  <div class="modal__box modal__box--zip">
+    <div class="modal__head"><h2 id="zipm-t">주소 검색</h2><button class="icon-btn" type="button" data-close aria-label="닫기"><svg><use href="#i-x"/></svg></button></div>
+    <div class="zipm__body" id="zipm-body"><p class="note" style="padding:20px">주소 검색을 불러오는 중입니다…</p></div>
+  </div>
+</div>
+
+<!-- 결제 안내 (미리보기) -->
+<div class="layer modal" id="pvm" role="dialog" aria-modal="true" aria-labelledby="pvm-t" aria-hidden="true" hidden>
+  <div class="layer__dim"></div>
+  <div class="modal__box" style="max-width:480px">
+    <div class="modal__head"><h2 id="pvm-t">미리보기에서는 결제가 진행되지 않습니다</h2><button class="icon-btn" type="button" data-close aria-label="닫기"><svg><use href="#i-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="pvm__d">리뉴얼 미리보기 사이트라 결제 연동(PG)이 아직 연결되지 않았습니다. 입력한 정보는 이 브라우저에서만 쓰이고 어디로도 보내지 않습니다.</p>
+      <button class="btn btn--primary btn--block" type="button" id="pvm-done" style="margin-top:18px">주문 완료 화면 미리보기</button>
+      <p class="pvm__h">지금 바로 구매하려면</p>
+      <ul class="pvm__list" id="pvm-list"></ul>
+    </div>
+  </div>
+</div>
