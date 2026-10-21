@@ -122,3 +122,8 @@
 .buybar.is-on { transform: none; }
 @media (min-width: 1024px) { .buybar { display: none; } body.has-buybar .fab { transform: none; } body.has-buybar .toasts { bottom: calc(24px + env(safe-area-inset-bottom)); } }
 @media (max-width: 1023px) { .page-product .fab__kakao, .page-product .fab__tel { display: none; } }
+/* 상세 본문 사이 텍스트 블록(공식몰 상세의 글) · 상품정보 제공고시 */
+.dt-txt { max-width: 860px; margin: 0 auto; padding: 32px 24px; background: #fff; text-align: center; }
+.dt-txt p { font-size: 17px; font-weight: 600; line-height: 1.7; color: var(--ink); }
+.dt-txt p + p { margin-top: 8px; }
+.info-tbl--notice td { line-height: 1.7; }

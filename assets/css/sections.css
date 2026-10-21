@@ -191,3 +191,26 @@
 /* 홈 BEST → 전체 상품 */
 .best-more { margin-top: 36px; text-align: center; }
 .best-more .btn { min-width: 220px; }
+
+/* 국산 100% */
+#korea .h-sec em { display: inline-block; }
+.kr-flow { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
+@media (min-width: 768px) { .kr-flow { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .kr-flow { grid-template-columns: repeat(4, 1fr); } }
+.kr-flow li { position: relative; padding: 24px 22px; border-radius: var(--r); background: #fff; border: 1px solid #ECE7DE; }
+.kr-flow__n { font-size: 13px; font-weight: 800; letter-spacing: .08em; color: var(--sky-ink); }
+.kr-flow h3 { margin-top: 6px; font-size: 20px; }
+.kr-flow p { margin-top: 8px; font-size: 16px; line-height: 1.7; color: var(--body); }
+.kr-flow b { color: var(--ink); }
+.kr-why { display: grid; gap: 20px; margin-top: 20px; padding: 26px 22px; border-radius: var(--r-lg); background: var(--navy); color: rgba(255, 255, 255, .82); }
+@media (min-width: 1024px) { .kr-why { grid-template-columns: 1.2fr 1fr; gap: 40px; padding: 40px; align-items: center; } }
+.kr-why h3 { font-size: clamp(20px, 4.8vw, 26px); color: #fff; }
+.kr-why__txt p { margin-top: 12px; font-size: 16px; line-height: 1.75; }
+.kr-why__txt b { color: var(--sky); }
+.kr-why__dl { display: grid; gap: 0; margin: 0; border-top: 1px solid rgba(255, 255, 255, .14); }
+.kr-why__dl div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 14px 0; border-bottom: 1px solid rgba(255, 255, 255, .14); }
+.kr-why__dl dt { font-size: 15px; color: rgba(255, 255, 255, .7); }
+.kr-why__dl dd { margin: 0; font-size: 18px; font-weight: 800; color: #fff; text-align: right; }
+.kr-why__dl dd span { display: block; font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, .55); }
+.kr-tip { margin-top: 18px; text-align: center; font-size: 15px; color: var(--sub); }
+.kr-tip b { color: var(--ink); }

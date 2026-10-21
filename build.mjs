@@ -24,7 +24,7 @@ vm.createContext(ctx);
 const DETAIL_FILES = fs.readdirSync(path.join(ROOT, 'assets/js')).filter(f => /^detail-\d+\.js$/.test(f)).map(f => `assets/js/${f}`);
 for (const f of ['assets/js/data.js', 'assets/js/render.js', ...DETAIL_FILES]) vm.runInContext(rd(f).replace(/typeof window !== 'undefined' \? window : globalThis/, 'window'), ctx);
 const { JAM, RENDER: R, DETAIL = {} } = ctx.window;
-const { PRODUCTS, OPTIONS_29: O, REVIEWS, SHORT_REVIEWS, TESTS, FAQ, USES, FEATURES, MARKET, CHECKS } = JAM;
+const { PRODUCTS, OPTIONS_29: O, REVIEWS, SHORT_REVIEWS, TESTS, FAQ, USES, FEATURES, MARKET, CHECKS, NOTICE = {} } = JAM;
 const POSTS = loadPosts(path.join(ROOT, 'content/blog'));
 const { esc, won } = R;
 
@@ -143,12 +143,21 @@ function detailHTML(p) {
   if (!list) return p.imgs.map((src, i) => `<figure class="dt" style="aspect-ratio:1/1">${sk}${R.pic(src, `alt="${esc(p.short)} 상세 이미지 ${i + 1}" width="1000" height="1000" loading="lazy" decoding="async"`)}</figure>`).join('');
   return list.map((d, i) => {
     const box = `class="dt${d.t === 'y' ? ' dt--yt' : ''}" style="aspect-ratio:${d.w}/${d.h}"`;
+    if (d.t === 't') return `<div class="dt-txt">${d.text.map(x => `<p>${esc(x)}</p>`).join('')}</div>`;
     if (d.t === 'v') return `<figure ${box}>${sk}<video data-src="${esc(d.src)}" poster="${esc(d.poster)}" muted loop playsinline preload="none" width="${d.w}" height="${d.h}" aria-hidden="true"></video></figure>`;
     if (d.t === 'y') return `<figure ${box}>${sk}${R.pic(d.poster, `alt="" width="1280" height="720" loading="lazy" decoding="async"`)}<button class="dt-yt" type="button" data-yt="${esc(d.id)}" data-title="${esc(d.title)}" aria-label="영상 재생: ${esc(d.title)}">${svg('i-play')}</button><figcaption class="sr-only">${esc(d.title)}</figcaption></figure>`;
     return `<figure ${box}>${sk}${R.pic(d.src, `alt="${esc(d.alt || `${p.short} 상세 이미지 ${i + 1}`)}" width="${d.w}" height="${d.h}" loading="lazy" decoding="async"`)}</figure>`;
   }).join('');
 }
+// 상품정보 제공고시(공식몰 원문, data.js NOTICE)
+function noticeHTML(p) {
+  const rows = NOTICE[p.id]; if (!rows) return '';
+  return `<h3 class="pd-h3">상품정보 제공고시</h3><table class="info-tbl info-tbl--notice"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${v.map(esc).join('<br>')}</td></tr>`).join('')}</tbody></table>`;
+}
 function specHTML(p) {
+  return specBase(p) + noticeHTML(p);
+}
+function specBase(p) {
   if (p.id === 29) {
     const rows = [
       ['제품명', p.name], ['두께', '침대형 7cm · 바닥형 12cm'], ['사이즈', '멀티싱글 75 × 200cm · 슈퍼싱글 110 × 200cm · 퀸 150 × 200cm'],
