@@ -270,13 +270,13 @@ function shopMain() {
     </a>
     <div class="shop-list">
     <div class="shop-bar" id="shop-bar">
-      <div class="chips" role="tablist" aria-label="상품 분류" id="shop-cats">
+      <div class="chips shop-cats" role="tablist" aria-label="상품 분류" id="shop-cats">
         <button class="chip" type="button" role="tab" aria-selected="true" data-f="all">전체<span class="chip__n">${PRODUCTS.length}</span></button>
         ${CATEGORIES.map(c => `<button class="chip" type="button" role="tab" aria-selected="false" tabindex="-1" data-f="${c.id}">${esc(c.label)}<span class="chip__n">${n(c.id)}</span></button>`).join('')}
         <button class="chip" type="button" role="tab" aria-selected="false" tabindex="-1" data-f="wish">찜한 상품<span class="chip__n" id="wish-n">0</span></button>
       </div>
-      <div class="shop-bar__r">
-        <p class="shop-count" aria-live="polite"><b id="shop-n">${PRODUCTS.length}</b>개 상품</p>
+      <p class="shop-count" aria-live="polite"><b id="shop-n">${PRODUCTS.length}</b>개 상품</p>
+      <div class="shop-sort">
         <label class="sr-only" for="shop-sort">정렬</label>
         <select class="inp select select--sm" id="shop-sort"><option value="reco">추천순</option><option value="rv">구매평 많은순</option><option value="rating">평점 높은순</option><option value="low">낮은 가격순</option><option value="high">높은 가격순</option><option value="rate">할인율 높은순</option></select>
       </div>

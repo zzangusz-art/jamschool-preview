@@ -112,15 +112,21 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
   .shop-feat__t { font-size: 26px; } .shop-feat__d, .shop-feat .link-more { display: inline-flex; } .shop-feat__d { display: block; }
 }
 
-.shop-bar { position: sticky; top: var(--header-h); z-index: 20; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin: 28px calc(var(--gutter) * -1) 0; padding: 12px var(--gutter); background: rgba(255, 255, 255, .95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line-2); }
-.shop-bar .chips { flex: 1 1 auto; min-width: 0; }
+/* 분류 탭: 크게, 가운데. 휴대폰·태블릿은 탭 줄(가운데 줄바꿈) 아래에 개수·정렬, PC는 [개수 | 탭 | 정렬] 한 줄로 상단 고정 */
+.shop-bar { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "cats cats" "count sort"; align-items: center; gap: 16px 12px; margin-top: 32px; padding-bottom: 14px; border-bottom: 1px solid var(--line-2); }
+.shop-cats { grid-area: cats; justify-content: center; flex-wrap: wrap; gap: 8px; overflow: visible; }
+.shop-cats .chip { min-height: 48px; padding: 0 20px; font-size: 17px; font-weight: 700; }
+.shop-cats .chip__n { margin-left: 7px; font-size: 14px; }
 .chip__n { margin-left: 6px; font-size: 13px; font-weight: 700; opacity: .6; }
-.shop-bar__r { display: flex; align-items: center; gap: 12px; margin-left: auto; }
-.shop-count { font-size: 14px; color: var(--sub); white-space: nowrap; }
+.shop-count { grid-area: count; font-size: 15px; color: var(--sub); white-space: nowrap; }
 .shop-count b { color: var(--ink); }
-/* 휴대폰: 분류 칩과 정렬을 한 줄로(고정 바 높이를 줄인다). 분류별 개수는 칩 숫자로 보인다 */
-@media (max-width: 599px) { .shop-bar { flex-wrap: nowrap; gap: 10px; } .shop-count { display: none; } .shop-bar .select--sm { width: 108px; padding-left: 10px; padding-right: 30px; background-position: right 8px center; font-size: 14px; } }
-.shop-desc { margin: 16px 0 0; font-size: 15px; color: var(--sub); }
+.shop-sort { grid-area: sort; justify-self: end; }
+@media (min-width: 768px) { .shop-cats .chip { min-height: 52px; padding: 0 26px; font-size: 18px; } .shop-cats .chip__n { font-size: 15px; } }
+@media (min-width: 1024px) {
+  .shop-bar { position: sticky; top: var(--header-h); z-index: 20; grid-template-columns: 1fr auto 1fr; grid-template-areas: "count cats sort"; margin: 32px calc(var(--gutter) * -1) 0; padding: 12px var(--gutter); background: rgba(255, 255, 255, .95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .shop-cats { flex-wrap: nowrap; }
+}
+.shop-desc { margin: 16px 0 0; font-size: 15px; color: var(--sub); text-align: center; }
 .shop-desc[hidden] { display: none; }
 .shop-grid { margin-top: 22px; }
 .shop-empty { margin-top: 22px; }
