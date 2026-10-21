@@ -1,12 +1,18 @@
 /* 홈 섹션: 기능 · 롤링 후기 · 가격 · 왜 잠스쿨 · 수면 가이드 카드 / 블로그 */
 
-/* 메뉴 7개 대응 */
+/* 메인 메뉴: 글자 크게, 헤더 한가운데 — [로고 | 메뉴 | 로그인·검색·장바구니] 3칸, 양옆 칸 너비를 같게(1fr) 해서 메뉴가 화면 중앙에 온다 */
 @media (min-width: 1024px) {
-  .gnb { margin-left: 28px; gap: 0; }
-  .gnb > li > a, .gnb > li > button { padding: 0 11px; font-size: 15.5px; }
+  .header__in { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 16px; }
+  .header__in > .logo { justify-self: start; }
+  .header__in > nav { justify-self: center; }
+  .header__tools { justify-self: end; margin-left: 0; }
+  .gnb { margin-left: 0; gap: 2px; }
+  .gnb > li > a, .gnb > li > button { padding: 0 14px; font-size: 17px; }
+  .gnb svg { width: 18px; height: 18px; }
+  .gnb__sub { left: 50%; translate: -50% 0; }
 }
-@media (min-width: 1024px) and (max-width: 1239px) {
-  .gnb > li > a, .gnb > li > button { padding: 0 8px; font-size: 15px; }
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .gnb > li > a, .gnb > li > button { padding: 0 9px; font-size: 16px; }
   .header__login { display: none; }
 }
 .br-md { display: none; }
