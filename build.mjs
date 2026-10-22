@@ -69,8 +69,8 @@ idx = fill(idx, 'products', PRODUCTS.filter(p => !p.brand).slice(0, 9).map(p => 
     const cta = p
       ? `<a class="btn btn--primary" href="${R.href(p)}">제품 보기</a>${d.cta2 ? `<a class="btn btn--line" href="${esc(d.cta2[1])}">${esc(d.cta2[0])}</a>` : `<button class="btn btn--line" type="button" data-quick="${p.id}">빠른 보기</button>`}`
       : `<button class="btn btn--primary" type="button" data-open="coupon">쿠폰 받기</button><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`;
-    return `<article class="hs${d.dark ? ' hs--dark' : ''}${i === 0 ? ' is-on' : ''}" id="hs-${i}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${SL.length}: ${esc(label)}" style="--hs-bg:${d.bg}"${i ? ' aria-hidden="true" inert' : ''}>
-      <div class="hs__img">${R.pic(d.img, `alt="" width="1000" height="1000" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async"`)}</div>
+    return `<article class="hs${d.dark ? ' hs--dark' : ''}${d.render ? ' hs--render' : ''}${i === 0 ? ' is-on' : ''}" id="hs-${i}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${SL.length}: ${esc(label)}" style="--hs-bg:${d.bg}${d.render ? `;--hs-img-bg:${d.render}` : ''}"${i ? ' aria-hidden="true" inert' : ''}>
+      <div class="hs__img">${R.pic(d.img, `alt="" width="${d.size || 1000}" height="${d.size || 1000}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async"`)}</div>
       <div class="hs__copy"><p class="hs__eyebrow">${esc(d.eyebrow.replace('{rv}', p ? p.reviews.toLocaleString('ko-KR') : ''))}</p><${T} class="hs__title"${i === 0 ? ' id="hero-t"' : ''}>${esc(d.title[0])}<em>${esc(d.title[1])}</em></${T}><p class="hs__sub">${esc(d.sub)}</p><ul class="hs__chips">${d.chips.map(c => `<li>${esc(c)}</li>`).join('')}</ul>${price}<div class="hs__cta">${cta}</div></div>
     </article>`;
   };

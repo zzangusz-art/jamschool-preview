@@ -52,6 +52,8 @@
         video.pause();
         UI.store.sset(SEEN, '1');
         elapsed = 0; go(idx);
+        // 첫 장을 보는 동안 나머지 슬라이드 사진을 미리 받아 둔다(넘길 때 사진이 늦게 뜨지 않게)
+        setTimeout(() => slides.forEach(sl => { const im = sl.querySelector('img'); if (im && im.loading === 'lazy') im.loading = 'eager'; }), 800);
       }
     }
     ctrl.addEventListener('click', () => { if (video.paused) video.play().catch(() => {}); else video.pause(); });
