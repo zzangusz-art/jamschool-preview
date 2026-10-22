@@ -286,6 +286,12 @@
   UI.photoStrip && UI.photoStrip($('#photo-strip'));
 
   // ───────── USE 탭
+  // 비교 근거 카드의 '성적서 보기' → 같은 성적서 이미지 라이트박스
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-proof-cert]'); if (!b) return;
+    const items = TESTS.map(t => ({ src: 'assets/img/' + t.cert, alt: `${t.q} 시험성적서`, cap: `${t.q} · ${t.org}` }));
+    lightbox(items, +b.dataset.proofCert);
+  });
   const useTabs = $('#use-tabs');
   if (useTabs) tabs(useTabs, (i, t) => { const p = $('#use-p'); p.innerHTML = RENDER.usePanel(USES[i]); p.setAttribute('aria-labelledby', t.id); });
 

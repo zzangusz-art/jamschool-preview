@@ -94,6 +94,7 @@ idx = fill(idx, 'perday', R.perDay(MARKET.ours.v).toLocaleString('ko-KR'));
 idx = fill(idx, 'ourswon', won(MARKET.ours.v));
 idx = fill(idx, 'couponwon', won(Math.min(...Object.values(O.price)) - 10000));
 idx = fill(idx, 'checks', R.checksHTML(CHECKS));
+idx = fill(idx, 'proof', R.proofHTML({ T: TESTS, M: MARKET, C: CHECKS }));
 idx = fill(idx, 'posts', POSTS.slice(0, 3).map(p => R.postCard(p)).join('') || '<p class="note">첫 글을 준비하고 있습니다.</p>');
 idx = fill(idx, 'jsonld', ld({
   '@context': 'https://schema.org',
