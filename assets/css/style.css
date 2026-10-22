@@ -37,6 +37,7 @@
 @media (min-width: 768px) { :root { --header-h: 72px; --gutter: 32px; } }
 
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* 컴포넌트의 display 지정이 hidden 속성을 덮지 않게 */
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-padding-top: calc(var(--header-h) + 16px); }
 body {
   margin: 0;

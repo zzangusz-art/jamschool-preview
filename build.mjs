@@ -91,6 +91,8 @@ idx = fill(idx, 'price-tabs', price.tabs);
 idx = fill(idx, 'price-panels', price.panels);
 idx = fill(idx, 'market', R.marketHTML(MARKET));
 idx = fill(idx, 'perday', R.perDay(MARKET.ours.v).toLocaleString('ko-KR'));
+idx = fill(idx, 'ourswon', won(MARKET.ours.v));
+idx = fill(idx, 'couponwon', won(Math.min(...Object.values(O.price)) - 10000));
 idx = fill(idx, 'checks', R.checksHTML(CHECKS));
 idx = fill(idx, 'posts', POSTS.slice(0, 3).map(p => R.postCard(p)).join('') || '<p class="note">첫 글을 준비하고 있습니다.</p>');
 idx = fill(idx, 'jsonld', ld({
@@ -212,7 +214,7 @@ function specBase(p) {
       ['배송 형태', '압축 포장 (원래 크기로 복원까지 약 2일)'], ['세탁', '커버 찬물 단독 세탁 · 중성세제와 세탁망 권장 · 뜨거운 물과 건조기는 수축 원인'],
       ['보증', '2년 안에 폼이 꺼지면 폼 무상 교체'], ['판매원', '(주)씨와이컴퍼니'],
     ];
-    return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table><h3 class="pd-h3">옵션별 크기 · 무게 · 판매가</h3>${R.specTable(O)}<p class="note" style="margin-top:10px">접은 크기는 폭 × 깊이 × 높이입니다. 판매가는 2026년 10월 공식몰 기준이며 쿠폰 적용 전 금액입니다.</p>`;
+    return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table><h3 class="pd-h3">옵션별 크기 · 무게 · 판매가</h3>${R.specTable(O)}<p class="note" style="margin-top:10px">접은 크기는 폭 × 깊이 × 높이입니다. 정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준이며 쿠폰 적용 전 금액입니다.</p>`;
   }
   const rows = [['제품명', p.name], ['특징', p.points.length ? p.points.join(' · ') : p.summary], ['원산지', '대한민국'], ['판매원', '(주)씨와이컴퍼니']];
   return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
@@ -278,7 +280,7 @@ for (const p of PRODUCTS) {
   let s = tpl;
   const title = p.id === 29 ? '3단 접이식 매트리스 — 31kg/m³ 고밀도 국내산 폼 · 7cm/12cm | 잠스쿨 공식몰' : `${p.short} | 잠스쿨 공식몰`;
   const desc = p.id === 29
-    ? '잠스쿨 3단 접이식 매트리스. 침대형 7cm·바닥형 12cm, 멀티싱글 75·슈퍼싱글 110·퀸 150cm. 밀도 31.30kg/m³(KATRI), 라돈 7.6Bq/m³ 미만, 특허 제10-2378668호. 118,000원부터, 14일 무료체험.'
+    ? '잠스쿨 3단 접이식 매트리스. 침대형 7cm·바닥형 12cm, 멀티싱글 75·슈퍼싱글 110·퀸 150cm. 밀도 31.30kg/m³(KATRI), 라돈 7.6Bq/m³ 미만, 특허 제10-2378668호. ' + won(Math.min(...Object.values(O.price))) + '부터(정가 ' + won(O.list['7-MS']) + '), 14일 무료체험.'
     : `${p.name}. ${p.summary}. 판매가 ${won(p.price)}, 구매평 ${p.reviews.toLocaleString('ko-KR')}건 평점 ${p.rating.toFixed(2)}.`;
   s = fill(s, 'title', esc(title)); s = fill(s, 'desc', esc(desc)); s = fill(s, 'canonical', SITE + `product-${p.id}.html`);
   s = fill(s, 'ogimg', SITE + p.imgs[0]); s = fill(s, 'jsonld', productLD(p)); s = fill(s, 'main', mainHTML(p));
@@ -343,7 +345,7 @@ function shopMain() {
     <section class="shop-cmp" aria-labelledby="cmp-t">
       <div class="sec-head" style="margin-bottom:18px"><p class="eyebrow">COMPARE</p><h2 class="shop-cmp__t" id="cmp-t">매트리스 ${mat.length}종 한눈에 보기</h2><p class="shop-cmp__d">쿠션감과 두께를 먼저 보고 고르세요. 3단 접이식은 두께와 사이즈에 따라 가격이 달라집니다.</p></div>
       <div class="cmp-wrap"><table class="cmp-tbl"><thead><tr><th scope="col">상품</th><th scope="col">특징</th><th scope="col">판매가</th><th scope="col">구매평</th></tr></thead><tbody>${cmp}</tbody></table></div>
-      <p class="note" style="margin-top:10px">판매가와 구매평 수는 2026년 10월 공식몰 기준입니다.</p>
+      <p class="note" style="margin-top:10px">판매가는 할인가 기준, 구매평 수는 2026년 10월 공식몰 기준입니다.</p>
     </section>
     <section class="cp-more" id="shop-recent" aria-labelledby="recent-t" hidden><h2 class="cp-more__t" id="recent-t">최근 본 상품</h2><div class="mini-row" id="recent-row"></div></section>
   </div>
@@ -451,7 +453,7 @@ wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 - 두께: 침대형 7cm(침대 프레임 위), 바닥형 12cm(바닥 또는 침대). 고객의 70% 이상이 바닥형을 선택.
 - 사이즈(펼침): 멀티싱글 75×200cm, 슈퍼싱글 110×200cm, 퀸 150×200cm. 접으면 깊이 67cm, 높이 21cm(7cm형)·36cm(12cm형).
 - 무게: 7cm형 3.5/5/6.5kg, 12cm형 5.5/8/11.5kg (멀티싱글/슈퍼싱글/퀸).
-- 판매가(공식몰, ${today} 기준): 7cm ${Object.entries(O.price).filter(([k]) => k.startsWith('7-')).map(([, v]) => won(v)).join(' / ')}, 12cm ${Object.entries(O.price).filter(([k]) => k.startsWith('12-')).map(([, v]) => won(v)).join(' / ')}.
+- 할인가(정가) — 상세페이지 이벤트 가격표 기준, 멀티싱글/슈퍼싱글/퀸: 7cm ${['MS', 'SS', 'Q'].map(z => `${won(O.price['7-' + z])}(${won(O.list['7-' + z])})`).join(' / ')}, 12cm ${['MS', 'SS', 'Q'].map(z => `${won(O.price['12-' + z])}(${won(O.list['12-' + z])})`).join(' / ')}.
 - 폼 밀도 31kg/m³ (KATRI 시험성적서 측정값 31.30kg/m³, KS M 6672). 반복 압축 영구 줄음률 10만 회 시험(KS M 6672:2016).
 - 안전 시험: SGS 6대 유해물질 미검출, KATRI 폼알데하이드 검출 안 됨, 한일원자력 라돈 7.6Bq/m³ 미만(환경부 권고 148Bq/m³), KATRI 진드기 차단(최대 기공 0.02mm).
 - 특허: 제10-2378668호 「다층구조의 침대 매트리스」(2022-03-22 등록).
@@ -469,7 +471,7 @@ ${PRODUCTS.slice(1).map(p => `- ${p.name}: ${p.summary}. ${won(p.price)}. ${SITE
 
 ## 가격대 (${MARKET.source} ${MARKET.basis}, ${MARKET.date} 조회)
 ${MARKET.bands.map(b => `- ${b.k}(${b.sub}): ${won(b.lo)}~${won(b.hi)}`).join('\n')}
-- 잠스쿨 바닥형 12cm 슈퍼싱글: ${won(MARKET.ours.v)} — 폼 매트리스 중 높은 가격대, 스프링 내장·천연라텍스보다 낮은 가격대.
+- 잠스쿨 바닥형 12cm 슈퍼싱글: ${won(MARKET.ours.v)} — 폼 매트리스 중 높은 가격대, 스프링 내장·천연라텍스와 비슷한 가격대.
 
 ## 수면 가이드 (블로그)
 ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).join('\n') || '- 준비 중'}

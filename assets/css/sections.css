@@ -62,6 +62,7 @@
 .tabs--center .tab::after { display: none; }
 .tabs--center .tab[aria-selected="true"] { background: #fff; color: var(--ink); box-shadow: var(--sh-1); }
 .price-grid { display: grid; gap: 14px; }
+.price-grid[hidden] { display: none; }   /* display: grid 가 hidden 속성을 덮어 두 탭이 같이 보이던 문제 */
 @media (min-width: 860px) { .price-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; } }
 .pc { position: relative; display: flex; flex-direction: column; padding: 26px 22px 22px; border-radius: var(--r-lg); background: #fff; border: 1.5px solid var(--line); }
 .pc--hot { border-color: var(--sky-btn); box-shadow: 0 18px 40px -22px rgba(11, 142, 210, .55); }
@@ -214,3 +215,11 @@
 .kr-why__dl dd span { display: block; font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, .55); }
 .kr-tip { margin-top: 18px; text-align: center; font-size: 15px; color: var(--sub); }
 .kr-tip b { color: var(--ink); }
+
+/* 가격 카드: 정가 삭선 · 할인율 · 할인가 (스마트스토어 표기) */
+.pc__list { margin-top: 16px; font-size: 15px; color: var(--faint); }
+.pc__list s { text-decoration-thickness: 1.5px; }
+.pc__list + .pc__price { margin-top: 2px; }
+.pc__price { display: flex; align-items: baseline; gap: 8px; }
+.pc__price .rate { font-size: clamp(22px, 5vw, 26px); font-weight: 900; color: var(--red); letter-spacing: -0.02em; }
+.spec-tbl__list { margin-right: 6px; font-weight: 500; color: var(--faint); }

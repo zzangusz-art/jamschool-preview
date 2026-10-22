@@ -70,10 +70,12 @@
           const k = `${st.t}-${st.s}-${st.c}`, f = sel.find(x => x.key === k);
           if (f) { f.qty = Math.min(99, f.qty + 1); toast('이미 고른 옵션이라 수량을 1개 늘렸습니다.'); }
           else sel.push({ key: k, t: st.t, s: st.s, c: st.c, qty: 1 });
-          const v = O.price[`${st.t}-${st.s}`], base = v === p.price;
+          // 고른 옵션의 정가(삭선)·할인율·할인가
+          const k2 = `${st.t}-${st.s}`, v = O.price[k2], L = O.list[k2];
           priceEl.textContent = won(v);
           $('.pd-price__now .from')?.remove();
-          $('.pd-price__list').hidden = !base; $('.pd-price__now .rate').hidden = !base;
+          $('.pd-price__list').innerHTML = `<span class="sr-only">정가</span>${won(L)}`;
+          $('.pd-price__now .rate').textContent = `${RENDER.rateOf(L, v)}%`;
           const cp = $('.pd-price__cp');
           if (cp) { $('b', cp).textContent = won(v - 10000); cp.firstChild.textContent = '선택 옵션 회원 쿠폰 적용 시 '; cp.childNodes[2].textContent = ''; }
           // 사이즈·색상은 다음 선택을 위해 비운다(두께는 유지)

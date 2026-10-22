@@ -64,7 +64,11 @@
     $$('.qv__thumbs button', body).forEach((b, i) => b.addEventListener('click', () => {
       RENDER.swap(main, p.imgs[i]); $$('.qv__thumbs button', body).forEach(x => x.setAttribute('aria-current', x === b));
     }));
-    const syncPrice = () => { const v = price(), base = v === p.price; $('#qv-price').textContent = won(v); $('#qv-list').hidden = !base; $('#qv-rate').hidden = !base; };
+    // 3단은 고른 옵션의 정가·할인율로 바꿔 보여 준다
+    const syncPrice = () => {
+      const v = price(), L = p.full ? O.list[`${st.t}-${st.s}`] : p.list;
+      $('#qv-price').textContent = won(v); $('#qv-list').textContent = won(L); $('#qv-rate').textContent = `${RENDER.rateOf(L, v)}%`;
+    };
     bindRadios(body, (k, v) => { st[k] = v; syncPrice(); });
     syncPrice();
     $('#qv-add').addEventListener('click', () => { addToCart(p, p.full ? st : null); closeLayer($('#quick')); });
@@ -103,6 +107,17 @@
     if (keys) store.sset(SEL_K, JSON.stringify(keys)); else store.sset(SEL_K, '');
     location.href = 'checkout.html';
   }
+
+  // 예전에 담긴 장바구니 금액을 지금 가격으로 맞춘다(가격표가 바뀌어도 장바구니·주문서 금액이 같게)
+  (function syncCart() {
+    let changed = false;
+    cart.items.forEach(x => {
+      const p = P(x.id); if (!p) return;
+      const k = String(x.key).split('-'), now = p.full ? O.price[`${k[1]}-${k[2]}`] : p.price;
+      if (now && now !== x.price) { x.price = now; changed = true; }
+    });
+    if (changed) cart.save();
+  })();
 
   window.SHOP = { P, optButtons, bindRadios, optLabel, itemFor, addToCart, openQuick, recent, miniCard, buyNow, checkoutCart, openOrderModal, BUY_K, SEL_K };
 })();

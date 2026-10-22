@@ -2,7 +2,9 @@
 (function (G) {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const won = n => n.toLocaleString('ko-KR') + '원';
-  const rate = p => Math.round((1 - p.price / p.list) * 100);
+  // 할인율: 정가 대비 할인가, 소수점 아래 버림(네이버 스마트스토어 표기와 같은 방식)
+  const rateOf = (list, price) => Math.floor((1 - price / list) * 100 + 1e-9);
+  const rate = p => rateOf(p.list, p.price);
   const href = p => `product-${p.id}.html`;
   // WebP: assets/img 의 jpg/png 는 같은 이름 .webp 가 옆에 있다(원본은 폴백). 빌드는 G.WEBP(실제 있는 파일 목록)로 확인
   const webp = s => String(s).replace(/\.(jpe?g|png)$/i, '.webp');
@@ -71,9 +73,9 @@
     const rows = [];
     for (const t of o.thickness) for (const s of o.size) {
       const k = `${t.id}-${s.id}`;
-      rows.push(`<tr><th scope="row">${esc(t.label)} ${esc(t.sub)} · ${esc(s.label)}</th><td>${s.w} × ${o.length} × ${t.id}cm</td><td>${s.w} × ${o.depthFolded} × ${o.folded[t.id]}cm</td><td>${o.weight[k]}kg</td><td>${won(o.price[k])}</td></tr>`);
+      rows.push(`<tr><th scope="row">${esc(t.label)} ${esc(t.sub)} · ${esc(s.label)}</th><td>${s.w} × ${o.length} × ${t.id}cm</td><td>${s.w} × ${o.depthFolded} × ${o.folded[t.id]}cm</td><td>${o.weight[k]}kg</td><td><s class="spec-tbl__list">${won(o.list[k])}</s> ${won(o.price[k])}</td></tr>`);
     }
-    return `<div class="tbl-wrap"><table class="spec-tbl"><caption class="sr-only">3단 접이식 매트리스 옵션별 크기·무게·판매가</caption><thead><tr><th scope="col">옵션</th><th scope="col">펼친 크기</th><th scope="col">접은 크기</th><th scope="col">무게</th><th scope="col">판매가</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+    return `<div class="tbl-wrap"><table class="spec-tbl"><caption class="sr-only">3단 접이식 매트리스 옵션별 크기·무게·판매가</caption><thead><tr><th scope="col">옵션</th><th scope="col">펼친 크기</th><th scope="col">접은 크기</th><th scope="col">무게</th><th scope="col">정가 · 할인가</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
   }
   // ── 기능
   function featuresHTML(list) {
@@ -84,10 +86,11 @@
   function priceHTML(o) {
     const tabs = o.thickness.map((t, i) => `<button class="tab" role="tab" id="pr-t${t.id}" aria-controls="pr-p${t.id}" aria-selected="${t.id === '12'}" tabindex="${t.id === '12' ? 0 : -1}">${esc(t.label)} ${esc(t.sub)}</button>`).join('');
     const panels = o.thickness.map(t => `<div class="price-grid" role="tabpanel" id="pr-p${t.id}" aria-labelledby="pr-t${t.id}"${t.id === '12' ? '' : ' hidden'}>${o.size.map(s => {
-      const k = `${t.id}-${s.id}`, v = o.price[k], hot = k === '12-SS';
+      const k = `${t.id}-${s.id}`, v = o.price[k], L = o.list[k], hot = k === '12-SS';
       return `<article class="pc${hot ? ' pc--hot' : ''}">${hot ? '<p class="pc__badge">성인 1인 추천</p>' : ''}
         <h3 class="pc__name">${esc(s.label)}<span>${s.w} × 200 × ${t.id}cm</span></h3>
-        <p class="pc__price"><b>${won(v)}</b></p>
+        <p class="pc__list"><span class="sr-only">정가 </span><s>${won(L)}</s></p>
+        <p class="pc__price"><span class="rate">${rateOf(L, v)}%</span><b><span class="sr-only">할인가 </span>${won(v)}</b></p>
         <p class="pc__day">2년 보증 기준 하루 약 <b>${perDay(v).toLocaleString('ko-KR')}원</b></p>
         <dl class="pc__spec"><div><dt>접은 크기</dt><dd>${s.w} × ${o.depthFolded} × ${o.folded[t.id]}cm</dd></div><div><dt>무게</dt><dd>${o.weight[k]}kg</dd></div><div><dt>추천</dt><dd>${esc(s.note)}</dd></div></dl>
         <div class="pc__cta"><button class="btn ${hot ? 'btn--primary' : 'btn--line'} btn--block" type="button" data-add29="${t.id}-${s.id}">장바구니 담기</button></div>
@@ -102,7 +105,7 @@
     const rows = m.bands.map(b => `<li class="mk__row"><p class="mk__k">${esc(b.k)}<span>${esc(b.sub)}</span></p><div class="mk__track"><span class="mk__bar" style="left:${pct(b.lo)};width:calc(${pct(b.hi)} - ${pct(b.lo)})"></span></div><p class="mk__v">${man(b.lo)}~${man(b.hi)}원<span class="sr-only"> (${won(b.lo)}~${won(b.hi)})</span></p></li>`).join('');
     const ours = `<li class="mk__row mk__row--ours"><p class="mk__k">${esc(m.ours.k)}<span>${esc(m.ours.sub)}</span></p><div class="mk__track"><span class="mk__dot" style="left:${pct(m.ours.v)}"></span></div><p class="mk__v">${man(m.ours.v)}원<span class="sr-only"> (${won(m.ours.v)})</span></p></li>`;
     const axis = [0, 100000, 200000, 300000, 400000].map(v => `<span style="left:${pct(v)}">${v ? man(v) : '0'}</span>`).join('');
-    return `<figure class="mk"><figcaption class="mk__cap">3단 접이식 매트리스 슈퍼싱글 가격대</figcaption><ul class="mk__list">${rows}${ours}</ul><div class="mk__axis" aria-hidden="true">${axis}</div><p class="note mk__src">${esc(m.source)} 등록 상품 ${esc(m.basis)}, ${esc(m.date)} 조회. 상품마다 구성과 두께가 달라 유형별 범위로만 적었습니다. 잠스쿨은 공식몰 판매가입니다.</p></figure>`;
+    return `<figure class="mk"><figcaption class="mk__cap">3단 접이식 매트리스 슈퍼싱글 가격대</figcaption><ul class="mk__list">${rows}${ours}</ul><div class="mk__axis" aria-hidden="true">${axis}</div><p class="note mk__src">${esc(m.source)} 등록 상품 ${esc(m.basis)}, ${esc(m.date)} 조회. 상품마다 구성과 두께가 달라 유형별 범위로만 적었습니다. 잠스쿨은 할인가(상세페이지 이벤트 가격표) 기준입니다.</p></figure>`;
   }
   function checksHTML(list) {
     return `<div class="chk"><div class="chk__head" aria-hidden="true"><span>확인할 것</span><span>잠스쿨</span><span>시중 제품 볼 때</span></div>${list.map(c => `<div class="chk__row"><p class="chk__q">${esc(c.q)}</p><p class="chk__a"><b>${esc(c.a)}</b><span>${esc(c.s)}</span></p><p class="chk__m">${esc(c.m)}</p></div>`).join('')}</div>`;
@@ -119,5 +122,5 @@
   function postCard(p, base = '') {
     return `<article class="post-card"><a href="${base}blog/${esc(p.slug)}.html"><p class="post-card__cat">${esc(p.category)}</p><h3>${esc(p.title)}</h3><p class="post-card__desc">${esc(p.description)}</p><p class="post-card__meta"><time datetime="${esc(p.date)}">${esc(p.date.replace(/-/g, '.'))}</time> · ${p.minutes}분 읽기</p></a></article>`;
   }
-  G.RENDER = { esc, won, rate, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, reviewRollHTML, postCard, perDay, ICON };
+  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, reviewRollHTML, postCard, perDay, ICON };
 })(typeof window !== 'undefined' ? window : globalThis);
