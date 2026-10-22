@@ -286,6 +286,14 @@
   UI.photoStrip && UI.photoStrip($('#photo-strip'));
 
   // ───────── USE 탭
+  // 구매 이유 벤토: 시연 영상은 보일 때만 받아서 재생(동작 줄이기면 포스터만), 비교 7가지 접기
+  (function bento() {
+    const v = $('.bento video[data-src]');
+    if (v && !reduce && 'IntersectionObserver' in window) new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { if (!v.src) v.src = v.dataset.src; v.play().catch(() => {}); } else v.pause();
+    }, { rootMargin: '120px 0px' }).observe(v);
+    const more = $('#why-more'); if (more) accordion(more);
+  })();
   // 비교 근거 카드의 '성적서 보기' → 같은 성적서 이미지 라이트박스
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-proof-cert]'); if (!b) return;

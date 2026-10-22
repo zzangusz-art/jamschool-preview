@@ -110,98 +110,67 @@
   function checksHTML(list) {
     return `<div class="chk"><div class="chk__head" aria-hidden="true"><span>확인할 것</span><span>잠스쿨</span><span>시중 제품 볼 때</span></div>${list.map(c => `<div class="chk__row"><p class="chk__q">${esc(c.q)}</p><p class="chk__a"><b>${esc(c.a)}</b><span>${esc(c.s)}</span></p><p class="chk__m">${esc(c.m)}</p></div>`).join('')}</div>`;
   }
-  // ── 비교 근거 인포그래픽: 시험성적서·조사 수치를 그래프로(값은 TESTS·MARKET·OPTIONS 에서만)
-  function proofHTML({ T, M, C }) {
+  // ── 구매 이유 벤토 그리드(왜 잠스쿨): 시험 수치를 혜택 문장 + 실사·시연 영상으로. 값은 TESTS·MARKET·PRODUCTS 에서만
+  function bentoHTML({ T, M, P }) {
     const t = f => T.findIndex(x => x.cert === `certs/${f}.jpg`);
-    const tip = q => { const c = C.find(x => x.q === q); return c ? `<p class="pf__tip"><b>다른 제품 볼 때</b>${esc(c.m)}</p>` : ''; };
-    const cert = (i, label = '성적서 보기') => i < 0 ? '' : `<button class="pf__cert" type="button" data-proof-cert="${i}">${esc(label)}</button>`;
-    const foot = (src, ...certs) => `<footer class="pf__foot"><span>${esc(src)}</span>${certs.length ? `<span class="pf__certs">${certs.join('')}</span>` : ''}</footer>`;
-    const head = (tag, q) => `<header class="pf__head"><p class="pf__tag">${esc(tag)}</p><h4 class="pf__q">${esc(q)}</h4></header>`;
-    const ref = i => i > -1 && T[i].ref ? ` · ${T[i].ref}` : '';
-    const iR = t('radon'), iC = t('katri-compression'), iD = t('katri-density'), iS = t('sgs'), iF = t('katri-formaldehyde'), iH = t('katri-heavy'), iM = t('katri-mite');
-    const radonRatio = Math.floor(7.6 / 148 * 1000) / 10;   // 5.1 (버림)
-
-    // 1) 라돈: 권고 기준 대비 막대
-    const radon = `<article class="pf pf--7" data-reveal>${head('라돈', '유해물질·라돈 성적서가 있나요?')}
-      <div class="pf__big"><b data-count="${radonRatio}">${radonRatio}</b><span>% 미만</span><em>환경부 실내 라돈 권고 기준 대비</em></div>
-      <div class="pf-bars" role="img" aria-label="환경부 실내 권고 기준 148 Bq/m³, 잠스쿨 매트리스 폼 7.6 Bq/m³ 미만">
-        <div class="pf-bar"><span class="pf-bar__k">환경부 실내 권고 기준</span><span class="pf-bar__t"><i data-bar style="--w:100%"></i></span><b>148<small> Bq/m³</small></b></div>
-        <div class="pf-bar pf-bar--ours"><span class="pf-bar__k">잠스쿨 매트리스 폼</span><span class="pf-bar__t"><i data-bar style="--w:${(7.6 / 148 * 100).toFixed(2)}%"></i></span><b>&lt; 7.6<small> Bq/m³</small></b></div>
-      </div>
-      ${foot(`한일원자력${ref(iR)}`, cert(iR))}${tip('유해물질·라돈 성적서가 있나요?')}</article>`;
-
-    // 2) 내구성: 10만 회 반복 압축 뒤 두께
-    const comp = `<article class="pf pf--5" data-reveal="2">${head('내구성', '내구성 시험을 했나요?')}
-      <div class="pf__big"><b data-count="1">1</b><span>%</span><em>10만 번 눌러도 남은 영구 줄음률</em></div>
-      <div class="pf-keep" role="img" aria-label="시험 전 두께 100%, 10만 회 반복 압축 뒤 99%">
-        <div><span>시험 전</span><span class="pf-keep__t"><i data-bar style="--w:100%"></i></span><b>100%</b></div>
-        <div class="pf-keep--after"><span>10만 회 뒤</span><span class="pf-keep__t"><i data-bar style="--w:99%"></i></span><b>99%</b></div>
-      </div>
-      <p class="pf__note">KS M 6672:2016 반복 압축 100,000회 · 경도 129.3N</p>
-      ${foot(`KATRI${ref(iC)}`, cert(iC))}${tip('내구성 시험을 했나요?')}</article>`;
-
-    // 3) 밀도: 표기 범위 게이지 + 조사 표본 중 밀도를 적은 제품 수
-    const lo = 20, hi = 40, pos = v => ((v - lo) / (hi - lo) * 100).toFixed(2) + '%';
-    const waffle = Array.from({ length: M.density.total }, (_, i) => `<i${i < M.density.listed ? ' class="on"' : ''}></i>`).join('');
-    const dens = `<article class="pf pf--5" data-reveal>${head('밀도', '폼 밀도가 숫자로 적혀 있나요?')}
-      <div class="pf__big"><b data-count="31.30">31.30</b><span>kg/m³</span><em>KATRI 시험성적서 측정값</em></div>
-      <div class="pf-gauge" role="img" aria-label="표기 기준 29~33 kg/m³ 안의 31.30 kg/m³">
-        <span class="pf-gauge__track"><span class="pf-gauge__band" style="left:${pos(29)};width:calc(${pos(33)} - ${pos(29)})"></span><span class="pf-gauge__mk" style="left:${pos(31.3)}"></span></span>
-        <span class="pf-gauge__ax"><span style="left:0">20</span><span style="left:${pos(25)}">25</span><span style="left:${pos(30)}">30</span><span style="left:${pos(35)}">35</span><span style="left:100%">40</span></span>
-      </div>
-      <p class="pf__note">진한 구간 = 표기 기준 31 ± 2 kg/m³ (KS M 6672)</p>
-      <div class="pf-waffle"><div class="pf-waffle__g" aria-hidden="true">${waffle}</div><p><b>${M.density.total}개 중 ${M.density.listed}개</b>다나와 사양란에 밀도를 적은 일반 폼 3단 접이식 (${esc(M.date)} 조회)</p></div>
-      ${foot(`KATRI 시험연구원${ref(iD)}`, cert(iD))}</article>`;
-
-    // 4) 두께: 같은 축척(0~16cm) 단면 막대
-    const cm = v => (v / 16 * 100).toFixed(2) + '%';
-    const col = (k, a, b, ours) => `<div class="pf-col${ours ? ' pf-col--ours' : ''}"><span class="pf-col__bar"><i data-bar style="--h:${cm(b)}"></i>${a !== b ? `<i class="pf-col__lo" style="--h:${cm(a)}"></i>` : ''}</span><b>${a === b ? a : `${a}~${b}`}<small>cm</small></b><span class="pf-col__k">${esc(k)}</span></div>`;
-    const thin = M.thick.find(x => x.k === '얇은 폼'), thick = M.thick.find(x => x.k === '두꺼운 폼');
-    const thk = `<article class="pf pf--7" data-reveal="2">${head('두께', '두께를 고를 수 있나요?')}
-      <div class="pf__big"><b>7</b><span>cm</span><b class="pf__b2">12</b><span>cm</span><em>침대 위엔 침대형, 바닥엔 바닥형</em></div>
-      <div class="pf-cols" role="img" aria-label="얇은 폼 5~6cm, 잠스쿨 침대형 7cm, 잠스쿨 바닥형 12cm, 두꺼운 폼 10~16cm">
-        ${col(thin.k, thin.lo, thin.hi)}${col('잠스쿨 침대형', 7, 7, true)}${col('잠스쿨 바닥형', 12, 12, true)}${col(thick.k, thick.lo, thick.hi)}
-      </div>
-      ${foot(`시중 제품: ${M.source} 유형별 두께 범위 (${M.date} 조회)`)}${tip('두께를 고를 수 있나요?')}</article>`;
-
-    // 5) 유해물질: 항목별 결과
-    const subs = [['중금속', '카드뮴·납·수은', '미검출'], ['PBBs', '브롬계 난연제', '미검출'], ['PBDEs', '브롬계 난연제', '미검출'], ['HBCDD', '브롬계 난연제', '미검출'], ['폼알데하이드', '', '검출 안 됨'], ['아릴아민', '5mg 미만', '통과'], ['알레르기성 염료', '5mg 미만', '통과']];
-    const haz = `<article class="pf pf--7" data-reveal>${head('유해물질', '어떤 유해물질을 시험했나요?')}
-      <div class="pf__big"><b data-count="${subs.length}">${subs.length}</b><span>개 항목</span><em>SGS · KATRI 시험에서 모두 미검출 또는 통과</em></div>
-      <ul class="pf-subs">${subs.map(([a, b, r]) => `<li><svg aria-hidden="true"><use href="#i-check"/></svg><span><b>${esc(a)}</b>${b ? `<small>${esc(b)}</small>` : ''}</span><em>${esc(r)}</em></li>`).join('')}</ul>
-      ${foot('SGS 6대 유해물질 · KATRI 중금속·폼알데하이드 시험', cert(iS, 'SGS'), cert(iH, 'KATRI 중금속'), cert(iF, 'KATRI 폼알데하이드'))}</article>`;
-
-    // 6) 진드기: 같은 축척 크기 비교
-    const mite = `<article class="pf pf--5" data-reveal="2">${head('진드기', '진드기가 커버를 지날 수 있나요?')}
-      <div class="pf__big"><b data-count="10">10</b><span>배 작은 틈</span><em>가장 작은 진드기(0.2mm)보다 커버 최대 기공(0.02mm)이</em></div>
-      <div class="pf-scale" role="img" aria-label="진드기 0.2mm와 커버 최대 기공 0.02mm 크기 비교">
-        <figure><span class="pf-scale__c pf-scale__c--mite"></span><figcaption><b>0.2mm</b>진드기 최소 크기</figcaption></figure>
-        <figure><span class="pf-scale__c pf-scale__c--pore"></span><figcaption><b>0.02mm</b>커버 최대 기공</figcaption></figure>
-      </div>
-      ${foot('KATRI 한국의류시험연구원 · 두 원은 같은 축척', cert(iM))}</article>`;
-
-    // 7) 제조국
-    const origin = `<article class="pf pf--5" data-reveal>${head('제조국', '어디서 만들었나요?')}
-      <div class="pf__big"><b>100</b><span>%</span><em>폼부터 겉커버까지 국내 생산</em></div>
-      <ul class="pf-origin">${[['내장재 폼', '대한민국'], ['누빔 겉커버', '대한민국'], ['특허', '제10-2378668호']].map(([a, b]) => `<li><span>${esc(a)}</span><b>${esc(b)}</b></li>`).join('')}</ul>
-      ${tip('어디서 만들었나요?')}</article>`;
-
-    // 8) 체험·보증: 날짜 타임라인
+    const cert = (i, label = '성적서') => i < 0 ? '' : `<button class="bt__cert" type="button" data-proof-cert="${i}">${esc(label)}<svg aria-hidden="true"><use href="#i-right"/></svg></button>`;
+    const iR = t('radon'), iC = t('katri-compression'), iD = t('katri-density'), iS = t('sgs'), iF = t('katri-formaldehyde'), iM = t('katri-mite');
+    const radonPct = Math.floor(7.6 / 148 * 1000) / 10;          // 5.1 (버림)
     const day = Math.round(M.ours.v / 730);
-    const trial = (14 / 730 * 100).toFixed(2) + '%';
-    const warr = `<article class="pf pf--7" data-reveal="2">${head('체험 · 보증', '써 보고 반품할 수 있나요? 폼이 꺼지면요?')}
-      <div class="pf__big"><b data-count="730">730</b><span>일</span><em>2년 폼 무상 교체 보증 · 그 앞 14일은 무료체험</em></div>
-      <div class="pf-time" role="img" aria-label="받은 날부터 14일 무료체험, 730일까지 폼 무상 교체 보증">
-        <span class="pf-time__bar"><i data-bar style="--w:100%"></i><i class="pf-time__trial" style="--w:${trial}"></i></span>
-        <span class="pf-time__mk pf-time__mk--start" style="left:0"><b>0일</b>받는 날</span>
-        <span class="pf-time__mk pf-time__mk--trial" style="left:${trial}"><b>14일</b>무료체험</span>
-        <span class="pf-time__mk" style="left:50%"><b>365일</b>1년</span>
-        <span class="pf-time__mk pf-time__mk--end" style="left:100%"><b>730일</b>폼 교체 보증</span>
-      </div>
-      <p class="pf__note">바닥형 12cm 슈퍼싱글 ${won(M.ours.v)} ÷ 730일 = 하루 약 <b>${day.toLocaleString('ko-KR')}원</b></p>
-      ${tip('써 보고 반품할 수 있나요?')}${tip('폼이 꺼지면 어떻게 되나요?')}</article>`;
-
-    return `<div class="pf-grid">${radon}${comp}${dens}${thk}${haz}${mite}${origin}${warr}</div>`;
+    const subs = ['중금속', 'PBBs', 'PBDEs', 'HBCDD', '폼알데하이드', '아릴아민', '알레르기성 염료'];
+    const ph = (src, alt = '') => pic(src, `alt="${esc(alt)}" loading="lazy" decoding="async" width="1000" height="1000"`);
+    return `<div class="bento">
+      <article class="bt bt--video bt--a" data-reveal>
+        <video class="bt__bg" data-src="assets/video/bento-foam.mp4" poster="assets/video/bento-foam.jpg" muted loop playsinline preload="none" aria-hidden="true"></video>
+        <div class="bt__body"><p class="bt__eyebrow">31kg 고밀도 폼</p><h4 class="bt__t">차가 밟고 지나가도<br>다시 펴지는 탄탄함</h4><p class="bt__d">KATRI 측정 밀도 <b>31.30kg/m³</b> · 폼 시연 영상</p>${cert(iD, '밀도 성적서')}</div>
+      </article>
+      <article class="bt bt--navy bt--b" data-reveal="2">
+        <p class="bt__eyebrow">10만 번 반복 압축 시험</p>
+        <p class="bt__num"><b data-count="99">99</b><span>%</span></p>
+        <div><h4 class="bt__t">10만 번 눌러도 두께는 그대로</h4><p class="bt__d">영구 줄음률 1% · KATRI · KS M 6672:2016</p>${cert(iC)}</div>
+        <span class="bt__meter" aria-hidden="true"><i style="--w:99%"></i></span>
+      </article>
+      <article class="bt bt--sky bt--c" data-reveal>
+        <p class="bt__eyebrow">라돈</p>
+        <p class="bt__num"><b data-count="${radonPct}">${radonPct}</b><span>% 미만</span></p>
+        <p class="bt__d">환경부 실내 권고 기준 148Bq/m³ 대비<br><b>7.6Bq/m³ 미만</b></p>
+        <span class="bt__radon" aria-hidden="true"><i class="bt__radon-std"></i><i class="bt__radon-ours" style="--w:${(7.6 / 148 * 100).toFixed(2)}%"></i></span>
+        ${cert(iR)}
+      </article>
+      <article class="bt bt--white bt--d" data-reveal="2">
+        <span class="bt__ic" aria-hidden="true"><svg><use href="#i-flag"/></svg></span>
+        <p class="bt__num"><b>100</b><span>%</span></p>
+        <div><h4 class="bt__t">폼부터 겉커버까지<br>국내 생산</h4><p class="bt__d">특허 제10-2378668호 다층구조 매트리스</p></div>
+      </article>
+      <article class="bt bt--photo bt--e" data-reveal>
+        ${ph('assets/img/products/29/02.jpg', '3단 접이식 매트리스 위에서 기지개를 켜는 모습')}
+        <div class="bt__body"><p class="bt__eyebrow">기간 한정</p><h4 class="bt__t">14일 써 보고<br>결정하세요</h4><p class="bt__d">마음에 들지 않으면 환불해 드립니다. 반품 왕복 배송비는 고객 부담입니다.</p><button class="bt__btn" type="button" data-open="terms">체험 조건 보기</button></div>
+      </article>
+      <article class="bt bt--soft bt--f" data-reveal="2">
+        <p class="bt__eyebrow">가족이 매일 눕는 매트리스라서</p>
+        <h4 class="bt__t">유해물질 <em>${subs.length}가지</em>, 모두 미검출·통과</h4>
+        <ul class="bt__chips">${subs.map(s => `<li><svg aria-hidden="true"><use href="#i-check"/></svg>${esc(s)}</li>`).join('')}</ul>
+        <p class="bt__certs">${cert(iS, 'SGS 성적서')}${cert(iF, 'KATRI 성적서')}</p>
+      </article>
+      <article class="bt bt--photo bt--g" data-reveal>
+        ${ph('assets/img/products/29/07.jpg', '누빔 커버를 손으로 쓰다듬는 모습')}
+        <div class="bt__body"><p class="bt__eyebrow">누빔 커버</p><h4 class="bt__t">진드기보다<br>10배 작은 틈</h4><p class="bt__d">커버 최대 기공 0.02mm · 진드기 0.2mm 이상 · KATRI</p>${cert(iM)}</div>
+      </article>
+      <article class="bt bt--white bt--h" data-reveal="2">
+        <p class="bt__eyebrow">2년 폼 교체 보증</p>
+        <p class="bt__num"><b data-count="2">2</b><span>년</span></p>
+        <div><h4 class="bt__t">꺼지면 폼을<br>무상으로 교체</h4><p class="bt__d">2년으로 나누면 하루 약 <b>${day.toLocaleString('ko-KR')}원</b></p></div>
+      </article>
+      <article class="bt bt--white bt--pic bt--i" data-reveal>
+        <div class="bt__pic">${ph('assets/img/products/29/03.jpg', '바닥형 12cm와 침대형 7cm 두께 비교')}</div>
+        <div><p class="bt__eyebrow">두께 선택</p><h4 class="bt__t">바닥엔 12cm, 침대 위엔 7cm</h4></div>
+      </article>
+      <article class="bt bt--cta bt--j" data-reveal="2">
+        <p class="bt__rv"><span class="stars" style="--v:${P.rating}" aria-hidden="true"></span><b>${P.rating.toFixed(2)}</b> · 구매평 ${P.reviews.toLocaleString('ko-KR')}건</p>
+        <div><p class="bt__price"><span>${rate(P)}%</span><b>${won(P.price)}</b>부터</p><p class="bt__d">2026년 10월 할인가 · 공식몰 구매평 기준</p></div>
+        <div class="bt__ctas"><a class="btn btn--primary" href="${href(P)}">제품 보기</a><a class="btn btn--line" href="#price">가격표</a></div>
+      </article>
+    </div>`;
   }
   // ── 롤링 후기 (두 줄, 반대 방향). 복제본은 보조기기에서 숨긴다
   function reviewRollHTML(best, shorts) {
@@ -215,5 +184,5 @@
   function postCard(p, base = '') {
     return `<article class="post-card"><a href="${base}blog/${esc(p.slug)}.html"><p class="post-card__cat">${esc(p.category)}</p><h3>${esc(p.title)}</h3><p class="post-card__desc">${esc(p.description)}</p><p class="post-card__meta"><time datetime="${esc(p.date)}">${esc(p.date.replace(/-/g, '.'))}</time> · ${p.minutes}분 읽기</p></a></article>`;
   }
-  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, proofHTML, reviewRollHTML, postCard, perDay, ICON };
+  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, bentoHTML, reviewRollHTML, postCard, perDay, ICON };
 })(typeof window !== 'undefined' ? window : globalThis);
