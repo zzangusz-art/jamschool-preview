@@ -37,10 +37,11 @@
         </div>
       </div>
       <div class="pcard__body">
+        <p class="pcard__brand">${esc(p.brand || '잠스쿨')}</p>
         <h3 class="pcard__name">${esc(p.name)}</h3>
         <p class="pcard__list"><span class="sr-only">정가</span>${won(p.list)}</p>
         <p class="pcard__price"><span class="rate">${rate(p)}%</span><span><span class="sr-only">판매가</span>${won(p.price)}${p.full ? '~' : ''}</span></p>
-        <p class="pcard__rv"><span class="star1" aria-hidden="true">★</span><b><span class="sr-only">평점 </span>${p.rating.toFixed(2)}</b><span>(${p.reviews.toLocaleString('ko-KR')}<span class="sr-only">건</span>)</span></p>
+        <p class="pcard__rv"><span class="star1" aria-hidden="true">★</span><b><span class="sr-only">평점 </span>${p.rating.toFixed(2)}</b><span class="pcard__rvn">· 리뷰 ${p.reviews.toLocaleString('ko-KR')}</span></p>
       </div>
       <a class="pcard__link" href="${href(p)}" aria-label="${esc(p.name)} 상세 보기"></a>
     </article>`;

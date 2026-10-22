@@ -14,64 +14,117 @@
   addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(onFrame); } }, { passive: true });
   addEventListener('resize', debounce(() => { loops.forEach(f => f(true)); }, 120));
 
-  // ───────── HERO: 15초 필름 → 스크롤하면 카드로 줄고 배너 문구가 아래에서 올라온다
+  // ───────── HERO: 15초 쇼릴을 한 번 재생 → 끝나면(또는 건너뛰기) 제품 슬라이드 배너로 넘어간다
+  // 같은 세션에서 다시 오거나, 동작 줄이기·데이터 절약이면 슬라이드부터. '15초 영상'으로 다시 볼 수 있다.
   (function hero() {
     const hero = $('.hero'); if (!hero) return;
-    const stage = $('.hero__stage'), media = $('.hero__media'), video = $('#hero-video'), copy = $('.hero__copy'), cue = $('.hero__cue'), shade = $('.hero__shade'), ctrl = $('.hero__ctrl');
+    const video = $('#hero-video'), ctrl = $('.hero__ctrl'), skip = $('#hero-skip'), bar = $('#hero-bar');
+    const region = $('#hero-slides'), slides = $$('.hs', hero), dots = $$('.hs__dot', hero), cur = $('#hs-cur');
+    const pauseBtn = $('.hs__pause', hero), replay = $('.hs__replay', hero);
     const isPortrait = () => matchMedia('(max-aspect-ratio: 1/1)').matches;
     const saveData = navigator.connection && navigator.connection.saveData;
-    let wantPlay = !reduce && !saveData, cur = '';
+    const SEEN = 'jam_reel_seen', DUR = 5500;
+    let mode = '', src = '', idx = 0, elapsed = 0, last = 0, userPaused = !!reduce, hold = false, visible = true;
+
     function setSrc() {
-      const pt = isPortrait();
-      const src = pt ? 'assets/video/hero-mobile.mp4' : 'assets/video/hero-desktop.mp4';
-      if (src === cur) return; cur = src;
+      const pt = isPortrait(), s = pt ? 'assets/video/hero-mobile.mp4' : 'assets/video/hero-desktop.mp4';
+      if (s === src) return; src = s;
       video.poster = pt ? 'assets/video/hero-mobile.jpg' : 'assets/video/hero-desktop.jpg';
-      video.src = src;
-      if (wantPlay) video.play().catch(() => setCtrl(false));
+      video.src = s;
+      if (mode === 'reel') video.play().catch(() => setMode('slides'));
     }
     function setCtrl(playing) {
       ctrl.dataset.state = playing ? 'playing' : 'paused';
       ctrl.setAttribute('aria-label', playing ? '영상 일시정지' : '영상 재생');
       ctrl.innerHTML = `<svg><use href="#i-${playing ? 'pause' : 'play'}"/></svg>`;
     }
-    ctrl.addEventListener('click', () => {
-      wantPlay = video.paused;
-      if (wantPlay) video.play().catch(() => {}); else video.pause();
-    });
+    function setMode(m, instant) {
+      if (m === mode) return;
+      mode = m;
+      if (instant) hero.classList.add('no-anim');
+      hero.dataset.mode = m;
+      if (instant) requestAnimationFrame(() => requestAnimationFrame(() => hero.classList.remove('no-anim')));
+      if (m === 'reel') {
+        setSrc();
+        try { video.currentTime = 0; } catch (e) { /* 아직 메타데이터 전 */ }
+        video.play().catch(() => setMode('slides'));
+      } else {
+        video.pause();
+        UI.store.sset(SEEN, '1');
+        elapsed = 0; go(idx);
+      }
+    }
+    ctrl.addEventListener('click', () => { if (video.paused) video.play().catch(() => {}); else video.pause(); });
     video.addEventListener('play', () => setCtrl(true));
     video.addEventListener('pause', () => setCtrl(false));
-    setCtrl(wantPlay);
-    setSrc();
-    addEventListener('resize', debounce(setSrc, 250));
-    new IntersectionObserver(([e]) => { if (!wantPlay) return; e.isIntersecting ? video.play().catch(() => {}) : video.pause(); }).observe(hero);
+    video.addEventListener('ended', () => setMode('slides'));
+    video.addEventListener('timeupdate', () => { if (video.duration) bar.style.transform = `scaleX(${(video.currentTime / video.duration).toFixed(4)})`; });
+    skip.addEventListener('click', () => { setMode('slides'); setTimeout(() => region.focus({ preventScroll: true }), 60); });
+    replay.addEventListener('click', () => { setMode('reel'); setTimeout(() => skip.focus({ preventScroll: true }), 80); });
+    addEventListener('resize', debounce(() => { if (mode === 'reel') setSrc(); }, 250));
 
-    const kids = [...copy.children];
-    let copyH = copy.offsetHeight, stageH = stage.offsetHeight;
-    loops.push(function (resized) {
-      if (resized) { copyH = copy.offsetHeight; stageH = stage.offsetHeight; }
-      const r = hero.getBoundingClientRect();
-      const total = r.height - stageH;
-      const p = clamp(-r.top / total);
-      window.__pinHero = r.bottom > innerHeight * .35; document.body.classList.toggle('in-hero', !!(window.__pinHero || window.__pinFold));
-      if (r.bottom < 0) return;
-      const e = eio(clamp((p - .03) / .5));
-      // 영상 박스는 항상 원본 비율을 유지(좁은 화면에서 좌우 글자 잘림 방지)
-      const va = isPortrait() ? 9 / 16 : 16 / 9, W = stage.clientWidth, m = Math.min(18, innerWidth * .04);
-      const iw = W, ih = W / va >= stageH ? stageH : W / va;
-      const iy = (stageH - ih) / 2;
-      let fh = Math.max(stageH * .3, stageH - copyH - m * 2.4), fw = fh * va;
-      if (fw > W - m * 2) { fw = W - m * 2; fh = fw / va; }
-      const L = (a, b) => (a + (b - a) * e).toFixed(1) + 'px';
-      Object.assign(media.style, { left: L(0, (W - fw) / 2), top: L(iy, m), width: L(iw, fw), height: L(ih, fh), borderRadius: (22 * e).toFixed(1) + 'px' });
-      shade.style.opacity = (e * .7).toFixed(3);
-      cue.style.opacity = String(1 - clamp(p / .06));
-      kids.forEach((el, i) => {
-        const k = eo(clamp((p - .28 - i * .055) / .2));
-        el.style.opacity = k.toFixed(3);
-        el.style.transform = `translateY(${((1 - k) * 28).toFixed(1)}px)`;
-        el.style.visibility = k < .02 ? 'hidden' : 'visible';
+    // 슬라이드
+    function go(i) {
+      idx = (i + slides.length) % slides.length; elapsed = 0;
+      slides.forEach((s, k) => {
+        const on = k === idx;
+        s.classList.toggle('is-on', on);
+        if (on) { s.removeAttribute('aria-hidden'); s.inert = false; } else { s.setAttribute('aria-hidden', 'true'); s.inert = true; }
       });
+      dots.forEach((d, k) => { d.setAttribute('aria-current', k === idx); d.style.setProperty('--p', k === idx ? 0 : 1); });
+      cur.textContent = idx + 1;
+      hero.classList.toggle('is-dark', slides[idx].classList.contains('hs--dark'));
+    }
+    dots.forEach((d, k) => d.addEventListener('click', () => go(k)));
+    $('.hs__prev', hero).addEventListener('click', () => go(idx - 1));
+    $('.hs__next', hero).addEventListener('click', () => go(idx + 1));
+    function setPaused(p) {
+      userPaused = p;
+      pauseBtn.setAttribute('aria-pressed', p);
+      pauseBtn.setAttribute('aria-label', p ? '자동 넘김 다시 시작' : '자동 넘김 멈춤');
+      pauseBtn.innerHTML = `<svg aria-hidden="true"><use href="#i-${p ? 'play' : 'pause'}"/></svg>`;
+    }
+    pauseBtn.addEventListener('click', () => setPaused(!userPaused));
+    setPaused(userPaused);
+    // 마우스를 올리거나 키보드 포커스가 안에 있으면 잠시 멈춤
+    region.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') hold = true; });
+    region.addEventListener('pointerleave', () => { hold = false; });
+    region.addEventListener('focusin', () => { hold = true; });
+    region.addEventListener('focusout', e => { if (!region.contains(e.relatedTarget)) hold = false; });
+    region.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); go(idx + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(idx - 1); }
     });
+    // 스와이프
+    let sx = null, sy = 0;
+    region.addEventListener('pointerdown', e => { if (e.target.closest('a, button')) return; sx = e.clientX; sy = e.clientY; });
+    region.addEventListener('pointerup', e => {
+      if (sx == null) return; const dx = e.clientX - sx, dy = e.clientY - sy; sx = null;
+      if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) go(idx + (dx < 0 ? 1 : -1));
+    });
+    // 자동 넘김(진행 막대): 화면에 보이고, 멈춤이 아니고, 탭이 보일 때만
+    (function tick(now) {
+      const dt = last ? Math.min(100, now - last) : 0; last = now;
+      if (mode === 'slides' && !userPaused && !hold && visible && !document.hidden) {
+        elapsed += dt;
+        dots[idx] && dots[idx].style.setProperty('--p', Math.min(1, elapsed / DUR).toFixed(3));
+        if (elapsed >= DUR) go(idx + 1);
+      }
+      requestAnimationFrame(tick);
+    })(0);
+    new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (mode === 'reel') { if (visible) video.play().catch(() => {}); else video.pause(); }
+    }).observe(hero);
+    // 히어로가 화면을 덮고 있으면 플로팅 버튼을 숨긴다(접기 시퀀스와 같은 규칙)
+    loops.push(() => {
+      const r = hero.getBoundingClientRect();
+      window.__pinHero = r.bottom > innerHeight * .35;
+      document.body.classList.toggle('in-hero', !!(window.__pinHero || window.__pinFold));
+    });
+
+    const skipReel = reduce || saveData || UI.store.sget(SEEN);
+    if (skipReel) { video.preload = 'none'; setMode('slides', true); } else setMode('reel', true);
   })();
 
   // ───────── FOLD: 이미지 시퀀스를 스크롤에 맞춰 캔버스에 그린다

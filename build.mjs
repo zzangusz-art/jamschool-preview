@@ -56,7 +56,28 @@ const trustHTML = [0, 1].map(k => TRUST.map(([ic, t]) => `<p class="trust__item"
 const uses = R.usesHTML(USES);
 let idx = includes(rd('src/index.tpl.html'));
 idx = fill(idx, 'trust', trustHTML);
-idx = fill(idx, 'products', PRODUCTS.map(p => R.productCard(p)).join(''));
+// 홈 베스트: 큰 썸네일 3열(모바일 2열) — 3×3 으로 맞추려고 잠스쿨 브랜드 9개만, 전체는 shop.html
+idx = fill(idx, 'products', PRODUCTS.filter(p => !p.brand).slice(0, 9).map(p => R.productCard(p)).join(''));
+// 히어로 슬라이드(쇼릴 다음): data.js HERO_SLIDES
+{
+  const SL = JAM.HERO_SLIDES;
+  const slide = (d, i) => {
+    const p = d.id ? PRODUCTS.find(x => x.id === d.id) : null;
+    const label = p ? p.short : d.title.join('');
+    const T = i === 0 ? 'h1' : 'h2';
+    const price = p ? `<p class="hs__price"><span class="rate">${R.rate(p)}%</span><b>${won(p.price)}</b>${p.full ? '부터' : ''}</p>` : '';
+    const cta = p
+      ? `<a class="btn btn--primary" href="${R.href(p)}">제품 보기</a>${d.cta2 ? `<a class="btn btn--line" href="${esc(d.cta2[1])}">${esc(d.cta2[0])}</a>` : `<button class="btn btn--line" type="button" data-quick="${p.id}">빠른 보기</button>`}`
+      : `<button class="btn btn--primary" type="button" data-open="coupon">쿠폰 받기</button><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`;
+    return `<article class="hs${d.dark ? ' hs--dark' : ''}${i === 0 ? ' is-on' : ''}" id="hs-${i}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${SL.length}: ${esc(label)}" style="--hs-bg:${d.bg}"${i ? ' aria-hidden="true" inert' : ''}>
+      <div class="hs__img">${R.pic(d.img, `alt="" width="1000" height="1000" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async"`)}</div>
+      <div class="hs__copy"><p class="hs__eyebrow">${esc(d.eyebrow.replace('{rv}', p ? p.reviews.toLocaleString('ko-KR') : ''))}</p><${T} class="hs__title"${i === 0 ? ' id="hero-t"' : ''}>${esc(d.title[0])}<em>${esc(d.title[1])}</em></${T}><p class="hs__sub">${esc(d.sub)}</p><ul class="hs__chips">${d.chips.map(c => `<li>${esc(c)}</li>`).join('')}</ul>${price}<div class="hs__cta">${cta}</div></div>
+    </article>`;
+  };
+  idx = fill(idx, 'slides', SL.map(slide).join(''));
+  idx = fill(idx, 'slide-dots', SL.map((d, i) => `<button class="hs__dot" type="button" aria-label="${i + 1}번 슬라이드" aria-controls="hs-${i}" aria-current="${i === 0}"><i></i></button>`).join(''));
+  idx = fill(idx, 'slide-n', String(SL.length));
+}
 idx = fill(idx, 'spec', R.specTable(O));
 idx = fill(idx, 'tests', R.testsHTML(TESTS));
 idx = fill(idx, 'reviews', R.reviewsHTML(REVIEWS.slice(0, 3)));

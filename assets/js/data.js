@@ -89,7 +89,7 @@
     },
     {
       id: 41, cat: 'bedding', key: '하픽 손목보호대 손목아대',
-      name: '하픽 손목보호대', short: '하픽 손목보호대',
+      name: '하픽 손목보호대', short: '하픽 손목보호대', brand: '하픽',
       summary: '얇은 스트랩형 손목 밴드',
       list: 20900, price: 15900, badges: ['MD'],
       rating: 4.87, reviews: 171, imgs: gallery(41, 9),
@@ -272,6 +272,23 @@
     ],
   };
 
+  // 홈 히어로: 15초 쇼릴이 끝나면 이 순서로 제품 슬라이드 배너. 가격·할인율은 PRODUCTS 에서 가져온다.
+  // 문구는 3단 상세(대표 메시지: 허리가 편한 탄탄함·잠스쿨 연구소 4세대·31kg 고밀도·국내 생산·14일 체험·2년 교체)와 각 상품 points 에서만 뽑았다.
+  const HERO_SLIDES = [
+    { id: 29, img: 'assets/img/products/29/02.jpg', bg: '#E9F4FA', eyebrow: '잠스쿨 연구소 4세대', title: ['허리가 편한 ', '탄탄함'], sub: '31kg 고밀도 3단 접이식 매트리스',
+      chips: ['100% 국내 생산', '14일 무료체험', '2년 폼 무상 교체'], cta2: ['두께·사이즈 고르기', '#guide'] },
+    { id: 30, img: 'assets/img/products/30/01.jpg', bg: '#EFEEF5', eyebrow: '구매평 {rv}건', title: ['몸을 감싸는 ', '폭신함'], sub: '잠스쿨 떡실신 매트리스',
+      chips: ['폭신한 쿠션감', '미끌림 방지', '보관 스트랩'] },
+    { id: 39, img: 'assets/img/products/39/02.jpg', bg: '#F3EFE8', eyebrow: '한 장에 두 가지 쿠션감', title: ['폭신하게, 또는 ', '탄탄하게'], sub: '잠스쿨 폭신탄탄 양면 매트리스',
+      chips: ['양면 사용', '미끌림 방지', '고정 벨트 증정'] },
+    { id: 40, img: 'assets/img/products/40/04.jpg', bg: '#EDF2EE', eyebrow: '거실에 까는 토퍼', title: ['체압을 받쳐 주는 ', '메모리폼'], sub: '잠스쿨 엄마품 메모리폼 토퍼 매트리스',
+      chips: ['60kg 고밀도 메모리폼', '천연 텐셀 겉커버'] },
+    { id: 36, img: 'assets/img/products/36/01.jpg', bg: '#F5F0EA', eyebrow: '구매평 {rv}건', title: ['다리를 올리고 ', '쉬는 시간'], sub: '잠스쿨 다리베개',
+      chips: ['20 · 26 · 33cm 높이', '폭신한 쿠션감'] },
+    { event: 'coupon', img: 'assets/img/products/29/01.jpg', bg: '#0E2440', dark: true, eyebrow: '신규 회원 혜택', title: ['가입 즉시 ', '1만원 쿠폰'], sub: '공식몰 회원가입만 하면 바로 적용됩니다',
+      chips: ['전 상품 무료배송', '결제 금액 1% 적립'] },
+  ];
+
   // 진열 페이지(shop.html) 분류 — PRODUCTS 의 cat 과 같은 id
   const CATEGORIES = [
     { id: 'mattress', label: '매트리스', desc: '3단 접이식 · 폭신한 매트리스 · 양면 매트리스 · 메모리폼 토퍼' },
@@ -297,5 +314,5 @@
     ],
   };
 
-  window.JAM = { PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE };
+  window.JAM = { PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES };
 })();
