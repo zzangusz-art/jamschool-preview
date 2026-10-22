@@ -275,10 +275,10 @@
   };
 
   // 홈 히어로: 15초 쇼릴이 끝나면 이 순서로 제품 슬라이드 배너. 가격·할인율은 PRODUCTS 에서 가져온다.
-  // 사진: assets/img/hero/ — 3단·쿠폰은 쇼릴 3D 장면에서 글자 없이 2048px 렌더 후 1600px 정사각으로 자른 컷, 나머지는 상품 원본(1000~1080px) 그대로(고화질 WebP).
+  // 사진: assets/img/hero/ — 모두 실사. 상품 원본(1000~1080px) 그대로 + 고화질 WebP. 3단은 선명도(라플라시안) 측정으로 가장 선명한 원본(29/01 접는 장면, 29/02 기지개)을 골랐다.
   // 문구는 3단 상세(대표 메시지: 허리가 편한 탄탄함·잠스쿨 연구소 4세대·31kg 고밀도·국내 생산·14일 체험·2년 교체)와 각 상품 points 에서만 뽑았다.
   const HERO_SLIDES = [
-    { id: 29, img: 'assets/img/hero/slide-29-sofa.jpg', size: 1600, render: '#F4F9FC', bg: '#E9F4FA', eyebrow: '잠스쿨 연구소 4세대', title: ['허리가 편한 ', '탄탄함'], sub: '31kg 고밀도 3단 접이식 매트리스',
+    { id: 29, img: 'assets/img/hero/slide-29.jpg', size: 1000, bg: '#E9F4FA', eyebrow: '잠스쿨 연구소 4세대', title: ['허리가 편한 ', '탄탄함'], sub: '31kg 고밀도 3단 접이식 매트리스',
       chips: ['100% 국내 생산', '14일 무료체험', '2년 폼 무상 교체'], cta2: ['두께·사이즈 고르기', '#guide'] },
     { id: 30, img: 'assets/img/hero/slide-30.jpg', size: 1024, bg: '#EFEEF5', eyebrow: '구매평 {rv}건', title: ['몸을 감싸는 ', '폭신함'], sub: '잠스쿨 떡실신 매트리스',
       chips: ['폭신한 쿠션감', '미끌림 방지', '보관 스트랩'] },
@@ -288,7 +288,7 @@
       chips: ['60kg 고밀도 메모리폼', '천연 텐셀 겉커버'] },
     { id: 36, img: 'assets/img/hero/slide-36.jpg', size: 1000, bg: '#F5F0EA', eyebrow: '구매평 {rv}건', title: ['다리를 올리고 ', '쉬는 시간'], sub: '잠스쿨 다리베개',
       chips: ['20 · 26 · 33cm 높이', '폭신한 쿠션감'] },
-    { event: 'coupon', img: 'assets/img/hero/slide-event-stack.jpg', size: 1700, render: '#1D3A5F', bg: '#0E2440', dark: true, eyebrow: '신규 회원 혜택', title: ['가입 즉시 ', '1만원 쿠폰'], sub: '공식몰 회원가입만 하면 바로 적용됩니다',
+    { event: 'coupon', img: 'assets/img/hero/slide-29-b.jpg', size: 1000, bg: '#0E2440', dark: true, eyebrow: '신규 회원 혜택', title: ['가입 즉시 ', '1만원 쿠폰'], sub: '공식몰 회원가입만 하면 바로 적용됩니다',
       chips: ['전 상품 무료배송', '결제 금액 1% 적립'] },
   ];
 

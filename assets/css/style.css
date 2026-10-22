@@ -356,6 +356,8 @@ strong, b { font-weight: 700; color: var(--ink); }
 .reco__q { font-size: 15px; font-weight: 700; color: var(--ink); }
 .reco .chips { margin-top: 10px; flex-wrap: wrap; overflow: visible; }
 .reco .chip { min-height: 38px; font-size: 14px; background: #fff; }
+/* 고른 칩: 흰 바탕 그대로 검은 굵은 글씨 + 진한 테두리(공통 칩의 흰 글씨가 흰 바탕에 묻히던 문제) */
+.reco .chip[aria-checked="true"] { background: #fff; color: var(--ink); font-weight: 800; border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .reco__a { margin-top: 12px; font-size: 14px; color: var(--sky-ink); font-weight: 600; min-height: 1.6em; }
 .spec-viz { position: relative; border-radius: var(--r-lg); background: linear-gradient(180deg, #F7FAFC, #EEF3F7); padding: 22px; overflow: hidden; }
 .spec-viz svg { width: 100%; height: auto; }
