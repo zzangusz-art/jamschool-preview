@@ -172,13 +172,15 @@ strong, b { font-weight: 700; color: var(--ink); }
 }
 
 /* ── hero: 15초 쇼릴 → 제품 슬라이드 배너 (영상 비율 그대로의 상자 안에서 교차) */
-.hero { --hero-h: min(56.25vw, calc(100svh - var(--header-h))); position: relative; height: var(--hero-h); overflow: hidden; background: #fff; }
-@media (max-aspect-ratio: 1/1) { .hero { --hero-h: min(177.78vw, calc(100svh - var(--header-h))); } }
+.hero { --hero-top: var(--header-h); --hero-h: min(56.25vw, calc(100svh - var(--hero-top))); position: relative; height: var(--hero-h); overflow: hidden; background: #fff; }
+@media (max-aspect-ratio: 1/1) { .hero { --hero-h: min(177.78vw, calc(100svh - var(--hero-top))); } }
+/* 상단 띠 배너가 떠 있는 동안에는 그 높이도 빼서, 첫 화면에서 영상 아래끝까지 보이게 */
+:root:has(.topbar:not([hidden])) .hero { --hero-top: calc(var(--header-h) + var(--topbar-h)); }
 .hero__reel, .hero__slides { position: absolute; inset: 0; transition: opacity .7s var(--ease), visibility .7s; }
 .hero[data-mode="slides"] .hero__reel, .hero[data-mode="reel"] .hero__slides { opacity: 0; visibility: hidden; }
 .hero__reel { display: grid; place-items: center; background: #fff; }
-.hero__reel video { display: block; height: 100%; max-width: 100%; aspect-ratio: 16 / 9; object-fit: contain; }
-@media (max-aspect-ratio: 1/1) { .hero__reel video { aspect-ratio: 9 / 16; } }
+/* 영상은 상자에 꽉 맞추되 잘리지 않게(contain): 남는 쪽은 흰 여백 */
+.hero__reel video { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
 .hero__bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(21, 24, 28, .08); }
 .hero__bar i { display: block; height: 100%; width: 100%; background: var(--sky-2); transform: scaleX(0); transform-origin: 0 50%; }
 .hero__rui { position: absolute; right: 14px; bottom: 14px; z-index: 3; display: flex; gap: 8px; }
