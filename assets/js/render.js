@@ -182,7 +182,7 @@
   }
   // ── 블로그 카드
   function postCard(p, base = '') {
-    return `<article class="post-card"><a href="${base}blog/${esc(p.slug)}.html"><p class="post-card__cat">${esc(p.category)}</p><h3>${esc(p.title)}</h3><p class="post-card__desc">${esc(p.description)}</p><p class="post-card__meta"><time datetime="${esc(p.date)}">${esc(p.date.replace(/-/g, '.'))}</time> · ${p.minutes}분 읽기</p></a></article>`;
+    return `<article class="post-card"><a href="${base}blog/${esc(p.slug)}.html">${p.thumb ? `<span class="post-card__img">${pic(p.thumb, 'alt="" width="1200" height="630" loading="lazy" decoding="async"')}</span>` : ''}<p class="post-card__cat">${esc(p.category)}</p><h3>${esc(p.title)}</h3><p class="post-card__desc">${esc(p.description)}</p><p class="post-card__meta"><time datetime="${esc(p.date)}">${esc(p.date.replace(/-/g, '.'))}</time> · ${p.minutes}분 읽기</p></a></article>`;
   }
   G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, bentoHTML, reviewRollHTML, postCard, perDay, ICON };
 })(typeof window !== 'undefined' ? window : globalThis);

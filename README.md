@@ -19,9 +19,10 @@ python -m http.server 5517 --directory jamschool-site
 | `content/blog/*.md` | **블로그 글 원고** (머리말 `key: value` + 마크다운). `_topics.json` 은 AI가 쓸 주제 대기열 |
 | `content/drafts/` | 검증을 통과하지 못한 AI 초안 (발행 안 됨, 사람이 고쳐서 `content/blog/` 로 옮기면 발행) |
 | `tools/blog/lib.mjs` | 머리말·마크다운 변환, `## 자주 묻는 질문` → FAQ 아코디언·FAQPage |
-| `tools/blog-ai/generate.mjs` | AI 글 작성·검증 |
+| `tools/blog-ai/generate.mjs` | AI 글 작성·검증(대표 키워드·중복 검사) |
+| `tools/blog/thumb.mjs` | 글 썸네일 1200×630 생성(Chrome + puppeteer-core) → `assets/img/blog/` |
 | `tools/export-site.mjs` | 서빙 파일만 `_site/` 로 내보내기 (`--preview` 면 noindex) |
-| `.github/workflows/site.yml` | 푸시·예약 시 빌드 → GitHub Pages 배포, 예약 시 AI 글 1편 |
+| `.github/workflows/site.yml` | 푸시·예약 시 빌드 → GitHub Pages 배포, 매일 3번(KST 09·13·18시) AI 글 1편씩 + 썸네일 |
 | `assets/js/shop-core.js` | 쇼핑 공용(빠른 보기·3단 옵션·장바구니 담기·최근 본 상품·주문서로 넘기기) — 모든 페이지에서 ui.js 다음에 불러옴 |
 | `assets/js/shop.js` · `cart.js` · `checkout.js` · `complete.js` | 진열(분류·정렬·찜) · 장바구니(선택·옵션 변경·되돌리기) · 주문서(검증·우편번호·결제 수단) · 주문 완료 |
 | `assets/css/shop.css` | 진열·장바구니·주문서·주문 완료 스타일 |
@@ -63,19 +64,23 @@ node build.mjs
 `prepare_detail.py` 안의 EXCLUDE(가격표·이벤트·옛 안내 제외)와 CUT(이미지 일부 삭제) 목록은 공식몰 상세가 바뀌면 다시 확인해야 한다. 250KB 넘는 움직이는 GIF는 MP4 루프로 바꾼다.
 
 ## 수면 가이드 (블로그)
-- 글 추가: `content/blog/<slug>.md` 를 만들고 빌드. 머리말 필수 항목 `title` `description` `slug` `date` `category`(구매 가이드·사용 팁·제품 이야기·생활 공간), 선택 `tags` `product`(29 등) `author`
+- 글 추가: `content/blog/<slug>.md` 를 만들고 빌드. 머리말 필수 항목 `title` `description` `slug` `date` `category`(구매 가이드·사용 팁·제품 이야기·생활 공간), 선택 `tags` `keyword`(대표 키워드, 글마다 하나·중복 금지) `product`(29 등) `image`(썸네일 `assets/img/blog/<slug>.jpg`) `photo`(썸네일에 쓸 사진 지정) `author`
+- 썸네일: `node tools/blog/thumb.mjs` (없는 것만) / `--all` / `<slug>`. 1200×630, 왼쪽 제목(대표 키워드 하늘색)·오른쪽 상품 실사 사진, 카테고리마다 배경색. Chrome 필요(`CHROME_PATH`). 썸네일이 없으면 카드는 글자만, 공유 이미지는 상품 사진
+- 키워드 지도: 상위 폴더 `research/keyword-map-2026-10-23.md` (우선 3단 접이식 매트리스·접는 매트리스·토퍼 매트리스 → 상품명 → 신뢰·브랜드, 경쟁사명 금지)
 - 본문 `## 자주 묻는 질문` 아래 `### Q. 질문` + 답 문단은 글 하단 FAQ 아코디언과 FAQPage 구조화 데이터가 된다. `##` 제목이 3개 이상이면 목차가 붙는다
 - 홈 `#blog` 섹션에는 최신 3편, `sitemap.xml`·`llms.txt`·RSS에 자동 추가
 - 검증만: `node tools/blog-ai/generate.mjs --check` (모든 글을 아래 규칙으로 검사)
 
 ### AI 자동 발행
-GitHub Actions가 **월·목 오전 10시(KST)** 에 `_topics.json` 의 다음 `todo` 주제로 글 1편을 쓰고, 검증을 통과하면 `content/blog/` 에 커밋해 바로 배포한다.
+GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 다음 `todo` 주제로 글 1편씩(하루 3편) 쓰고, 검증을 통과하면 썸네일을 만들어 `content/blog/`·`assets/img/blog/` 에 커밋해 바로 배포한다.
 - 처음 한 번: GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret → 이름 `ANTHROPIC_API_KEY`. 키가 없으면 글 작성 단계만 건너뛰고 배포는 정상 진행
-- 지금 1편 쓰기: 저장소 Actions 탭 → site → Run workflow (`수면 가이드 글 1편 AI 작성` 체크)
-- 로컬에서: `set ANTHROPIC_API_KEY=...` 후 `npm ci` → `node tools/blog-ai/generate.mjs` (특정 주제는 `--topic <id>`)
+- 지금 쓰기: 저장소 Actions 탭 → site → Run workflow (`수면 가이드 글 AI 작성` 체크, 글 수 1~3)
+- 로컬에서: `set ANTHROPIC_API_KEY=...` 후 `npm ci` → `node tools/blog-ai/generate.mjs --count 3` (특정 주제는 `--topic <id>`)
+- 대표 키워드 규칙: 제목·첫 문단에 반드시, 본문 2~10회. 이미 발행된 글과 대표 키워드가 같거나 제목이 비슷하면(글자 2개 묶음 유사도 0.5 이상) 다시 쓰게 하고, 그래도 안 되면 초안으로 남긴다
+- 대기열이 비면 자동 발행이 멈춘다(2026-10-23 기준 39편 ≈ 13일). 그 전에 `_topics.json` 에 주제를 더 넣어야 한다
 - 모델 `claude-opus-5-5`, 서버 측 폴백(`fallbacks: "default"`) 사용 — 기본 모델이 일시적으로 응답하지 못하면 Anthropic이 다른 모델로 대신 처리할 수 있음
 - 사실 근거는 `assets/js/data.js` 에서 뽑은 팩트 시트뿐. 검증 규칙: 머리말 형식, 본문 800~4,500자, `##` 3개 이상, FAQ 2개 이상, 의료 효과·최상급·보장 표현 금지, 타사 브랜드명·외부 링크 금지, 팩트 시트에 없는 숫자+단위 금지. 한 번 고쳐 쓰게 하고도 실패하면 `content/drafts/` 에 남기고 주제는 `draft` 로 표시
-- 주제 추가: `_topics.json` 에 `{ "id", "title", "angle"(다룰 내용·주의점), "category", "keywords", "status": "todo" }` 를 넣으면 순서대로 쓴다
+- 주제 추가: `_topics.json` 에 `{ "id", "keyword"(대표, 기존과 겹치지 않게), "keywords", "title", "angle"(다룰 내용·주의점), "category", "product", "photo"(선택), "status": "todo" }` 를 넣으면 순서대로 쓴다
 - 발행 전 사람 검토를 원하면 `site.yml` 의 예약(schedule)을 지우고 필요할 때 Run workflow 로 돌린 뒤 결과를 확인
 
 ## 배포 (GitHub Pages)

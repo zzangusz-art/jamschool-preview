@@ -2,7 +2,10 @@
 // 사용:
 //   node tools/blog-ai/generate.mjs            다음 주제 1편 작성 → 검증 통과 시 content/blog/<slug>.md 로 발행
 //   node tools/blog-ai/generate.mjs --topic id  특정 주제
+//   node tools/blog-ai/generate.mjs --count 3   대기열 순서대로 3편
 //   node tools/blog-ai/generate.mjs --check     API 호출 없이 기존 글 전체를 같은 검증기로 검사
+// 주제마다 대표 키워드(keyword) 하나: 제목·첫 문단 필수, 이미 발행된 글과 키워드·제목이 겹치면 발행하지 않는다.
+// 발행한 글은 썸네일(assets/img/blog/<slug>.jpg)을 함께 만든다(tools/blog/thumb.mjs, Chrome 필요).
 // 검증에 실패한 글은 발행하지 않고 content/drafts/ 에 남긴다(사람이 보고 고친 뒤 content/blog/ 로 옮기면 발행).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -46,7 +49,17 @@ function factSheet(J) {
   L.push('[상세페이지 안내] 성인은 자는 동안 땀을 약 250ml 흘린다(브랜드 상세페이지 안내 문구). 방수 속커버 사용 권장, 이벤트 기간에는 방수 속커버를 매트리스에 씌워 발송.');
   L.push('[보증·구매] 14일 무료체험(기간 한정 이벤트, 반품 시 왕복 배송비 고객 부담, 환불은 수거 접수일 기준 3~10일). 2년 안에 폼이 꺼지면 폼 무상 교체. (기간 한정) 무료 배송. 오후 1시 이전 결제 확인 시 당일 출고(주말·공휴일 제외), 평균 1~3일, 로젠택배·대신택배. 교환·반품은 수령 후 7일 이내 고객센터 접수, 단순 변심 왕복 배송비 매트리스 36,000원(편도 18,000원)·커버류 6,000원(편도 3,000원), 제주·도서산간 +7,000원, 제품 하자는 무료. 압축 포장 개봉 후 반품 어려울 수 있음.');
   const M = J.MARKET;
-  L.push(`[시세] ${M.source} 등록 상품 ${M.basis}, ${M.date} 조회: ${M.bands.map(b => `${b.k}(${b.sub}) ${won(b.lo)}~${won(b.hi)}`).join(', ')}. 잠스쿨 바닥형 12cm 슈퍼싱글 ${won(M.ours.v)} — 폼 매트리스 중 높은 가격대, 스프링·라텍스보다 낮은 가격대. 같은 조사에서 일반 폼 제품은 밀도 표기가 없는 경우가 많았고, 얇은 폼은 5~6cm가 흔했다. 경쟁사 상품명은 쓰지 않는다.`);
+  L.push(`[시세] ${M.source} 등록 상품 ${M.basis}, ${M.date} 조회: ${M.bands.map(b => `${b.k}(${b.sub}) ${won(b.lo)}~${won(b.hi)}`).join(', ')}. 잠스쿨 바닥형 12cm 슈퍼싱글 ${won(M.ours.v)} — 폼 매트리스 중 높은 가격대, 스프링 내장·천연라텍스와 비슷한 가격대. 같은 조사에서 다나와 사양란에 밀도를 적은 일반 폼 3단 접이식은 ${M.density.total}개 중 ${M.density.listed}개, 얇은 폼은 5~6cm가 흔했다. 경쟁사 상품명은 쓰지 않는다.`);
+  // 다른 상품(상품명 키워드 글용): 이름·요약·특징·가격·구매평 + 공식몰 상품정보 제공고시
+  for (const p of J.PRODUCTS.filter(x => x.id !== 29)) {
+    L.push(`[상품 ${p.id}] ${p.name}(줄여서 "${p.short}", 상세 product-${p.id}.html). ${p.summary}.${p.points.length ? ` 특징: ${p.points.join(', ')}.` : ''} 할인가 ${won(p.price)}(정가 ${won(p.list)}), 구매평 ${p.reviews.toLocaleString('ko-KR')}건 평점 ${p.rating.toFixed(2)}(2026년 10월 공식몰 기준).`);
+    const N = (J.NOTICE || {})[p.id];
+    if (N) L.push(`[상품 ${p.id} 제공고시] ${N.map(([k, v]) => `${k}: ${v.join(' / ')}`).join(' | ')}`);
+  }
+  L.push('[상품 36 상세 문구] 탄탄함 대신 폭신한 쿠션감을 찾으면 삼각 등쿠션을 다리베개로 쓰는 것도 권한다.');
+  // 실제 구매평(원문 일부). 인용할 때는 원문을 바꾸지 않는다
+  for (const r of J.REVIEWS) L.push(`[구매평 ${r.id}${r.opt ? ' · ' + r.opt : ''}] ${r.text.slice(0, 220)}${r.text.length > 220 ? '…' : ''}`);
+  for (const t of J.SHORT_REVIEWS) L.push(`[짧은 구매평] ${t}`);
   return L.join('\n');
 }
 // 글에 나온 "숫자+단위"가 사실 목록에 있는지 확인하기 위한 허용 숫자
@@ -66,7 +79,29 @@ const BANNED = [
 ];
 const CATEGORIES = ['구매 가이드', '사용 팁', '제품 이야기', '생활 공간'];
 
-function validate(md, { allowed, slugs }) {
+// 제목 유사도: 공백 뺀 글자 2개 묶음의 자카드 계수
+const bigrams = s => { const t = s.replace(/\s+/g, ''); const set = new Set(); for (let i = 0; i < t.length - 1; i++) set.add(t.slice(i, i + 2)); return set; };
+const similar = (a, b) => { const A = bigrams(a), B = bigrams(b); let n = 0; for (const x of A) if (B.has(x)) n++; return n / (A.size + B.size - n || 1); };
+const norm = s => String(s || '').replace(/\s+/g, '');
+const count = (hay, needle) => needle ? hay.split(needle).length - 1 : 0;
+function checkKeyword(meta, body, keyword, posts) {
+  const errs = [];
+  if (!keyword) return errs;
+  const first = (body || '').trim().split(/\n\s*\n/)[0] || '';
+  if (!norm(meta.title).includes(norm(keyword))) errs.push(`제목에 대표 키워드 "${keyword}" 없음`);
+  if (!norm(first).includes(norm(keyword))) errs.push(`첫 문단에 대표 키워드 "${keyword}" 없음`);
+  const n = count(norm(body), norm(keyword));
+  if (n < 2 || n > 10) errs.push(`대표 키워드 본문 ${n}회 — 2~10회`);
+  for (const p of posts) {
+    if (p.slug === meta.slug) continue;
+    if (p.keyword && norm(p.keyword) === norm(keyword)) errs.push(`이미 같은 대표 키워드로 발행된 글: ${p.slug}`);
+    const sim = similar(meta.title || '', p.title || '');
+    if (sim >= 0.5) errs.push(`제목이 기존 글과 비슷함(${sim.toFixed(2)}): ${p.title}`);
+  }
+  return errs;
+}
+
+function validate(md, { allowed, slugs, keyword, posts = [] }) {
   const errs = [];
   let meta, body;
   try { ({ meta, body } = parseFrontmatter(md)); } catch (e) { return { ok: false, errs: ['머리말 형식 오류: ' + e.message] }; }
@@ -83,6 +118,7 @@ function validate(md, { allowed, slugs }) {
   if ((body.match(/^##\s/mg) || []).length < 3) errs.push('## 소제목 3개 이상 필요');
   for (const [re, why] of BANNED) { const m = md.match(re); if (m) errs.push(`금지 표현(${why}): "${m[0]}"`); }
   for (const c of COMPETITORS) if (md.includes(c)) errs.push(`타사 상품·브랜드명 사용: ${c}`);
+  if (/수니홈|sooneehome/i.test(md)) errs.push('타사 상품·브랜드명 사용: 수니홈');
   for (const m of md.matchAll(/https?:\/\/[^\s)]+/g)) if (!/jamschool\.co\.kr|smartstore\.naver\.com\/healingq/.test(m[0])) errs.push(`외부 링크 금지: ${m[0]}`);
   const unknown = new Set();
   for (const m of body.matchAll(/(\d[\d,]*(?:\.\d+)?)\s*(kg\/m³|kg|cm|mm|㎛|원|회|Bq\/m³|Bq|일|년|개월|%|ml|시|만)/g)) {
@@ -90,10 +126,11 @@ function validate(md, { allowed, slugs }) {
     if (!allowed.has(n)) unknown.add(m[0]);
   }
   if (unknown.size) errs.push(`사실 목록에 없는 수치: ${[...unknown].join(', ')}`);
+  errs.push(...checkKeyword(meta, body, keyword || meta.keyword, posts));
   return { ok: errs.length === 0, errs, meta, len };
 }
 
-const SYSTEM = (sheet) => `당신은 잠스쿨 공식몰 "수면 가이드" 담당 에디터입니다. 3단 접이식 매트리스를 사려는 사람이 검색창이나 AI에게 묻는 질문에, 브랜드가 직접 확인한 사실로 답하는 글을 씁니다.
+const SYSTEM = (sheet) => `당신은 잠스쿨 공식몰 "수면 가이드" 담당 에디터입니다. 3단 접이식 매트리스·토퍼·베개를 사려는 사람이 검색창이나 AI에게 묻는 질문에, 브랜드가 직접 확인한 사실로 답하는 글을 씁니다.
 
 # 반드시 지킬 것
 - 아래 [사실 목록]에 있는 내용만 사실로 씁니다. 목록에 없는 수치·시험·효과·후기를 만들지 않습니다. 모르는 것은 쓰지 않습니다.
@@ -107,7 +144,10 @@ const SYSTEM = (sheet) => `당신은 잠스쿨 공식몰 "수면 가이드" 담�
 - 첫 문단에서 질문에 바로 답합니다(결론 먼저). 그다음 이유와 숫자.
 - 숫자를 비교할 때는 마크다운 표를 씁니다. 목록은 꼭 필요할 때만.
 - 사람이 직접 쓴 글처럼, 같은 문장 구조를 반복하지 않습니다. "~하는 것이 중요합니다" 같은 말로 문단을 끝내지 않습니다.
-- 내부 링크는 상품 상세 [3단 접이식 매트리스](product-29.html), 홈 섹션(index.html#price, index.html#safety, index.html#faq), 기존 글(blog/<slug>.html)만 씁니다.
+- 내부 링크는 상품 상세(product-<번호>.html, 사실 목록의 상품 번호), 전체 상품(shop.html), 홈 섹션(index.html#price, index.html#safety, index.html#faq), 기존 글(blog/<slug>.html)만 씁니다.
+- 대표 키워드는 제목 앞부분과 첫 문단에 자연스럽게 넣고, 소제목 하나에도 넣습니다. 본문 전체에서 3~8번 정도, 한 문장에 두 번 넣지 않습니다.
+- 상품명은 "(줄여서 …)"의 짧은 이름을 씁니다. 베개·다리베개·쿠션도 효과는 말하지 않고 높이·소재·세탁·쓰는 장면만 씁니다.
+- 구매평을 인용할 때는 [구매평] 원문을 짧게 그대로 따옴표로 옮기고 "구매평 일부"라고 밝힙니다. 후기를 지어내지 않습니다.
 
 # 출력 형식 (이 형식 외의 말은 출력하지 않습니다)
 ---
@@ -139,12 +179,14 @@ function userMsg(topic, posts, today) {
   return `오늘 날짜: ${today}
 주제 ID: ${topic.id}
 주제: ${topic.title}
+대표 키워드(제목·첫 문단 필수): ${topic.keyword || topic.title}
+함께 쓸 검색어: ${(topic.keywords || []).join(', ')}
 다룰 방향: ${topic.angle}
-포함할 검색어: ${(topic.keywords || []).join(', ')}
 권장 카테고리: ${topic.category}
+중심 상품: product-${topic.product || 29}.html
 
-이미 발행된 글(내용이 겹치지 않게 하고, 관련 있으면 내부 링크로 연결):
-${posts.map(p => `- ${p.title} → blog/${p.slug}.html`).join('\n') || '- 없음'}
+이미 발행된 글(대표 키워드·제목이 겹치지 않게 하고, 관련 있으면 내부 링크로 연결):
+${posts.map(p => `- ${p.title}${p.keyword ? ` [키워드: ${p.keyword}]` : ''} → blog/${p.slug}.html`).join('\n') || '- 없음'}
 
 위 형식대로 글 한 편을 써 주세요.`;
 }
@@ -175,7 +217,7 @@ async function main() {
     let bad = 0;
     for (const f of fs.readdirSync(BLOG).filter(f => f.endsWith('.md') && !f.startsWith('_'))) {
       const md = fs.readFileSync(path.join(BLOG, f), 'utf8');
-      const v = validate(md, { allowed, slugs: new Set() });
+      const v = validate(md, { allowed, slugs: new Set(), posts });
       console.log(`${v.ok ? 'OK ' : 'NG '} ${f} (${v.len ?? '?'}자)${v.ok ? '' : '\n    - ' + v.errs.join('\n    - ')}`);
       if (!v.ok) bad++;
     }
@@ -184,23 +226,33 @@ async function main() {
 
   const topics = JSON.parse(fs.readFileSync(TOPICS, 'utf8'));
   const id = opt('--topic');
-  const topic = id ? topics.find(t => t.id === id) : topics.find(t => t.status === 'todo');
-  if (!topic) { console.log('작성할 주제가 없습니다(_topics.json 의 status:"todo" 없음).'); return; }
+  const n = Math.max(1, Math.min(5, +(opt('--count') || 1)));
+  const queue = id ? topics.filter(t => t.id === id) : topics.filter(t => t.status === 'todo').slice(0, n);
+  if (!queue.length) { console.log('작성할 주제가 없습니다(_topics.json 의 status:"todo" 없음).'); return; }
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic(); // ANTHROPIC_API_KEY 등 환경 자격 증명 사용
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
   const system = SYSTEM(sheet);
+  for (const topic of queue) {
+    // 앞에서 발행한 글까지 다시 읽어 키워드·제목 중복을 막는다
+    await writeOne({ client, system, topic, posts: loadPosts(BLOG), allowed, today });
+    fs.writeFileSync(TOPICS, JSON.stringify(topics, null, 2) + '\n');
+  }
+}
+
+async function writeOne({ client, system, topic, posts, allowed, today }) {
   const messages = [{ role: 'user', content: userMsg(topic, posts, today) }];
   const slugs = new Set(posts.map(p => p.slug));
+  const keyword = topic.keyword;
 
   let out, v;
   for (let attempt = 1; attempt <= 2; attempt++) {
     out = await callClaude(client, system, messages);
-    if (out.refused) { console.log(`거절됨(${out.res.stop_details?.category ?? '분류 없음'}) — 이번 회차는 발행하지 않습니다.`); return; }
+    if (out.refused) { console.log(`거절됨(${out.res.stop_details?.category ?? '분류 없음'}) — ${topic.id} 는 이번 회차에 발행하지 않습니다.`); return; }
     const u = out.res.usage;
-    console.log(`응답 ${attempt}차: 입력 ${u.input_tokens} / 캐시 읽기 ${u.cache_read_input_tokens ?? 0} / 출력 ${u.output_tokens} 토큰, 모델 ${out.res.model}`);
-    v = validate(out.text, { allowed, slugs });
+    console.log(`[${topic.id}] 응답 ${attempt}차: 입력 ${u.input_tokens} / 캐시 읽기 ${u.cache_read_input_tokens ?? 0} / 출력 ${u.output_tokens} 토큰, 모델 ${out.res.model}`);
+    v = validate(out.text, { allowed, slugs, keyword, posts });
     if (v.ok) break;
     console.log('검증 실패:\n  - ' + v.errs.join('\n  - '));
     if (attempt === 1) {
@@ -209,10 +261,13 @@ async function main() {
     }
   }
 
-  // 머리말에 날짜·작성자·상품·AI 작성 표시를 붙인다
-  const { meta, body } = parseFrontmatter(out.text);
-  const front = ['---', `title: ${meta.title}`, `description: ${meta.description}`, `slug: ${meta.slug || topic.id}`, `date: ${today}`,
-    `category: ${meta.category}`, `tags: ${meta.tags.join(', ')}`, `product: ${topic.product || 29}`, 'author: 잠스쿨 편집팀', `generated: ${MODEL} ${today}`, `topic: ${topic.id}`, '---'].join('\n');
+  // 머리말에 날짜·작성자·상품·대표 키워드·썸네일·AI 작성 표시를 붙인다
+  let meta, body;
+  try { ({ meta, body } = parseFrontmatter(out.text)); } catch { meta = {}; body = out.text; }
+  const slug = meta.slug || topic.id;
+  const front = ['---', `title: ${meta.title}`, `description: ${meta.description}`, `slug: ${slug}`, `date: ${today}`,
+    `category: ${meta.category}`, `tags: ${(meta.tags || []).join(', ')}`, `keyword: ${keyword || ''}`, `product: ${topic.product || 29}`,
+    `image: assets/img/blog/${slug}.jpg`, ...(topic.photo ? [`photo: ${topic.photo}`] : []), 'author: 잠스쿨 편집팀', `generated: ${MODEL} ${today}`, `topic: ${topic.id}`, '---'].join('\n');
   const md = `${front}\n${body}\n`;
 
   if (!v.ok) {
@@ -221,13 +276,17 @@ async function main() {
     fs.writeFileSync(f, `<!-- 검증 실패로 발행하지 않음:\n- ${v.errs.join('\n- ')}\n-->\n` + md);
     console.log(`초안으로 저장: ${path.relative(ROOT, f)}`);
     topic.status = 'draft'; topic.draft = path.relative(ROOT, f).replace(/\\/g, '/');
-  } else {
-    const f = path.join(BLOG, `${meta.slug}.md`);
-    fs.writeFileSync(f, md);
-    console.log(`발행: ${path.relative(ROOT, f)} (${v.len}자)`);
-    topic.status = 'done'; topic.slug = meta.slug; topic.date = today;
+    return;
   }
-  fs.writeFileSync(TOPICS, JSON.stringify(topics, null, 2) + '\n');
+  const f = path.join(BLOG, `${slug}.md`);
+  fs.writeFileSync(f, md);
+  console.log(`발행: ${path.relative(ROOT, f)} (${v.len}자, 대표 키워드 "${keyword}")`);
+  topic.status = 'done'; topic.slug = slug; topic.date = today;
+  // 썸네일: 실패해도 글은 발행 상태로 둔다(빌드가 상품 사진으로 대신 보여 준다)
+  try {
+    const { makeThumbs } = await import('../blog/thumb.mjs');
+    await makeThumbs({ only: [slug] });
+  } catch (e) { console.log('썸네일 생성 건너뜀:', e.message); }
 }
 
 main().catch(async err => {

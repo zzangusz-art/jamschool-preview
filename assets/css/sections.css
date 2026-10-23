@@ -131,6 +131,11 @@
 @media (min-width: 760px) { .post-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
 .post-card a { display: flex; flex-direction: column; height: 100%; padding: 22px; border-radius: var(--r-lg); background: #fff; border: 1px solid var(--line); transition: border-color .2s, transform .2s var(--ease), box-shadow .2s; }
 .post-card a:hover { border-color: #C9D1DA; transform: translateY(-2px); box-shadow: var(--sh-2); }
+.post-card__img { display: block; margin: -22px -22px 16px; aspect-ratio: 1200 / 630; overflow: hidden; border-radius: var(--r-lg) var(--r-lg) 0 0; background: var(--soft); }
+.post-card__img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--ease); }
+@media (hover: hover) { .post-card a:hover .post-card__img img { transform: scale(1.03); } }
+.post__hero { margin: 24px 0 0; aspect-ratio: 1200 / 630; overflow: hidden; border-radius: 20px; background: var(--soft); }
+.post__hero img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .post-card__cat { font-size: 13px; font-weight: 800; color: var(--sky-ink); }
 .post-card h3 { margin-top: 6px; font-size: 19px; line-height: 1.45; }
 .post-card__desc { margin-top: 8px; font-size: 15px; color: var(--sub); line-height: 1.65; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

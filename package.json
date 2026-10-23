@@ -8,6 +8,7 @@
     "blog:check": "node tools/blog-ai/generate.mjs --check"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.135.0"
+    "@anthropic-ai/sdk": "0.135.0",
+    "puppeteer-core": "23.11.1"
   }
 }

@@ -26,6 +26,8 @@ for (const f of ['assets/js/data.js', 'assets/js/render.js', ...DETAIL_FILES]) v
 const { JAM, RENDER: R, DETAIL = {} } = ctx.window;
 const { PRODUCTS, OPTIONS_29: O, REVIEWS, SHORT_REVIEWS, TESTS, FAQ, USES, FEATURES, MARKET, CHECKS, NOTICE = {} } = JAM;
 const POSTS = loadPosts(path.join(ROOT, 'content/blog'));
+// 썸네일(tools/blog/thumb.mjs)이 실제로 있을 때만 쓴다 — 없으면 카드는 글자만, 공유 이미지는 상품 사진
+for (const p of POSTS) p.thumb = p.image && fs.existsSync(path.join(ROOT, p.image)) ? p.image : null;
 const { esc, won } = R;
 
 const partial = n => rd(`src/partials/${n}.html`);
@@ -409,7 +411,7 @@ const blogShell = (tplName, slugPath) => includes(rd(`src/${tplName}`)).split('h
 const CATS = [...new Set(POSTS.map(p => p.category))];
 {
   let s = blogShell('blog-index.tpl.html', 'blog/');
-  s = fill(s, 'canonical', SITE + 'blog/'); s = fill(s, 'ogimg', SITE + 'assets/video/hero-desktop.jpg');
+  s = fill(s, 'canonical', SITE + 'blog/'); s = fill(s, 'ogimg', SITE + ((POSTS.find(p => p.thumb) || {}).thumb || 'assets/video/hero-desktop.jpg'));
   s = fill(s, 'cats', ['<button class="chip" type="button" aria-pressed="true" data-f="all">전체</button>', ...CATS.map(c => `<button class="chip" type="button" aria-pressed="false" data-f="${esc(c)}">${esc(c)}</button>`)].join(''));
   s = fill(s, 'list', POSTS.map(p => R.postCard(p).replace('<article class="post-card">', `<article class="post-card" data-c="${esc(p.category)}">`)).join('') || '<p class="note">첫 글을 준비하고 있습니다.</p>');
   s = fill(s, 'jsonld', ld({ '@context': 'https://schema.org', '@graph': [ORG, { '@type': 'Blog', '@id': SITE + 'blog/#blog', name: '잠스쿨 수면 가이드', url: SITE + 'blog/', inLanguage: 'ko-KR', publisher: { '@id': SITE + '#org' }, blogPost: POSTS.map(p => ({ '@type': 'BlogPosting', headline: p.title, url: `${SITE}blog/${p.slug}.html`, datePublished: p.date })) }] }));
@@ -419,17 +421,20 @@ for (const p of POSTS) {
   const url = `${SITE}blog/${p.slug}.html`;
   let s = blogShell('blog-post.tpl.html', `blog/${p.slug}.html`);
   s = fill(s, 'title', esc(p.title)); s = fill(s, 'desc', esc(p.description)); s = fill(s, 'canonical', url);
-  s = fill(s, 'ogimg', SITE + (p.image || 'assets/img/products/29/01.jpg')); s = fill(s, 'date', esc(p.date)); s = fill(s, 'datetxt', esc(p.date.replace(/-/g, '.')));
+  const prod = PRODUCTS.find(x => String(x.id) === String(p.product || 29)) || P29card;
+  const img = p.thumb || prod.imgs[0];
+  s = fill(s, 'ogimg', SITE + img); s = fill(s, 'date', esc(p.date));
+  s = fill(s, 'hero', p.thumb ? `<figure class="post__hero">${R.pic(p.thumb, `alt="${esc(p.title)}" width="1200" height="630" fetchpriority="high" decoding="async"`)}</figure>` : ''); s = fill(s, 'datetxt', esc(p.date.replace(/-/g, '.')));
   s = fill(s, 'cat', esc(p.category)); s = fill(s, 'author', esc(p.author || '잠스쿨 편집팀')); s = fill(s, 'minutes', String(p.minutes));
   s = fill(s, 'toc', p.toc.length > 2 ? `<nav class="post__toc" aria-label="목차"><p>이 글의 순서</p><ol>${p.toc.map(t => `<li><a href="blog/${esc(p.slug)}.html#${t.id}">${esc(t.t)}</a></li>`).join('')}</ol></nav>` : '');
   s = fill(s, 'body', p.html);
   s = fill(s, 'faq', p.faq.length ? `<section class="post-faq" aria-labelledby="pf-t"><h2 id="pf-t">자주 묻는 질문</h2><div class="acc">${p.faq.map((f, i) => R.accItem(`pf-${i}`, f.q, f.html)).join('')}</div></section>` : '');
-  const prod = PRODUCTS.find(x => String(x.id) === String(p.product || 29)) || P29card;
   s = fill(s, 'cta', `<aside class="post-cta" aria-label="관련 상품">${R.pic(prod.imgs[0], `alt="" width="96" height="96" loading="lazy"`)}<div><b>${esc(prod.name)}</b><span>${esc(prod.summary)} · ${won(prod.price)}${prod.full ? '부터' : ''}</span><a class="btn btn--primary btn--sm" href="${R.href(prod)}">상품 보기</a></div></aside>`);
-  const rel = POSTS.filter(x => x.slug !== p.slug).slice(0, 3);
+  // 함께 읽을 글: 같은 상품 글 먼저, 그다음 최신순
+  const rel = POSTS.filter(x => x.slug !== p.slug).map((x, i) => [x, (String(x.product || 29) === String(p.product || 29) ? 0 : 1000) + i]).sort((a, b) => a[1] - b[1]).slice(0, 3).map(a => a[0]);
   s = fill(s, 'related', rel.length ? `<section class="post-related" aria-labelledby="pr-t"><h2 id="pr-t">함께 읽으면 좋은 글</h2><div class="post-grid">${rel.map(x => R.postCard(x)).join('')}</div></section>` : '');
   const graph = [ORG,
-    { '@type': 'BlogPosting', '@id': url + '#post', headline: p.title, description: p.description, datePublished: p.date, dateModified: p.updated || p.date, inLanguage: 'ko-KR', url, mainEntityOfPage: url, image: SITE + (p.image || 'assets/img/products/29/01.jpg'), author: { '@type': 'Organization', name: p.author || '잠스쿨 편집팀', url: SITE }, publisher: { '@id': SITE + '#org' }, keywords: p.tags.join(', '), about: { '@type': 'Product', name: prod.name, url: SITE + R.href(prod) } },
+    { '@type': 'BlogPosting', '@id': url + '#post', headline: p.title, description: p.description, datePublished: p.date, dateModified: p.updated || p.date, inLanguage: 'ko-KR', url, mainEntityOfPage: url, image: SITE + img, author: { '@type': 'Organization', name: p.author || '잠스쿨 편집팀', url: SITE }, publisher: { '@id': SITE + '#org' }, keywords: p.tags.join(', '), about: { '@type': 'Product', name: prod.name, url: SITE + R.href(prod) } },
     { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '수면 가이드', item: SITE + 'blog/' }, { '@type': 'ListItem', position: 3, name: p.title, item: url }] }];
   if (p.faq.length) graph.push({ '@type': 'FAQPage', mainEntity: p.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/\*\*/g, '') } })) });
   s = fill(s, 'jsonld', ld({ '@context': 'https://schema.org', '@graph': graph }));
