@@ -28,7 +28,7 @@ const POOL = {
 };
 // 카테고리마다 배경색을 달리해 목록에서 한눈에 구분되게
 const THEME = {
-  '구매 가이드': { bg: '#0E2440', ink: '#FFFFFF', em: '#36C7F2', chip: 'rgba(255,255,255,.14)', chipInk: '#FFFFFF', sub: 'rgba(255,255,255,.72)' },
+  '구매 가이드': { dark: true, bg: '#0E2440', ink: '#FFFFFF', em: '#36C7F2', chip: 'rgba(255,255,255,.14)', chipInk: '#FFFFFF', sub: 'rgba(255,255,255,.72)' },
   '사용 팁': { bg: '#E4F5FC', ink: '#0E2440', em: '#0A7DBE', chip: '#FFFFFF', chipInk: '#0A7DBE', sub: '#4A5A6E' },
   '제품 이야기': { bg: '#F4F1EA', ink: '#15181C', em: '#0A7DBE', chip: '#FFFFFF', chipInk: '#15181C', sub: '#5E6670' },
   '생활 공간': { bg: '#E9F0EA', ink: '#15181C', em: '#0A7DBE', chip: '#FFFFFF', chipInk: '#2F5A3A', sub: '#56645A' },
@@ -77,14 +77,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic','Apple SD Gothic Neo',sans-serif
 h1{margin-top:auto;font-size:var(--fs,60px);line-height:1.24;font-weight:900;letter-spacing:-.045em;word-break:keep-all;overflow-wrap:anywhere}
 h1 em{font-style:normal;color:${th.em}}
 .brand{display:flex;align-items:center;gap:12px;margin-top:auto;padding-top:28px;font-size:23px;font-weight:700;color:${th.sub}}
-.brand img{width:46px;height:46px;padding:5px;border-radius:12px;background:#fff}
-.brand b{color:${th.ink};font-weight:900}
+.brand img{display:block;width:auto;height:44px}
+.brand span{padding-left:14px;border-left:2px solid currentColor;line-height:1}
 .ph{position:relative;overflow:hidden}
 .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .ph::after{content:'';position:absolute;left:0;top:0;bottom:0;width:6px;background:${th.em}}
 </style></head><body><div class="card">
 <div class="txt"><span class="chip">${esc(p.category || '수면 가이드')}</span><h1 id="t">${titleHTML(p.title, p.keyword)}</h1>
-<p class="brand"><img src="${dataURI('assets/img/brand/symbol.png')}" alt=""><b>잠스쿨</b> 수면 가이드</p></div>
+<p class="brand"><img src="${dataURI(th.dark ? 'assets/img/brand/logo-white.png' : 'assets/img/brand/logo.png')}" alt=""><span>수면 가이드</span></p></div>
 <div class="ph"><img src="${dataURI(photo)}" alt=""></div>
 </div></body></html>`;
 }

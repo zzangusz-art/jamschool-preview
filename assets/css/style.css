@@ -144,11 +144,10 @@ strong, b { font-weight: 700; color: var(--ink); }
 .header { position: sticky; top: 0; z-index: 50; height: var(--header-h); background: rgba(255, 255, 255, .86); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); border-bottom: 1px solid transparent; transition: border-color .25s, background-color .25s; }
 .header.is-scrolled { border-bottom-color: var(--line); background: rgba(255, 255, 255, .94); }
 .header__in { height: 100%; display: flex; align-items: center; gap: 8px; }
-.logo { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
-.logo__mark { width: 40px; height: 34px; }
-.logo__txt { display: flex; flex-direction: column; line-height: 1; }
-.logo__ko { font-size: 22px; font-weight: 900; letter-spacing: -0.04em; }
-.logo__en { margin-top: 3px; font-size: 8.5px; font-weight: 600; letter-spacing: .26em; color: var(--sky-ink); }
+/* 로고: 공식 로고 파일(jamschool logo.ai VER.01 가로형, 푸터는 VER.02) */
+.logo { display: inline-flex; align-items: center; }
+.logo__img { display: block; width: auto; height: 36px; }
+@media (min-width: 768px) { .logo__img { height: 42px; } }
 .gnb { display: none; }
 .header__tools { margin-left: auto; display: flex; align-items: center; gap: 2px; }
 .cart-count { position: absolute; top: 4px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--sky-btn); color: #fff; font-size: 11px; font-weight: 800; line-height: 18px; text-align: center; transform: scale(0); transition: transform .3s var(--ease); }
@@ -476,8 +475,7 @@ strong, b { font-weight: 700; color: var(--ink); }
 .footer a:hover { color: #fff; }
 .footer__top { display: grid; gap: 28px; }
 @media (min-width: 900px) { .footer__top { grid-template-columns: 1.3fr 1fr 1fr; } }
-.footer .logo { color: #fff; }
-.footer .logo__en { color: var(--sky); }
+.footer .logo__img { height: 40px; }
 .footer h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 10px; letter-spacing: 0; }
 .footer__cs { font-size: 26px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
 .footer__links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 28px; padding-top: 22px; border-top: 1px solid #262B32; }

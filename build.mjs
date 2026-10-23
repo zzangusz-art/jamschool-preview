@@ -42,10 +42,10 @@ const ld = obj => `<script type="application/ld+json">${JSON.stringify(obj)}</sc
 const picturize = html => html.replace(/(?<!type="image\/webp">)<img src="(assets\/img\/[^"]+\.(?:jpe?g|png))"([^>]*)>/g, (m, src, rest) => R.pic(src, rest.trim()));
 
 const ORG = {
-  '@type': 'Organization', '@id': SITE + '#org', name: '잠스쿨', alternateName: ['JAMSCHOOL', '(주)씨와이컴퍼니'], url: SITE,
-  logo: SITE + 'favicon.svg', email: 'jamsale33@gmail.com',
+  '@type': 'Organization', '@id': SITE + '#org', name: '잠스쿨', legalName: '잠스쿨', alternateName: ['JAMSCHOOL'], url: SITE, taxID: '841-45-00474',
+  logo: SITE + 'assets/img/brand/logo.png', email: 'jamsale33@gmail.com',
   contactPoint: { '@type': 'ContactPoint', telephone: '+82-10-9610-8868', contactType: 'customer service', areaServed: 'KR', availableLanguage: 'ko', hoursAvailable: { '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], opens: '09:00', closes: '17:00' } },
-  address: { '@type': 'PostalAddress', streetAddress: '가산디지털2로 95 KM TOWER 9층 904호', addressLocality: '금천구', addressRegion: '서울특별시', postalCode: '08505', addressCountry: 'KR' },
+  address: { '@type': 'PostalAddress', streetAddress: '강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트)', addressLocality: '강서구', addressRegion: '서울특별시', addressCountry: 'KR' },
   sameAs: ['https://smartstore.naver.com/healingq'],
 };
 
@@ -216,11 +216,11 @@ function specBase(p) {
       ['색상', '그레이 · 아이보리'], ['내장재', '4세대 고밀도 폼 (밀도 31kg/m³, KATRI 측정값 31.30kg/m³) · 100% 국산 폼'],
       ['커버', '에어론 솜을 넣은 누빔 커버 · 3개 지퍼로 분리 · 바닥면 미끄럼 방지 코팅'], ['원산지', '대한민국 (내장재 폼부터 겉커버까지 국내 생산)'],
       ['배송 형태', '압축 포장 (원래 크기로 복원까지 약 2일)'], ['세탁', '커버 찬물 단독 세탁 · 중성세제와 세탁망 권장 · 뜨거운 물과 건조기는 수축 원인'],
-      ['보증', '2년 안에 폼이 꺼지면 폼 무상 교체'], ['판매원', '(주)씨와이컴퍼니'],
+      ['보증', '2년 안에 폼이 꺼지면 폼 무상 교체'], ['판매원', '잠스쿨'],
     ];
     return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table><h3 class="pd-h3">옵션별 크기 · 무게 · 판매가</h3>${R.specTable(O)}<p class="note" style="margin-top:10px">접은 크기는 폭 × 깊이 × 높이입니다. 정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준이며 쿠폰 적용 전 금액입니다.</p>`;
   }
-  const rows = [['제품명', p.name], ['특징', p.points.length ? p.points.join(' · ') : p.summary], ['원산지', '대한민국'], ['판매원', '(주)씨와이컴퍼니']];
+  const rows = [['제품명', p.name], ['특징', p.points.length ? p.points.join(' · ') : p.summary], ['원산지', '대한민국'], ['판매원', '잠스쿨']];
   return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
 }
 function reviewsHTMLp(p) {
@@ -454,7 +454,7 @@ wr('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${SITE}sitemap.xml\n`);
 const P29 = PRODUCTS[0];
 wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 
-> 잠스쿨은 (주)씨와이컴퍼니가 운영하는 국내 생산 매트리스 브랜드입니다. 대표 제품은 3단 접이식 매트리스이며, 폼부터 겉커버까지 국내에서 생산합니다.
+> 잠스쿨은 국내 생산 매트리스 브랜드입니다. 대표 제품은 3단 접이식 매트리스이며, 폼부터 겉커버까지 국내에서 생산합니다.
 
 ## 대표 제품: 잠스쿨 허리에 좋은 3단 접이식 매트리스
 - 두께: 침대형 7cm(침대 프레임 위), 바닥형 12cm(바닥 또는 침대). 고객의 70% 이상이 바닥형을 선택.
@@ -487,7 +487,7 @@ ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).jo
 공식몰 ${SITE}, 네이버 스마트스토어 https://smartstore.naver.com/healingq, 11번가, 오늘의집, GS샵, 현대Hmall
 
 ## 회사
-(주)씨와이컴퍼니 · 대표 노치영 · 사업자등록번호 685-81-00023 · 서울특별시 금천구 가산디지털2로 95 KM TOWER 9층 904호 · 고객센터 010-9610-8868(평일 09:00~17:00) · jamsale33@gmail.com
+상호 잠스쿨 · 대표 노치영 · 사업자등록번호 841-45-00474 · 통신판매업신고 제2019-서울강서-2200호 · 서울특별시 강서구 강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트) · 고객센터 010-9610-8868(평일 09:00~17:00) · jamsale33@gmail.com
 `);
 console.log('built: index.html,', PRODUCTS.map(p => `product-${p.id}.html`).join(', '), ', sitemap.xml, robots.txt, llms.txt');
 console.log(`detail manifests: ${Object.keys(DETAIL).join(', ') || '없음'}`);

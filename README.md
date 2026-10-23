@@ -101,6 +101,12 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 - 결제 수단·배송비·적립률·쿠폰·택배사는 `CHECKOUT` 에서 수정. 제주·도서산간 추가 배송비 금액은 공식몰에 없어 금액 없이 안내 문구만 띄움
 - 주문서 동의 문구(개인정보 수집·이용, 매트리스 압축 포장 반품 안내)는 운영 전에 고객사 개인정보처리방침과 맞춰 확인할 것
 
+## 로고
+원본: 상위 폴더 `jamschool logo/jamschool logo.ai` (VER.01 컬러 · VER.02 어두운 배경용 · VER.03 흰색 단색, 가로형·세로형).
+- `assets/img/brand/logo.png` 헤더·구조화 데이터(VER.01 가로형), `logo-white.png` 푸터(VER.02 가로형), `logo-v.png` 히어로 영상 처음·끝(VER.01 세로형), `symbol.png` 학사모만
+- 파비콘 `favicon.ico`·`favicon.svg`·`assets/img/brand/apple-touch-icon.png` 은 학사모 심볼로 만듦
+- 블로그 썸네일 하단에도 같은 로고(네이비 배경은 흰색 로고)
+
 ## 영상 다시 만들기
 `../motion/render.bat` — 3D 장면(three.js)을 headless Chrome으로 프레임 렌더 → ffmpeg 인코딩. 원본 마스터는 `../motion/masters/`.
 웹용 재인코딩:
