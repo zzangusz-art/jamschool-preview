@@ -63,6 +63,17 @@ node build.mjs
 ```
 `prepare_detail.py` 안의 EXCLUDE(가격표·이벤트·옛 안내 제외)와 CUT(이미지 일부 삭제) 목록은 공식몰 상세가 바뀌면 다시 확인해야 한다. 250KB 넘는 움직이는 GIF는 MP4 루프로 바꾼다.
 
+### 스마트스토어 상세·썸네일 가져오기
+스마트스토어는 자동 접근이 막혀 있고 Claude 브라우저(내장·Claude in Chrome) 모두 접속 불가라, 평소 크롬에서 상품 페이지를 연 상태로 목록만 캡처한다.
+1. **북마크 버튼(권장)**: `../motion/tools/smartstore_bookmarklet.html` 을 크롬으로 열어 「잠스쿨 상세캡처」를 북마크바로 끌어다 놓고(처음 한 번), 상품 페이지마다 그 북마크를 누른다. 스니펫을 고치면 `node ../motion/tools/make_bookmarklet.mjs` 로 다시 만들고 북마크도 다시 끌어다 놓기
+   - 콘솔로 할 때: 상품 페이지 → F12 → Console → `smartstore_capture_console.js` 전체 붙여넣기 → Enter (`allow pasting` 은 처음 한 번만 입력하고, 그다음 다시 붙여넣기)
+2. 자동으로 「상세정보 펼쳐보기」 → 상세 끝까지 스크롤 → 다운로드 폴더에 `smartstore_<상품번호>_<날짜>.json` 저장. 못 찾으면 직접 펼쳐 스크롤 후 `nvDetail.download()` (막히면 `copy(nvDetail.json())`)
+3. `python ../motion/tools/smartstore_fetch.py <json> <작업폴더> --id 29` → 썸네일(`thumbs/`)·상세 이미지(`29/`)·`manifest.json`(상세 글은 `t:'t'`)
+4. `python ../motion/tools/apply_smartstore.py <작업폴더> . --id 29 --plan <계획.json> --clean` → `assets/img/detail/29/ss-NN.*`·`assets/js/detail-29.js`·썸네일 `assets/img/products/29/ss-NN.jpg`(기존 01~은 홈·스토리·블로그 사진이라 유지). 먼저 `--dry`
+   - 계획 파일: 제외 이미지(`exclude`)·부분 삭제(`cut` 픽셀 구간)·뺄 글(`drop_text` 정규식)·쓸 썸네일 순서(`thumbs`). 예시 `../research/smartstore/plan-29.json`·`plan-30.json`·`plan-39.json`
+   - 기준: 네이버 전용 행사(넓다세일·알림받기 쿠폰)·현재 판매가와 다른 가격표는 빼고, 증정 이벤트는 그대로. 썸네일에서 스토어 프로필(옛 로고)·영상 썸네일·추가상품 사진은 뺌
+5. data.js `imgs: ssGallery(id, 장수)` 로 바꾸고 `python ../motion/tools/to_webp.py assets/img` → 빌드
+
 ## 수면 가이드 (블로그)
 - 글 추가: `content/blog/<slug>.md` 를 만들고 빌드. 머리말 필수 항목 `title` `description` `slug` `date` `category`(구매 가이드·사용 팁·제품 이야기·생활 공간), 선택 `tags` `keyword`(대표 키워드, 글마다 하나·중복 금지) `product`(29 등) `image`(썸네일 `assets/img/blog/<slug>.jpg`) `photo`(썸네일에 쓸 사진 지정) `author`
 - 썸네일: `node tools/blog/thumb.mjs` (없는 것만) / `--all` / `<slug>`. 1200×630, 왼쪽 제목(대표 키워드 하늘색)·오른쪽 상품 실사 사진, 카테고리마다 배경색. Chrome 필요(`CHROME_PATH`). 썸네일이 없으면 카드는 글자만, 공유 이미지는 상품 사진

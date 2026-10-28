@@ -3,6 +3,8 @@
 (function () {
   const IMG = 'assets/img/products/';
   const gallery = (id, n, ext = {}) => Array.from({ length: n }, (_, i) => `${IMG}${id}/${String(i + 1).padStart(2, '0')}.${ext[i + 1] || 'jpg'}`);
+  // 스마트스토어 상품 썸네일(대표 → 추가 순, motion/tools/apply_smartstore.py, 2026-10-28 수집). 공식몰 사진 01~ 은 홈·스토리·블로그에서 계속 쓴다.
+  const ssGallery = (id, n) => Array.from({ length: n }, (_, i) => `${IMG}${id}/ss-${String(i + 1).padStart(2, '0')}.jpg`);
 
   const MALL = 'https://jamschool.co.kr/shop_view/?idx=';
   const STORE_29 = 'https://smartstore.naver.com/healingq/products/7338124791';
@@ -15,7 +17,7 @@
       summary: '31kg/m³ 고밀도 국내산 폼 · 침대형 7cm / 바닥형 12cm',
       list: 269000, price: 139000, badges: ['BEST', 'SALE'],
       rating: 4.87, reviews: 6661, photoReviews: 4387, qna: 52,
-      imgs: gallery(29, 10),
+      imgs: ssGallery(29, 9),
       points: ['14일 무료체험', '2년 폼 무상 교체', '100% 국내 생산', '밀도 31kg/m³'],
       mall: MALL + 29, store: STORE_29, full: true,
     },
@@ -24,7 +26,7 @@
       name: '잠스쿨 푹신한 떡실신 매트리스', short: '떡실신 매트리스',
       summary: '몸을 감싸는 폭신한 쿠션감 · 8cm',
       list: 105000, price: 64000, badges: ['BEST', '오늘출발'],
-      rating: 4.83, reviews: 32105, imgs: gallery(30, 13, { 3: 'png', 4: 'png' }),
+      rating: 4.83, reviews: 32105, imgs: ssGallery(30, 10),
       points: ['몸을 감싸주는 폭신한 쿠션감', '미끌림 방지 기능', '편리한 보관을 위한 스트랩 부착', '부드러운 커버 촉감'],
       mall: MALL + 30,
     },
@@ -33,7 +35,7 @@
       name: '잠스쿨 폭신탄탄 양면 매트리스', short: '폭신탄탄 양면 매트리스',
       summary: '한 면은 폭신하게, 한 면은 탄탄하게 · 8cm',
       list: 189000, price: 109000, badges: ['MD'],
-      rating: 4.83, reviews: 1844, imgs: gallery(39, 19),
+      rating: 4.83, reviews: 1844, imgs: ssGallery(39, 9),
       points: ['폭신한 쿠션감과 탄탄한 쿠션감 선택', '미끌림 방지 기능', '고정 벨트 증정'],
       mall: MALL + 39,
     },
