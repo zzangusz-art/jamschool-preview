@@ -33,7 +33,7 @@ if (PREVIEW) {
       if (!e.name.endsWith('.html')) continue;
       let s = fs.readFileSync(abs, 'utf8');
       if (!s.includes('name="robots"')) s = s.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="robots" content="noindex, nofollow">');
-      s = s.replace(/(property="og:image" content=")https:\/\/jamschool\.co\.kr\//g, `$1${PREVIEW}`);
+      s = s.replace(/(property="og:image" content=")https:\/\/jamschool\.kr\//g, `$1${PREVIEW}`);
       fs.writeFileSync(abs, s);
     }
   })(OUT);

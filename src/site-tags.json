@@ -1,0 +1,9 @@
+{
+  "_설명": "모든 페이지 <head>·<body>에 넣는 소유확인·추적 코드 ID. 비어 있으면 넣지 않는다(build.mjs headTags). 값만 채우고 빌드·배포하면 된다.",
+  "naverSiteVerification": "2aff281b62cb8529a114cf0b432445df496a8d70",
+  "googleSiteVerification": "",
+  "bingSiteVerification": "",
+  "gtm": "",
+  "ga4": "",
+  "naverAnalytics": ""
+}

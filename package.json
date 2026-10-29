@@ -2,8 +2,12 @@
   "name": "jamschool-site",
   "private": true,
   "description": "잠스쿨 공식홈 정적 사이트 + 블로그 AI 자동발행",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
-    "build": "node build.mjs",
+    "build": "node build.mjs && node tools/export-site.mjs _site",
+    "start": "node tools/serve.mjs _site",
     "blog:generate": "node tools/blog-ai/generate.mjs",
     "blog:check": "node tools/blog-ai/generate.mjs --check"
   },

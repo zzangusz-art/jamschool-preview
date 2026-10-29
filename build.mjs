@@ -7,9 +7,38 @@ import { fileURLToPath } from 'node:url';
 import { loadPosts } from './tools/blog/lib.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-const SITE = 'https://jamschool.co.kr/';
+// 공식 홈 주소(정식 주소·사이트맵·구조화 데이터 기준). 공식몰(jamschool.co.kr, 로그인·약관·구매평)은 다른 사이트라 따로 링크한다
+const SITE = 'https://jamschool.kr/';
 const rd = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
-const wr = (p, s) => fs.writeFileSync(path.join(ROOT, p), s);
+
+// 소유확인·추적 코드(src/site-tags.json, 비어 있는 항목은 넣지 않음): 모든 .html 의 <head> 첫머리, <body> 바로 뒤(GTM noscript), </body> 앞
+const TAGS = JSON.parse(rd('src/site-tags.json'));
+const tag = k => (typeof TAGS[k] === 'string' && /^[\w-]+$/.test(TAGS[k].trim()) ? TAGS[k].trim() : '');
+const HEAD_TAGS = [
+  tag('naverSiteVerification') && `<meta name="naver-site-verification" content="${tag('naverSiteVerification')}">`,
+  tag('googleSiteVerification') && `<meta name="google-site-verification" content="${tag('googleSiteVerification')}">`,
+  tag('bingSiteVerification') && `<meta name="msvalidate.01" content="${tag('bingSiteVerification')}">`,
+  tag('gtm') && `<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${tag('gtm')}');</script>`,
+  tag('ga4') && `<script async src="https://www.googletagmanager.com/gtag/js?id=${tag('ga4')}"></script>\n<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${tag('ga4')}');</script>`,
+].filter(Boolean).join('\n');
+const BODY_OPEN = tag('gtm') ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${tag('gtm')}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` : '';
+// 주요 클릭(스마트스토어·N Pay, 구매하기, 장바구니, 전화, 카카오, 공식몰 이동)을 dataLayer·GA4 이벤트로
+const TRACK_JS = (tag('gtm') || tag('ga4')) ? `<script>(function(){var w=window;w.dataLayer=w.dataLayer||[];function send(n,p){w.dataLayer.push(Object.assign({event:n},p));if(typeof w.gtag==='function')w.gtag('event',n,p);}
+document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a,button');if(!a)return;var h=a.getAttribute('href')||'',id=a.id||'',t=(a.textContent||'').replace(/\\s+/g,' ').trim().slice(0,40);
+if(/smartstore\\.naver\\.com/.test(h))send('jam_store_click',{link_url:h,label:t});else if(/^tel:/.test(h))send('jam_call_click',{link_url:h});
+else if(/kakao/.test(h))send('jam_kakao_click',{link_url:h});else if(/jamschool\\.co\\.kr/.test(h))send('jam_mall_click',{link_url:h,label:t});
+else if(/^(pd-buy|bb-buy|sh-buy)$/.test(id))send('jam_buy_click',{label:t});else if(id==='sh-cart')send('jam_cart_click',{label:t});},true);})();</script>` : '';
+const BODY_END = [
+  TRACK_JS,
+  tag('naverAnalytics') && `<script src="https://wcs.naver.net/wcslog.js"></script>\n<script>if(!wcs_add) var wcs_add = {};wcs_add["wa"] = "${tag('naverAnalytics')}";if(window.wcs) { wcs_do(); }</script>`,
+].filter(Boolean).join('\n');
+const withTags = s => {
+  if (HEAD_TAGS) s = s.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n${HEAD_TAGS}`);
+  if (BODY_OPEN) s = s.replace(/<body[^>]*>/, m => `${m}\n${BODY_OPEN}`);
+  if (BODY_END) s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, `${BODY_END}\n</body>`);
+  return s;
+};
+const wr = (p, s) => fs.writeFileSync(path.join(ROOT, p), p.endsWith('.html') ? withTags(s) : s);
 
 // WebP 폴백: assets/img 의 jpg/png 옆에 실제로 있는 .webp 만 <picture> 로 쓴다(없으면 원본 img 그대로)
 const walk = d => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`]);
