@@ -74,6 +74,11 @@ node build.mjs
    - 기준: 네이버 전용 행사(넓다세일·알림받기 쿠폰)·현재 판매가와 다른 가격표는 빼고, 증정 이벤트는 그대로. 썸네일에서 스토어 프로필(옛 로고)·영상 썸네일·추가상품 사진은 뺌
 5. data.js `imgs: ssGallery(id, 장수)` 로 바꾸고 `python ../motion/tools/to_webp.py assets/img` → 빌드
 
+### 스마트스토어 리뷰 가져오기
+- 같은 설치 페이지의 「잠스쿨 리뷰캡처」(`../motion/tools/smartstore_reviews_console.js`): 상품 페이지에서 누르면 리뷰 탭을 열고 지금 정렬(보통 랭킹순) 그대로 1~5쪽(약 100개)을 2~4초 간격으로 넘겨 `smartstore_reviews_<상품번호>_<날짜>.json` 저장(작성자는 가린 아이디, 별점·날짜·옵션·본문·사진 주소·도움돼요 수). 더 필요하면 콘솔 `nvReviews.auto({ pages: 10 })`(최대 20쪽)
+- 사이트에 실을 때: 원문 그대로(맞춤법 포함), 가린 아이디·작성일·「스마트스토어 구매평」 출처 표기. 리뷰 사진은 구매자 저작물이라 홍보 활용 동의 여부를 고객사에 확인한 뒤 사용
+- 구조화 데이터에는 별점·리뷰를 넣지 않는다(다른 사이트에서 모은 리뷰라 구글 리뷰 스니펫 정책 위반). build.mjs `productLD` 참고
+
 ## 수면 가이드 (블로그)
 - 글 추가: `content/blog/<slug>.md` 를 만들고 빌드. 머리말 필수 항목 `title` `description` `slug` `date` `category`(구매 가이드·사용 팁·제품 이야기·생활 공간), 선택 `tags` `keyword`(대표 키워드, 글마다 하나·중복 금지) `product`(29 등) `image`(썸네일 `assets/img/blog/<slug>.jpg`) `photo`(썸네일에 쓸 사진 지정) `author`
 - 썸네일: `node tools/blog/thumb.mjs` (없는 것만) / `--all` / `<slug>`. 1200×630, 왼쪽 제목(대표 키워드 하늘색)·오른쪽 상품 실사 사진, 카테고리마다 배경색. Chrome 필요(`CHROME_PATH`). 썸네일이 없으면 카드는 글자만, 공유 이미지는 상품 사진

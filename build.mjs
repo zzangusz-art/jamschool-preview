@@ -261,10 +261,11 @@ function productLD(p) {
   const offers = p.full
     ? { '@type': 'AggregateOffer', priceCurrency: 'KRW', lowPrice: Math.min(...Object.values(O.price)), highPrice: Math.max(...Object.values(O.price)), offerCount: Object.keys(O.price).length * O.color.length, availability: 'https://schema.org/InStock', url, seller: { '@id': SITE + '#org' } }
     : { '@type': 'Offer', priceCurrency: 'KRW', price: p.price, availability: 'https://schema.org/InStock', url, seller: { '@id': SITE + '#org' } };
+  // 별점·리뷰(aggregateRating·review)는 넣지 않는다: 구매평이 모두 스마트스토어(다른 사이트)에서 모은 것이라
+  // 구글 리뷰 스니펫 정책("다른 사이트의 리뷰·평점을 모아 표시하지 말 것") 위반 → 수동 조치 위험. 화면 표시는 출처와 함께 그대로.
   const prod = {
     '@type': 'Product', '@id': url + '#product', name: p.name, description: p.summary + (p.points.length ? ' · ' + p.points.join(' · ') : ''),
-    image: p.imgs.slice(0, 4).map(i => SITE + i), brand: { '@type': 'Brand', name: '잠스쿨' }, sku: `JAM-${p.id}`, countryOfOrigin: 'KR',
-    aggregateRating: { '@type': 'AggregateRating', ratingValue: p.rating, bestRating: 5, reviewCount: p.reviews }, offers,
+    image: p.imgs.slice(0, 4).map(i => SITE + i), brand: { '@type': 'Brand', name: '잠스쿨' }, sku: `JAM-${p.id}`, countryOfOrigin: 'KR', offers,
   };
   if (p.id === 29) {
     prod.additionalProperty = [
@@ -274,7 +275,6 @@ function productLD(p) {
       { '@type': 'PropertyValue', name: '라돈 검출', value: '7.6Bq/m³ 미만(한일원자력)' },
       { '@type': 'PropertyValue', name: '특허', value: '제10-2378668호 다층구조의 침대 매트리스' },
     ];
-    prod.review = REVIEWS.slice(0, 3).map(r => ({ '@type': 'Review', author: { '@type': 'Person', name: r.id }, reviewRating: { '@type': 'Rating', ratingValue: 5, bestRating: 5 }, reviewBody: r.text }));
   }
   const graph = [ORG, prod, { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '전체 상품', item: SITE + 'shop.html' }, { '@type': 'ListItem', position: 3, name: p.short, item: url }] }];
   if (p.id === 29) graph.push({ '@type': 'FAQPage', mainEntity: FAQ.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.join(' ') } })) });
