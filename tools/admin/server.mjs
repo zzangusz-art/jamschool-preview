@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { ROLES, canWriteUsers, cookieHeader, hashPassword, loadUsers, login, newPassword, ready, saveUsers, sessionUser } from './auth.mjs';
 import { makeStore } from './store.mjs';
+import { summary as statsSummary } from './stats.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
 
@@ -18,7 +19,7 @@ const store = makeStore(ROOT);
 const MAX_BODY = 40 * 1024 * 1024, MAX_FILE = 10 * 1024 * 1024;
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
-const CSP = "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+const CSP = "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 class HttpError extends Error { constructor(status, msg, extra) { super(msg); this.status = status; this.extra = extra; } }
 const need = (cond, status, msg, extra) => { if (!cond) throw new HttpError(status, msg, extra); };
@@ -104,6 +105,14 @@ route('GET', '/api/admin/dashboard', 'client', async () => {
   return { recent, status: last ? await store.status(last.sha) : null, posts: (await listPosts()).length };
 });
 route('GET', '/api/admin/status/:sha', 'client', async ({ params }) => store.status(params.sha));
+
+// 유입·주문 집계(사이트 자체 집계, 개인정보 없음)
+route('GET', '/api/admin/stats', 'client', async ({ query }) => {
+  const n = Math.min(90, Math.max(1, +query.get('days') || 7));
+  const { cur } = await products();
+  const posts = await listPosts();
+  return { ...statsSummary(n), names: Object.fromEntries(cur.PRODUCTS.map(p => [p.id, p.short])), titles: Object.fromEntries(posts.map(p => [`/blog/${p.slug}`, p.title])) };
+});
 
 // 블로그
 route('GET', '/api/admin/posts', 'client', async () => ({ posts: await listPosts() }));

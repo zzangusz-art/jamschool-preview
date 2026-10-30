@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { handleAdmin } from './admin/server.mjs';
+import { countEvent, countPage } from './admin/stats.mjs';
 
 const ROOT = path.resolve(process.argv[2] || '_site');
 const PORT = +process.env.PORT || 8080;
@@ -51,6 +52,13 @@ function gzipped(f) {
 http.createServer(async (req, res) => {
   // 관리자 어드민(/admin, /api/admin/*) — 정식 주소 이동·정적 파일보다 먼저
   if (await handleAdmin(req, res)) return;
+  // 사이트 자체 집계: 클릭·주문서 제출 이벤트(개인정보 없음) — tools/admin/stats.mjs
+  if (req.method === 'POST' && (req.url || '').split('?')[0] === '/api/t') {
+    let n = 0; const chunks = [];
+    req.on('data', c => { n += c.length; if (n <= 4096) chunks.push(c); });
+    req.on('end', () => { try { countEvent(req, JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); } catch { /* 형식 오류 무시 */ } res.writeHead(204); res.end(); });
+    return;
+  }
   if (!INDEX) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return; }
   const url = req.url || '/';
@@ -62,6 +70,7 @@ http.createServer(async (req, res) => {
   const f = resolve(url);
   if (!f) { res.writeHead(404, { 'Content-Type': TYPES['.html'] }); res.end('<!doctype html><meta charset="utf-8"><title>404</title><p>페이지를 찾을 수 없습니다. <a href="/">홈으로</a></p>'); return; }
   const type = TYPES[path.extname(f.abs).toLowerCase()] || 'application/octet-stream';
+  if (req.method === 'GET' && type.startsWith('text/html')) countPage(req, url.split('?')[0], HOST || 'jamschool.kr');
   const headers = { 'Content-Type': type, 'Last-Modified': f.st.mtime.toUTCString(), 'Accept-Ranges': 'bytes',
     'Cache-Control': cacheFor(type) };
   const since = Date.parse(req.headers['if-modified-since'] || '');

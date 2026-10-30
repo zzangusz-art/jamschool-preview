@@ -75,6 +75,17 @@ export function writeRows(date, engines, results) {
   fs.writeFileSync(CSV, '\ufeff' + CSV_HEAD.join(',') + '\n' + all.map(line).join('\n') + '\n', 'utf8');
 }
 
+// 전후 비교 화면(capture-pages.mjs 가 찍고 report.mjs 가 읽는다)
+export const SHOT_DIR = path.join(MEASURE, '스크린샷');
+export const SITES = {
+  new: { name: '새 공식 홈', host: 'jamschool.kr', pages: [['home', '첫 화면', 'https://jamschool.kr/'], ['p29', '3단 접이식 상품', 'https://jamschool.kr/product-29.html'], ['shop', '전체 상품', 'https://jamschool.kr/shop.html'], ['blog', '수면 가이드', 'https://jamschool.kr/blog/']] },
+  old: { name: '이전 사이트(공식몰)', host: 'jamschool.co.kr', pages: [['home', '첫 화면', 'https://jamschool.co.kr/'], ['p29', '3단 접이식 상품', 'https://jamschool.co.kr/shop_view/?idx=29']] },
+};
+export const DEVICES = { pc: { width: 1440, height: 900, deviceScaleFactor: 1 }, mo: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true } };
+export const readShotBase = () => { try { return JSON.parse(fs.readFileSync(path.join(SHOT_DIR, '기준.json'), 'utf8')); } catch { return {}; } };
+// 날짜 폴더 중 그 사이트의 사진이 있는 날(오름차순)
+export const shotDays = (site, kind = '') => !fs.existsSync(SHOT_DIR) ? [] : fs.readdirSync(SHOT_DIR).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && fs.readdirSync(path.join(SHOT_DIR, d)).some(f => f.startsWith(site + '_') && (!kind || f.endsWith(kind)))).sort();
+
 export function findChrome() {
   const list = [process.env.CHROME_PATH, 'C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
     path.join(process.env.LOCALAPPDATA || '', 'Google/Chrome/Application/chrome.exe'), '/usr/bin/google-chrome', '/usr/bin/chromium'];

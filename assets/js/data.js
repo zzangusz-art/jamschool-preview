@@ -7,7 +7,8 @@
   const ssGallery = (id, n) => Array.from({ length: n }, (_, i) => `${IMG}${id}/ss-${String(i + 1).padStart(2, '0')}.jpg`);
 
   const MALL = 'https://jamschool.co.kr/shop_view/?idx=';
-  const STORE_29 = 'https://smartstore.naver.com/healingq/products/7338124791';
+  const STORE = 'https://smartstore.naver.com/healingq';   // 스마트스토어 홈(상품 링크가 없는 상품은 여기로)
+  const STORE_29 = STORE + '/products/7338124791';
 
   const PRODUCTS = [
     {
@@ -28,7 +29,7 @@
       list: 105000, price: 64000, badges: ['BEST', '오늘출발'],
       rating: 4.83, reviews: 32105, imgs: ssGallery(30, 10),
       points: ['몸을 감싸주는 폭신한 쿠션감', '미끌림 방지 기능', '편리한 보관을 위한 스트랩 부착', '부드러운 커버 촉감'],
-      mall: MALL + 30,
+      mall: MALL + 30, store: STORE + '/products/4673873956',
     },
     {
       id: 39, cat: 'mattress', key: '폭신탄탄 양면 매트리스 폭탄 리버시블',
@@ -37,7 +38,7 @@
       list: 189000, price: 109000, badges: ['MD'],
       rating: 4.83, reviews: 1844, imgs: ssGallery(39, 9),
       points: ['폭신한 쿠션감과 탄탄한 쿠션감 선택', '미끌림 방지 기능', '고정 벨트 증정'],
-      mall: MALL + 39,
+      mall: MALL + 39, store: STORE + '/products/5649123568',
     },
     {
       id: 40, cat: 'mattress', key: '엄마품 메모리폼 토퍼 매트리스',
@@ -319,7 +320,10 @@
       { id: 'card', label: '신용·체크카드', note: '결제 창에서 카드사와 할부 개월을 고릅니다.' },
       { id: 'bank', label: '무통장입금', note: '입금 계좌는 주문 완료 화면에서 안내합니다. 오후 1시 이전 입금이 확인되면 당일 출고합니다(주말·공휴일 제외).' },
       { id: 'npay', label: '네이버페이', note: '네이버페이 결제 창에서 결제합니다. 네이버페이 포인트를 쓸 수 있습니다.' },
+      { id: 'kakaopay', label: '카카오페이', note: '카카오페이 결제 창에서 카카오페이 머니나 등록한 카드로 결제합니다.' },
     ],
+    // PG(카드·카카오페이 등 결제 대행) 연동 전: 결제 버튼을 누르면 스마트스토어로 보낸다(상품 링크가 없으면 스토어 홈)
+    storeHome: STORE,
   };
 
   // 관리자 어드민에서 고친 값(content/site.json → 빌드가 페이지마다 window.JAM_OVERRIDES 로 넣는다): 상품 기본 정보·사진, 3단 옵션 가격

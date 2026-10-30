@@ -102,22 +102,25 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 ## 관리자 어드민 (https://jamschool.kr/admin, `tools/admin/`)
 클라이언트가 기술 지식 없이 블로그·상품·상세페이지를 고치고, 관리자(owner)만 설정·계정·기록을 본다. 하나회원권 owner/manager 권한 분리를 참고.
 - 구조: `tools/serve.mjs` 가 `/admin`·`/api/admin/*` 을 `tools/admin/server.mjs` 로 넘긴다. 저장 = GitHub 커밋 1개(`store.mjs`, 여러 파일을 한 번에) → Railway·Pages 자동 재배포(약 2분, 화면 오른쪽 위 '사이트 반영' 표시). 원본은 계속 git 하나 — AI 자동 발행·deploy.bat 과 충돌 없음(커밋 직전 최신 위에 다시 올림)
-- 클라이언트: 블로그(새 글·수정·임시저장=사이트에서 내리기·썸네일·본문 사진·미리보기, 타사명·의료 표현·외부 링크는 발행 차단, 키워드·분량은 안내), 상품(이름·짧은 이름·요약·정가/판매가·배지·특징·사진 순서/추가·스마트스토어 링크, 3단은 옵션별 가격표), 상세페이지(사진·글 순서, 이 아래에 사진/글 추가, 빼기, 사진 설명)
+- 클라이언트: 홈(오늘·7일 방문자, 구매 버튼 클릭, AI 유입, 반영 상태·최근 변경), **방문·유입**(`#/traffic/1|7|30`: 방문자·페이지 열림·외부 유입·AI 답변 유입, 날짜별 그래프, 경로·많이 본 페이지·AI 유입·들어온 사이트·기기·검색엔진/AI 로봇), **주문**(`#/orders/…`: 상품 조회 → 구매·장바구니 클릭 → 주문서 제출 → 스마트스토어 이동 흐름, 주문서 금액(참고용), 공식몰·전화·카카오 클릭, 상품별 조회·클릭률·주문서 수량, 고른 결제 수단 — 실제 결제는 스마트스토어 판매자센터), 블로그(새 글·수정·임시저장=사이트에서 내리기·썸네일·본문 사진·미리보기, 타사명·의료 표현·외부 링크는 발행 차단, 키워드·분량은 안내), **상품·상세페이지**(한 상품 안에서 탭 `#/products/<id>` 기본 정보·사진 / `#/products/<id>/detail` 상세페이지. 옛 주소 `#/detail/<id>` 는 탭으로 넘어감 — 이름·짧은 이름·요약·정가/판매가·배지·특징·사진 순서/추가·스마트스토어 링크, 3단은 옵션별 가격표, 상세는 사진·글 순서·이 아래에 추가·빼기·사진 설명)
+- 방문 집계(`tools/admin/stats.mjs`, GA4 없이도 보이게): `serve.mjs` 가 html 응답마다 페이지 보기를 세고(봇·헤드리스 크롬은 따로, /admin·/api 제외), 사이트 스크립트(build.mjs `TRACK_JS`)가 클릭·주문서 제출을 `POST /api/t` 로 보냄(미리보기 github.io 에선 안 보냄). 방문자는 (IP+브라우저)를 그날만 쓰는 소금값으로 해시해 하루 중복만 거르고 다음 날 해시·소금값을 버림 — 쿠키·IP·이름·연락처 저장 없음. 저장 `DATA_DIR/analytics/YYYY-MM-DD.json`(볼륨 없으면 메모리 — 재배포 때 0부터, 관리자 화면에 경고). 이벤트는 IP당 1분 60건까지
 - 관리자 전용: 소유확인·추적 코드(`src/site-tags.json`), 블로그 자동 발행 대기열(`_topics.json`), 키워드 점검, 작업 기록(커밋), 계정 관리(추가·비밀번호 새로 만들기·삭제), 블로그 글 삭제
 - 데이터: 상품 수정값은 `content/site.json`(data.js 원래 값 위에 덮어씀 — 빌드 vm 과 각 페이지 `window.JAM_OVERRIDES`), 상세는 `assets/js/detail-<id>.js`, 글은 `content/blog/<slug>.md`(어드민 글은 `source: admin`, 임시저장은 `draft: true` → 사이트·사이트맵·RSS 제외). 올린 사진은 `assets/img/{blog,products/<id>,detail/<id>}/up-*` (화면에서 1000~1600px JPEG 로 줄여 올림, GIF 그대로)
 - 글 규칙은 `tools/blog-ai/rules.mjs` 하나를 생성기와 어드민이 같이 씀. `generate.mjs --check` 는 어드민 글·임시저장 글엔 차단 규칙(타사명·금지 표현·외부 링크)만 적용
 - 보안: 저장소가 공개라 계정은 git 에 없음. 비밀번호는 scrypt 해시, 로그인은 SESSION_SECRET 서명 쿠키(12시간, HttpOnly·SameSite=Strict, 재배포돼도 유지, 비밀번호 바꾸면 기존 로그인 끊김), 쓰기 요청은 `X-Jam-Admin` 헤더 필수, IP+아이디 기준 15분 10회 실패 시 잠금, CSP·noindex, robots `Disallow: /admin`
 - **Railway 변수(처음 한 번, 값은 상위 폴더 `관리자/관리자_계정.txt`)**: `SESSION_SECRET`, `ADMIN_USERS`(해시만 든 계정 JSON), `GITHUB_TOKEN`(fine-grained, 이 저장소 Contents 읽기·쓰기만), 볼륨을 `/data` 로 붙이고 `DATA_DIR=/data`(계정 추가·비밀번호 변경 가능해짐, 없으면 ADMIN_USERS 읽기 전용), `CANONICAL_HOST=jamschool.kr`
 - 계정 다시 만들기: `node tools/admin/make-users.mjs --force` (결과는 저장소 밖 `../관리자/`)
+- 화면: 사이트와 같은 Noto Sans KR·잉크색, 왼쪽 메뉴(현황·콘텐츠·관리자 전용 묶음, 휴대폰은 위쪽 막대+메뉴 버튼). `public/admin.css`·`admin.js`(빌드 없음)
 - 로컬에서 띄우기(시험): `ADMIN_STORE=local ADMIN_USERS_FILE=../관리자/admin-users.json PORT=5620 node tools/serve.mjs _site` → http://localhost:5620/admin (저장하면 이 폴더 파일을 직접 고치고 빌드, 커밋은 deploy.bat). 실제 파일을 안 건드리려면 `ADMIN_LOCAL_ROOT=<복사본> ADMIN_LOCAL_NOBUILD=1`
 
 ## AI 노출도 측정 · 블로그 키워드 점검 · 주간/월간 리포트 (`tools/monitor/`)
 하나회원권(`바탕화면/하나회원권 홈페이지/측정/AI검색`) 체계를 옮겼다. 결과는 저장소 밖 상위 폴더 `측정/`·`보고/`.
 - 매일: Claude 데스크톱 예약 작업 `jamschool-ai-monitor`(10:40, 앱이 켜져 있을 때 — 꺼져 있으면 다음 실행 때) → `node tools/monitor/run.mjs auto`
   1. `ai-check.mjs`: 질의 12개(`queries.json`: 브랜드·핵심·상품) × 엔진. 검색 결과 화면(네이버·Bing·구글)은 전용 크롬 프로필 창으로 열어 전체 캡처(jpg)+본문/링크 저장. AI 답변(Claude·ChatGPT·Gemini·Perplexity)과 네이버 검색 API(웹문서·블로그)는 공식 API 로 — `측정/.env` 에 키가 있는 엔진만(예시 `측정/.env.example`). 판정: 공식 홈 jamschool.kr / 공식몰·스마트스토어(jamschool.co.kr, healingq) / 상호 언급(질의 문구 제외) / 경쟁사 / 링크 순서(광고 포함). → `측정/AI검색/<날짜>/`(result.json·요약 md·jpg·txt), 누적 `측정/AI검색/추이.csv`
-     - 하나회원권 스크립트의 봇 감지 회피 설정(webdriver 숨김·AutomationControlled 끄기·차단 뒤 재시도)과 대화형 AI 웹 화면 자동 조작은 쓰지 않는다. 차단 화면이 나오면 그날 그 엔진은 건너뛰고 `blocked=1` 로 남긴다
+     - 하나회원권 스크립트의 봇 감지 회피 설정(webdriver 숨김·AutomationControlled 끄기·차단 뒤 재시도)과 대화형 AI 웹 화면 자동 조작은 쓰지 않는다. 차단 화면이 나오면 그날 그 엔진은 건너뛰고 `blocked=1` 로 남긴다(Bing '마지막 한 단계' 확인 화면 포함 — 2026-10-30 Bing 11건을 차단으로 고침)
   2. `keyword-check.mjs`: 발행 글 대표 키워드 중복, 제목 유사도(0.5↑), 앞 수식어만 다른 키워드 겹침(뒤에 말을 붙인 롱테일은 의도된 묶음이라 제외), 대기열이 발행 키워드와 겹침, 상품 페이지와 같은 검색어인 글의 상품 링크, 대기열 소진 예상일, 3일 넘게 새 글 없음(자동 발행 멈춤), `generate.mjs --check` → `측정/블로그/키워드점검_<날짜>.md·json`
-  3. 리포트: 지난주(월~일) 주간 리포트가 없으면 `report.mjs --period week`, 지난달 월간 리포트가 없으면 `--period month` → `보고/잠스쿨_주간리포트_<일요일>.html·pdf`, `보고/잠스쿨_월간리포트_<YYYY-MM>.html·pdf` (KPI·지난 기간 대비, 날짜별 추이, 새로 보이기 시작한 곳 캡처, 질의×엔진 표, 엔진별, 경쟁 브랜드, 블로그 발행·키워드 점검, 다음 할 일). 측정 기록이 없는 기간은 건너뜀
+  3. `capture-pages.mjs`(전후 비교 사진): 새 공식 홈 jamschool.kr(첫 화면·3단 상품·전체 상품·수면 가이드) PC 1440×900·휴대폰 390×844 첫 화면을 매일, 전체 화면은 주 1회(월요일·7일 넘게 없을 때), 이전 사이트 jamschool.co.kr(첫 화면·3단 상품)은 처음 한 번 기준 + 매달 한 번 → `측정/스크린샷/<날짜>/<new|old>_<page>_<pc|mo>[_full].jpg`·`index.json`, 첫 캡처일 `측정/스크린샷/기준.json`(2026-10-30 — 그 전 캡처는 없음). 헤드리스 크롬이라 사이트 방문 집계엔 봇으로 잡힘. 다시 찍기 `--full`, 한쪽만 `--only new|old`
+  4. 리포트: 지난주(월~일) 주간 리포트가 없으면 `report.mjs --period week`, 지난달 월간 리포트가 없으면 `--period month` → `보고/잠스쿨_주간리포트_<일요일>.html·pdf`, `보고/잠스쿨_월간리포트_<YYYY-MM>.html·pdf` (KPI·지난 기간 대비, **처음과 지금**(리뉴얼 전 공식몰 ↔ 지금 공식 홈, 공식 홈 첫 캡처 ↔ 기간 마지막 캡처, 검색 결과 화면 첫 측정일 ↔ 기간 마지막 — 차단·오류 없이 측정된 날만), 날짜별 추이, 새로 보이기 시작한 곳 캡처, 질의×엔진 표, 엔진별, 경쟁 브랜드, 블로그 발행·키워드 점검, 다음 할 일). 측정 기록이 없는 기간은 건너뜀
 - 수동: `node tools/monitor/run.mjs daily|weekly|monthly`, 한 엔진·질의만 `node tools/monitor/ai-check.mjs --engines naver --queries "잠스쿨,3단 접이식 매트리스"`. 실행 기록 `측정/monitor.log`
 - 질의를 바꾸면 `queries.json` 만 고친다(추이는 질의 문자열로 묶이므로 같은 질의는 문구를 바꾸지 말 것)
 
@@ -136,7 +139,8 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 - 장바구니·찜·최근 본 상품은 브라우저 저장(localStorage). 바로 구매 상품과 주문 완료 요약은 sessionStorage(개인정보는 가린 값만, 30분 뒤 안 보임)
 - 주문서 금액은 저장된 값이 아니라 `data.js` 상품 가격으로 다시 계산
 - 결제 방식은 `assets/js/data.js` 의 `CHECKOUT.mode`
-  - `preview`(지금): 주문서 검증까지 진행 → 결제 버튼은 "미리보기라 결제되지 않음" 안내 + 상품별 공식몰·네이버페이 링크 + 주문 완료 화면 미리보기(상단에 '실제 주문 아님' 표시)
+  - `preview`(지금, PG 연동 전): 주문서 검증까지 진행 → '결제하기'를 누르면 주문서 제출을 집계(`checkout_submit`: 금액·결제 수단·상품 id·수량만)하고 스마트스토어로 이동 — 상품이 하나면 그 상품의 `store` 주소로 바로, 여럿이면 상품별 '스마트스토어에서 결제' 버튼 창. `store` 가 없는 상품은 `CHECKOUT.storeHome`(스마트스토어 첫 화면). 주문서 위 안내는 '결제는 잠스쿨 스마트스토어에서'
+  - 결제 수단: 신용·체크카드, 무통장입금, 네이버페이, **카카오페이**(`CHECKOUT.pay`, 선택하면 노란색). PG 붙일 때 같은 id(`kakaopay`)로 결제창 연결
   - `handoff`: 자체 결제 없이 운영할 때. 구매하기·주문하기 → 공식몰/네이버페이 선택 창
   - `pg`: PG 계약 후. `checkout.js` 의 `requestPayment()` 에 결제창 호출을 넣고, **결제 승인과 금액 검증은 서버에서**(정적 사이트만으로는 안 됨). 결제가 끝나면 주문한 상품만 장바구니에서 빠짐
 - 주소 검색은 다음(카카오) 우편번호 서비스를 버튼 누를 때만 불러오고, 못 불러오면 직접 입력으로 바뀜

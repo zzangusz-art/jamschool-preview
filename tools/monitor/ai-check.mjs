@@ -97,7 +97,7 @@ const SERP = {
   bing: { url: q => `https://www.bing.com/search?q=${encodeURIComponent(q)}&setlang=ko&cc=KR`, own: /bing\.com|microsoft\.com|msn\.com/ },
   google: { url: q => `https://www.google.com/search?q=${encodeURIComponent(q)}&hl=ko&gl=kr`, own: /google\.[a-z.]+|gstatic\.com|youtube\.com\/results/ },
 };
-const BLOCK_RE = /unusual traffic|비정상적인 트래픽|자동화된 요청|로봇이 아닙니다|not a robot|verify you are human|보안 문자|captcha/i;
+const BLOCK_RE = /unusual traffic|비정상적인 트래픽|자동화된 요청|로봇이 아닙니다|not a robot|verify you are human|보안 문자|captcha|마지막 한 단계|아래 과제 해결|one last step|solve the challenge/i;   // Bing 확인 단계 화면 포함
 
 const engines = arg('engines', [...Object.keys(API).filter(e => env(API[e].key)), ...Object.keys(SERP)].join(',')).split(',').map(s => s.trim()).filter(e => API[e] || SERP[e]);
 const want = arg('queries', '');

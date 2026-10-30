@@ -176,20 +176,22 @@
       memo, jeju: !$('#co-jeju').hidden, at: Date.now(),
     };
   }
-  function previewModal(opener) {
-    const seen = new Set(), rows = [];
-    items.forEach(x => {
-      if (seen.has(x.id)) return; seen.add(x.id);
-      const p = SHOP.P(x.id);
-      rows.push(`<li><span>${esc(p.short)}</span><span class="pvm__btns"><a class="btn btn--line btn--sm" href="${esc(p.mall)}">공식몰</a>${p.store ? `<a class="btn btn--npay btn--sm" href="${esc(p.store)}" target="_blank" rel="noopener">네이버페이</a>` : ''}</span></li>`);
-    });
-    $('#pvm-list').innerHTML = rows.join('');
+  // PG 연동 전: 결제를 누르면 스마트스토어로 보낸다. 상품이 하나면 그 상품 페이지로 바로, 여러 개면 상품별 버튼
+  const storeOf = id => SHOP.P(id).store || CHECKOUT.storeHome;
+  // 어드민 '주문' 집계용(이름·연락처·주소는 보내지 않는다)
+  function beaconSubmit() {
+    try { navigator.sendBeacon && navigator.sendBeacon('/api/t', new Blob([JSON.stringify({ e: 'checkout_submit', total, pay, items: items.map(x => ({ id: x.id, qty: x.qty })) })], { type: 'application/json' })); } catch (e) { /* 집계 실패는 무시 */ }
+  }
+  function toStore(opener) {
+    beaconSubmit();
+    const ids = [...new Set(items.map(x => x.id))];
+    if (ids.length === 1) { toast('스마트스토어로 이동합니다. 같은 옵션을 골라 결제해 주세요.'); setTimeout(() => { location.href = storeOf(ids[0]); }, 700); return; }
+    $('#pvm-list').innerHTML = ids.map(id => {
+      const p = SHOP.P(id), it = items.filter(x => x.id === id);
+      return `<li><span>${esc(p.short)}<small class="pvm__opt">${esc(it.map(x => `${x.opt || ''} ${x.qty}개`.trim()).join(' · '))}</small></span><span class="pvm__btns"><a class="btn btn--npay btn--sm" href="${esc(storeOf(id))}" target="_blank" rel="noopener">스마트스토어에서 결제</a></span></li>`;
+    }).join('');
     openLayer('pvm', opener);
   }
-  $('#pvm-done').addEventListener('click', () => {
-    store.sset('jam_order_done', JSON.stringify(summary()));
-    location.href = 'order-complete.html';
-  });
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
@@ -203,7 +205,7 @@
       return;
     }
     const opener = e.submitter || $('#co-pay');
-    if (CHECKOUT.mode !== 'pg') { previewModal(opener); return; }
+    if (CHECKOUT.mode !== 'pg') { toStore(opener); return; }
     try {
       const btns = $$('.co-pay, #co-bar-pay'); btns.forEach(b => { b.disabled = true; });
       const s = summary();

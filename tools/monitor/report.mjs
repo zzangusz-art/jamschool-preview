@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseFrontmatter } from '../blog/lib.mjs';
-import { AI_DIR, BLOG_DIR, CFG, REPORT_DIR, SITE_ROOT, addDays, arg, findChrome, kstDate, loadEnv, readCsv, safe } from './lib.mjs';
+import { AI_DIR, BLOG_DIR, CFG, REPORT_DIR, SHOT_DIR, SITES, SITE_ROOT, addDays, arg, findChrome, kstDate, loadEnv, readCsv, readShotBase, safe, shotDays } from './lib.mjs';
 
 loadEnv();
 const period = arg('period', 'week');
@@ -70,6 +70,46 @@ const trend = (() => {
   return `<svg viewBox="0 0 ${W} ${H}" class="chart">${grid}${lines}${xl}</svg><p class="legend">${series.map(([n, c]) => `<span style="--c:${c}">${n}</span>`).join('')}</p>`;
 })();
 
+// 처음과 지금(전후 비교 사진) — 사이트는 측정/스크린샷(capture-pages.mjs), 검색 결과는 측정/AI검색(ai-check.mjs)
+//   처음 = 첫 캡처일(스크린샷/기준.json), 지금 = 이 리포트 기간 마지막 날까지의 가장 최근 캡처
+const fileUrl = (...p) => { const f = path.join(...p); return fs.existsSync(f) ? pathToFileURL(f).href : ''; };
+const shotBase = readShotBase();
+const pair = (a, b, cap) => `<div class="ba">${[a, b].map(x => `<figure>${x.src ? `<img src="${x.src}" alt="">` : '<div class="noimg">캡처 없음</div>'}<figcaption><b>${x.tag}</b> ${esc(x.note)}</figcaption></figure>`).join('')}</div><p class="cap">${cap}</p>`;
+const beforeAfter = (() => {
+  const out = [];
+  const nDays = shotDays('new').filter(d => d <= to), oDays = shotDays('old').filter(d => d <= to);
+  const nFirst = shotBase[SITES.new.host] && nDays.includes(shotBase[SITES.new.host]) ? shotBase[SITES.new.host] : nDays[0], nLast = nDays[nDays.length - 1];
+  const oFirst = shotBase[SITES.old.host] && oDays.includes(shotBase[SITES.old.host]) ? shotBase[SITES.old.host] : oDays[0];
+  if (oFirst && nLast) {
+    out.push('<h3>리뉴얼 전 → 지금</h3>');
+    for (const [pg, dev, t] of [['home', 'pc', '첫 화면 · PC'], ['p29', 'mo', '3단 접이식 상품 · 휴대폰']])
+      out.push(pair({ tag: '이전', note: `${SITES.old.host} · ${oFirst}`, src: fileUrl(SHOT_DIR, oFirst, `old_${pg}_${dev}.jpg`) }, { tag: '지금', note: `${SITES.new.host} · ${nLast}`, src: fileUrl(SHOT_DIR, nLast, `new_${pg}_${dev}.jpg`) }, t));
+  }
+  if (nFirst && nLast && nFirst !== nLast) {
+    out.push(`<h3>새 공식 홈 변화(${nFirst} → ${nLast})</h3>`);
+    for (const [pg, dev, t] of [['home', 'mo', '첫 화면 · 휴대폰'], ['p29', 'pc', '3단 접이식 상품 · PC']])
+      out.push(pair({ tag: '처음', note: nFirst, src: fileUrl(SHOT_DIR, nFirst, `new_${pg}_${dev}.jpg`) }, { tag: '지금', note: nLast, src: fileUrl(SHOT_DIR, nLast, `new_${pg}_${dev}.jpg`) }, t));
+  }
+  // 검색 결과 화면: 브랜드 1개 + 핵심 1개 질의 × 엔진, 차단·오류 없이 측정된 날의 화면만
+  const qs = [CFG.queries.find(x => x.type === '브랜드'), CFG.queries.find(x => x.type === '핵심')].filter(Boolean);
+  const serp = [];
+  for (const x of qs) for (const e of ['naver', 'google', 'bing']) {
+    const f = `${e}_${safe(x.q)}.jpg`;
+    const have = [...new Set(rows.filter(r => r.kind === 'serp' && r.engine === e && r.query === x.q && r.date <= to && !r.blocked && !r.error).map(r => r.date))].sort().filter(d => fs.existsSync(path.join(AI_DIR, d, f)));
+    if (have.length) serp.push([x.q, e, have[0], have[have.length - 1], f]);
+  }
+  if (serp.length) {
+    out.push('<h3>검색 결과 화면</h3>');
+    const lbl = (q, e) => `${ENG[e] || e} · "${esc(q)}"`;
+    const both = serp.filter(([, , a, b]) => a !== b).slice(0, 4), one = serp.filter(([, , a, b]) => a === b);
+    for (const [q, e, a, b, f] of both) out.push(pair({ tag: '처음', note: a, src: fileUrl(AI_DIR, a, f) }, { tag: '지금', note: b, src: fileUrl(AI_DIR, b, f) }, lbl(q, e)));
+    // 측정이 하루뿐인 화면은 '처음(기준)' 사진만 — 다음 측정부터 지금과 나란히
+    if (one.length && both.length < 4) out.push(`<div class="ba one">${one.slice(0, (4 - both.length) * 2).map(([q, e, a, , f]) => `<figure><img src="${fileUrl(AI_DIR, a, f)}" alt=""><figcaption><b>처음</b> ${a} · ${lbl(q, e)}</figcaption></figure>`).join('')}</div><p class="cap">기준 화면 — 다음 측정일부터 같은 질의의 지금 화면이 옆에 붙습니다.</p>`);
+  }
+  if (!out.length) return '<p class="note">아직 캡처가 없습니다. 매일 측정 때 사이트·검색 결과 화면이 쌓이면 여기에 처음과 지금이 나란히 나옵니다.</p>';
+  return out.join('') + `<p class="note">원본: 측정/스크린샷/&lt;날짜&gt;/(사이트 첫 화면 매일 · 전체 화면 주 1회 · 이전 사이트 월 1회), 측정/AI검색/&lt;날짜&gt;/(검색 결과). 처음 캡처일 ${Object.entries(shotBase).map(([k, v]) => `${k} ${v}`).join(', ') || '—'}.</p>`;
+})();
+
 // 경쟁사 언급
 const comp = {}; for (const r of valid(cur)) for (const c of r.competitors) comp[c] = (comp[c] || 0) + 1;
 const compHtml = Object.keys(comp).length ? `<table class="t"><tr><th>브랜드</th><th>언급 건수</th></tr>${Object.entries(comp).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([c, n]) => `<tr><td>${esc(c)}</td><td>${n}</td></tr>`).join('')}</table>` : '<p class="note">없음</p>';
@@ -106,6 +146,7 @@ table.q td{text-align:center;font-size:15px}table.q th small{display:block;color
 td.s{color:#2E7FD9}td.m{color:#5A6FD6}td.b{color:#14A38B}td.n,td.na{color:#C3CCD6}td.blk{color:#D9472E}
 .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}figure{margin:0;border:1px solid #E3EAF2;border-radius:10px;overflow:hidden}figure img{width:100%;height:220px;object-fit:cover;object-position:top;display:block}.noimg{height:80px;display:grid;place-items:center;background:#F4F7FA;color:#4A5B70}figcaption{padding:8px 10px;font-size:12px}
 .chart{width:100%;height:auto}.chart text{font-size:11px;fill:#4A5B70}.chart .g{stroke:#E3EAF2}.legend span{display:inline-flex;align-items:center;margin-right:14px}.legend span::before{content:'';width:12px;height:3px;background:var(--c);margin-right:6px}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}.ba figure img{height:300px}.ba figcaption b{display:inline-block;background:#0E2440;color:#fff;border-radius:4px;padding:0 6px;margin-right:4px;font-size:11px}.ba figure+figure figcaption b{background:#2E7FD9}.ba.one figure figcaption b{background:#0E2440}p.cap{margin:4px 0 14px;color:#4A5B70;font-size:12px}
 .note{color:#4A5B70}li.w{color:#B3261E}ul{padding-left:18px}.foot{margin-top:30px;color:#8A98A8;font-size:11px}a{color:#2E7FD9}
 </style></head><body><div class="wrap">
 <h1>잠스쿨 AI 검색 노출 ${esc(label)} 리포트</h1>
@@ -116,6 +157,7 @@ td.s{color:#2E7FD9}td.m{color:#5A6FD6}td.b{color:#14A38B}td.n,td.na{color:#C3CCD
 <div><b>${K.brand} ${delta(K.brand, P.brand)}</b><span>잠스쿨 상호 언급</span></div>
 <div><b>${rate(valid(cur).filter(r => hit(r) || r.brand).length, K.n)}</b><span>유효 측정 ${K.n}건 중 잠스쿨이 보인 비율</span></div>
 </div>
+<h2>처음과 지금</h2>${beforeAfter}
 <h2>날짜별 추이</h2>${trend}
 <h2>새로 보이기 시작한 곳</h2>${newHtml}
 <h3>지난 기간엔 보였지만 이번엔 안 보인 곳</h3>${lostHtml}

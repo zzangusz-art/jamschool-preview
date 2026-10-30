@@ -1,7 +1,7 @@
 // 예약 실행 입구(Windows 작업 스케줄러 'JamSchool-AI-Monitor', 매일 10:30): node tools/monitor/run.mjs [auto|daily|weekly|monthly]
-//   auto  : 오늘 측정(ai-check) + 블로그 키워드 점검, 그리고 아직 없는 리포트 채우기 —
+//   auto  : 오늘 측정(ai-check) + 블로그 키워드 점검 + 전후 비교 화면 캡처(capture-pages), 그리고 아직 없는 리포트 채우기 —
 //           지난주(월~일) 주간 리포트, 지난달 월간 리포트. PC가 꺼져 있던 날이 있어도 다음 실행 때 빠진 리포트를 만든다
-//   daily : 측정 + 키워드 점검만 / weekly·monthly : 해당 리포트만 다시 만들기
+//   daily : 측정 + 키워드 점검 + 화면 캡처만 / weekly·monthly : 해당 리포트만 다시 만들기
 // 실행 기록: 측정/monitor.log (같은 시간에 두 번 돌지 않게 잠금)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,6 +34,7 @@ const has = f => fs.existsSync(path.join(REPORT_DIR, f));
 if (mode === 'auto' || mode === 'daily') {
   step('AI 검색·검색엔진 노출 측정', ['tools/monitor/ai-check.mjs']);
   step('블로그 대표 키워드 점검', ['tools/monitor/keyword-check.mjs']);
+  step('전후 비교 화면 캡처', ['tools/monitor/capture-pages.mjs']);
 }
 // 측정 기록이 없는 기간(측정 시작 전)은 리포트를 만들지 않는다
 const rows = readCsv();

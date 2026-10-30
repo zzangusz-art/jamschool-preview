@@ -23,12 +23,14 @@ const HEAD_TAGS = [
   tag('ga4') && `<script async src="https://www.googletagmanager.com/gtag/js?id=${tag('ga4')}"></script>\n<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${tag('ga4')}');</script>`,
 ].filter(Boolean).join('\n');
 const BODY_OPEN = tag('gtm') ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${tag('gtm')}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` : '';
-// 주요 클릭(스마트스토어·N Pay, 구매하기, 장바구니, 전화, 카카오, 공식몰 이동)을 dataLayer·GA4 이벤트로
-const TRACK_JS = (tag('gtm') || tag('ga4')) ? `<script>(function(){var w=window;w.dataLayer=w.dataLayer||[];function send(n,p){w.dataLayer.push(Object.assign({event:n},p));if(typeof w.gtag==='function')w.gtag('event',n,p);}
+// 주요 클릭(스마트스토어·N Pay, 구매하기, 장바구니, 전화, 카카오, 공식몰 이동): 항상 사이트 자체 집계(/api/t → 어드민 유입·주문),
+// GTM·GA4 가 있으면 dataLayer·GA4 이벤트로도. GitHub Pages 미리보기엔 서버가 없어 보내지 않는다
+const TRACK_JS = `<script>(function(){var w=window,own=!/github\\.io$/.test(location.hostname);w.dataLayer=w.dataLayer||[];var pid=(location.pathname.match(/product-(\\d+)/)||[])[1];
+function send(n,p){w.dataLayer.push(Object.assign({event:'jam_'+n},p));if(typeof w.gtag==='function')w.gtag('event','jam_'+n,p);if(own&&navigator.sendBeacon)try{navigator.sendBeacon('/api/t',new Blob([JSON.stringify({e:n,id:pid})],{type:'application/json'}))}catch(x){}}
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a,button');if(!a)return;var h=a.getAttribute('href')||'',id=a.id||'',t=(a.textContent||'').replace(/\\s+/g,' ').trim().slice(0,40);
-if(/smartstore\\.naver\\.com/.test(h))send('jam_store_click',{link_url:h,label:t});else if(/^tel:/.test(h))send('jam_call_click',{link_url:h});
-else if(/kakao/.test(h))send('jam_kakao_click',{link_url:h});else if(/jamschool\\.co\\.kr/.test(h))send('jam_mall_click',{link_url:h,label:t});
-else if(/^(pd-buy|bb-buy|sh-buy)$/.test(id))send('jam_buy_click',{label:t});else if(id==='sh-cart')send('jam_cart_click',{label:t});},true);})();</script>` : '';
+if(/smartstore\\.naver\\.com/.test(h))send('store_click',{link_url:h,label:t});else if(/^tel:/.test(h))send('call_click',{link_url:h});
+else if(/kakao/.test(h))send('kakao_click',{link_url:h});else if(/jamschool\\.co\\.kr/.test(h))send('mall_click',{link_url:h,label:t});
+else if(/^(pd-buy|bb-buy|sh-buy)$/.test(id))send('buy_click',{label:t});else if(id==='sh-cart')send('cart_click',{label:t});},true);})();</script>`;
 const BODY_END = [
   TRACK_JS,
   tag('naverAnalytics') && `<script src="https://wcs.naver.net/wcslog.js"></script>\n<script>if(!wcs_add) var wcs_add = {};wcs_add["wa"] = "${tag('naverAnalytics')}";if(window.wcs) { wcs_do(); }</script>`,
@@ -429,7 +431,8 @@ page('shop.html', {
   page('cart.html', { title: '장바구니 | 잠스쿨', desc: '잠스쿨 장바구니', noindex: true, bodyclass: 'page-cart', main, js: ['cart.js'] });
 }
 {
-  const PAY = CHECKOUT.pay.map((m, i) => `<button class="paym__opt${m.id === 'npay' ? ' paym__opt--npay' : ''}" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${m.id}">${m.id === 'npay' ? '<b class="npay-mark" aria-hidden="true">N</b>' : ''}${esc(m.label)}</button>`).join('');
+  const MARK = { npay: '<b class="npay-mark" aria-hidden="true">N</b>', kakaopay: '<b class="kpay-mark" aria-hidden="true">pay</b>' };
+  const PAY = CHECKOUT.pay.map((m, i) => `<button class="paym__opt${m.id === 'npay' ? ' paym__opt--npay' : m.id === 'kakaopay' ? ' paym__opt--kakao' : ''}" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${m.id}">${MARK[m.id] || ''}${esc(m.label)}</button>`).join('');
   const dl = rows => `<dl class="agree__dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
   const AGREE = [
     { id: 'ag-order', t: '주문할 상품의 정보와 결제 금액을 확인했으며, 결제에 동의합니다' },
@@ -445,7 +448,7 @@ page('shop.html', {
   let main = rd('src/pages/checkout.html');
   main = fill(main, 'steps', steps(2)); main = fill(main, 'shipnote', esc(CHECKOUT.shipNote)); main = fill(main, 'couriers', esc(CHECKOUT.couriers));
   main = fill(main, 'paym', PAY); main = fill(main, 'agree', agree);
-  main = fill(main, 'pvnote', CHECKOUT.mode === 'pg' ? '' : '<p class="co-pv" role="note"><b>미리보기</b>결제 연동 전이라 마지막 단계에서 실제 결제는 진행되지 않습니다. 화면 흐름만 확인해 주세요.</p>');
+  main = fill(main, 'pvnote', CHECKOUT.mode === 'pg' ? '' : '<p class="co-pv" role="note"><b>결제는 잠스쿨 스마트스토어에서</b>‘결제하기’를 누르면 같은 상품의 공식 스마트스토어로 이동합니다. 거기서 같은 옵션을 골라 결제해 주세요(네이버페이·카드·카카오페이 등).</p>');
   page('checkout.html', { title: '주문서 작성 | 잠스쿨', desc: '잠스쿨 주문서', noindex: true, bodyclass: 'page-checkout', main, js: ['checkout.js'] });
 }
 {

@@ -210,13 +210,16 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .co-dc { display: grid; gap: 10px; }
 .co-dc__row { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; font-size: 15px; font-weight: 600; color: var(--ink); }
 .co-dc__v { font-weight: 500; color: var(--faint); text-align: right; }
-.paym { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.paym { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 768px) { .paym { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .paym__opt { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 56px; padding: 0 8px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; font-size: 15px; font-weight: 700; color: var(--body); line-height: 1.3; transition: border-color .15s, background-color .15s, color .15s; }
 .paym__opt:hover { border-color: #C9D1DA; }
 .paym__opt[aria-checked="true"] { border-color: var(--ink); background: var(--ink); color: #fff; }
 .paym__opt--npay[aria-checked="true"] { border-color: #03C75A; background: #03C75A; }
 .npay-mark { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; background: #03C75A; color: #fff; font-size: 13px; font-weight: 900; }
 .paym__opt--npay[aria-checked="true"] .npay-mark { background: #fff; color: #03C75A; }
+.paym__opt--kakao[aria-checked="true"] { border-color: #FEE500; background: #FEE500; color: #191919; }
+.kpay-mark { display: inline-grid; place-items: center; height: 20px; padding: 0 5px; border-radius: 10px; background: #191919; color: #FEE500; font-size: 11px; font-weight: 900; letter-spacing: -.02em; }
 .paym__note { margin-top: 12px; font-size: 14px; color: var(--sub); }
 .agree { margin-top: 14px; padding: 6px 16px; border: 1px solid var(--line); border-radius: 12px; }
 .agree__item { padding: 12px 0; }
@@ -241,6 +244,7 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .pvm__list { margin-top: 8px; padding: 0; list-style: none; }
 .pvm__list li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-2); font-size: 15px; font-weight: 600; color: var(--ink); }
 .pvm__btns { display: flex; gap: 6px; flex: none; }
+.pvm__opt { display: block; margin-top: 2px; font-size: 13px; font-weight: 500; color: var(--sub); }
 
 /* ───────── 주문 완료 */
 .done { padding-bottom: 72px; }
