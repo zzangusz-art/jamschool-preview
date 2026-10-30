@@ -38,7 +38,16 @@ const withTags = s => {
   if (BODY_END) s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, `${BODY_END}\n</body>`);
   return s;
 };
-const wr = (p, s) => fs.writeFileSync(path.join(ROOT, p), p.endsWith('.html') ? withTags(s) : s);
+// 검색 제목·설명 길이(네이버 서치어드바이저 권장 제목 40자·설명 80자 이내): 색인되는 페이지만 빌드 끝에 알림
+const SEO_LONG = [];
+const unent = s => s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+function seoCheck(p, s) {
+  if (/<meta name="robots" content="noindex/.test(s)) return;
+  const t = unent((s.match(/<title>([^<]*)<\/title>/) || [])[1] || ''), d = unent((s.match(/<meta name="description" content="([^"]*)"/) || [])[1] || '');
+  if ([...t].length > 40) SEO_LONG.push(`${p} 제목 ${[...t].length}자`);
+  if ([...d].length > 80) SEO_LONG.push(`${p} 설명 ${[...d].length}자`);
+}
+const wr = (p, s) => { if (p.endsWith('.html')) { s = withTags(s); seoCheck(p, s); } fs.writeFileSync(path.join(ROOT, p), s); };
 
 // WebP 폴백: assets/img 의 jpg/png 옆에 실제로 있는 .webp 만 <picture> 로 쓴다(없으면 원본 img 그대로)
 const walk = d => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`]);
@@ -131,7 +140,7 @@ idx = fill(idx, 'posts', POSTS.slice(0, 3).map(p => R.postCard(p)).join('') || '
 idx = fill(idx, 'jsonld', ld({
   '@context': 'https://schema.org',
   '@graph': [ORG,
-    { '@type': 'WebSite', '@id': SITE + '#site', url: SITE, name: '잠스쿨 공식몰', inLanguage: 'ko-KR', publisher: { '@id': SITE + '#org' } },
+    { '@type': 'WebSite', '@id': SITE + '#site', url: SITE, name: '잠스쿨', alternateName: '잠스쿨 공식 홈페이지', inLanguage: 'ko-KR', publisher: { '@id': SITE + '#org' } },
     { '@type': 'FAQPage', '@id': SITE + '#faq', mainEntity: FAQ.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.join(' ') } })) },
   ],
 }));
@@ -311,10 +320,13 @@ function productLD(p) {
 }
 for (const p of PRODUCTS) {
   let s = tpl;
-  const title = p.id === 29 ? '3단 접이식 매트리스 — 31kg/m³ 고밀도 국내산 폼 · 7cm/12cm | 잠스쿨 공식몰' : `${p.short} | 잠스쿨 공식몰`;
+  // 검색 제목·설명: 네이버 권장 40자·80자 이내, 수치 대신 브랜드·상품명 위주(2026-10-30 서치어드바이저 간단 체크)
+  // '국내에서 만든'은 근거가 확인된 상품만: 제공고시 제조국 대한민국(30·36) 또는 상세 이미지 'Made in Korea·100% 국내 생산'(29·37·38·39·40·44). 41·43 미확인
+  const MADE_KR = new Set([29, 30, 36, 37, 38, 39, 40, 44]);
+  const title = p.id === 29 ? '잠스쿨 3단 접이식 매트리스 | 탄탄한 바닥·침대 겸용 매트리스' : `잠스쿨 ${p.short} | 공식 홈페이지`;
   const desc = p.id === 29
-    ? '잠스쿨 3단 접이식 매트리스. 침대형 7cm·바닥형 12cm, 멀티싱글 75·슈퍼싱글 110·퀸 150cm. 밀도 31.30kg/m³(KATRI), 라돈 7.6Bq/m³ 미만, 특허 제10-2378668호. ' + won(Math.min(...Object.values(O.price))) + '부터(정가 ' + won(O.list['7-MS']) + '), 14일 무료체험.'
-    : `${p.name}. ${p.summary}. 판매가 ${won(p.price)}, 구매평 ${p.reviews.toLocaleString('ko-KR')}건 평점 ${p.rating.toFixed(2)}.`;
+    ? '잠스쿨 3단 접이식 매트리스. 바닥과 침대 위 모두 쓰는 탄탄한 접는 매트리스로, 국내에서 만들고 겉커버를 분리해 세탁할 수 있습니다.'
+    : `${p.name}. ${p.summary.split(' · ')[0]}. ${MADE_KR.has(p.id) ? '국내에서 만든 잠스쿨 제품, 공식' : '잠스쿨 공식'} 홈페이지에서 자세히 보세요.`;
   s = fill(s, 'title', esc(title)); s = fill(s, 'desc', esc(desc)); s = fill(s, 'canonical', SITE + `product-${p.id}.html`);
   s = fill(s, 'ogimg', SITE + p.imgs[0]); s = fill(s, 'jsonld', productLD(p)); s = fill(s, 'main', mainHTML(p));
   s = fill(s, 'extra-js', '');
@@ -385,22 +397,21 @@ function shopMain() {
 </main>`;
 }
 page('shop.html', {
-  title: '전체 상품 — 3단 접이식 매트리스·베개·쿠션 | 잠스쿨 공식몰',
-  desc: `잠스쿨 공식몰 전체 상품 ${PRODUCTS.length}가지. 3단 접이식 매트리스(${won(p29min())}부터), 떡실신·양면·메모리폼 매트리스, 경추 베개·다리베개·쿨매트. 기본 무료배송, 오후 1시 이전 결제 시 당일 출고.`,
+  title: '잠스쿨 전체 상품 | 3단 접이식 매트리스·토퍼·베개',
+  desc: '잠스쿨 전체 상품. 3단 접이식 매트리스와 떡실신·양면 매트리스, 메모리폼 토퍼, 경추 베개·다리베개·쿨매트까지 한곳에서 보세요.',
   bodyclass: 'page-shop', main: shopMain(), js: ['shop.js'], ogimg: PRODUCTS[0].imgs[0],
   jsonld: ld({ '@context': 'https://schema.org', '@graph': [ORG,
     { '@type': 'CollectionPage', '@id': SITE + 'shop.html#page', name: '잠스쿨 전체 상품', url: SITE + 'shop.html', inLanguage: 'ko-KR', isPartOf: { '@id': SITE + '#site' },
       mainEntity: { '@type': 'ItemList', numberOfItems: PRODUCTS.length, itemListElement: PRODUCTS.map((p, i) => ({ '@type': 'ListItem', position: i + 1, url: SITE + R.href(p), name: p.name })) } },
     { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '전체 상품', item: SITE + 'shop.html' }] }] }),
 });
-function p29min() { return Math.min(...Object.values(O.price)); }
 
 // 장바구니·주문서·주문 완료: 검색 노출 안 함(운영에서도 noindex)
 {
   let main = rd('src/pages/cart.html');
   main = fill(main, 'steps', steps(1)); main = fill(main, 'shipnote', esc(CHECKOUT.shipNote));
   main = fill(main, 'recos', PRODUCTS.filter(p => p.cat === 'bedding').map(p => R.productCard(p)).join(''));
-  page('cart.html', { title: '장바구니 | 잠스쿨 공식몰', desc: '잠스쿨 공식몰 장바구니', noindex: true, bodyclass: 'page-cart', main, js: ['cart.js'] });
+  page('cart.html', { title: '장바구니 | 잠스쿨', desc: '잠스쿨 장바구니', noindex: true, bodyclass: 'page-cart', main, js: ['cart.js'] });
 }
 {
   const PAY = CHECKOUT.pay.map((m, i) => `<button class="paym__opt${m.id === 'npay' ? ' paym__opt--npay' : ''}" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${m.id}">${m.id === 'npay' ? '<b class="npay-mark" aria-hidden="true">N</b>' : ''}${esc(m.label)}</button>`).join('');
@@ -420,12 +431,12 @@ function p29min() { return Math.min(...Object.values(O.price)); }
   main = fill(main, 'steps', steps(2)); main = fill(main, 'shipnote', esc(CHECKOUT.shipNote)); main = fill(main, 'couriers', esc(CHECKOUT.couriers));
   main = fill(main, 'paym', PAY); main = fill(main, 'agree', agree);
   main = fill(main, 'pvnote', CHECKOUT.mode === 'pg' ? '' : '<p class="co-pv" role="note"><b>미리보기</b>결제 연동 전이라 마지막 단계에서 실제 결제는 진행되지 않습니다. 화면 흐름만 확인해 주세요.</p>');
-  page('checkout.html', { title: '주문서 작성 | 잠스쿨 공식몰', desc: '잠스쿨 공식몰 주문서', noindex: true, bodyclass: 'page-checkout', main, js: ['checkout.js'] });
+  page('checkout.html', { title: '주문서 작성 | 잠스쿨', desc: '잠스쿨 주문서', noindex: true, bodyclass: 'page-checkout', main, js: ['checkout.js'] });
 }
 {
   let main = rd('src/pages/order-complete.html');
   main = fill(main, 'steps', steps(3));
-  page('order-complete.html', { title: '주문 완료 | 잠스쿨 공식몰', desc: '잠스쿨 공식몰 주문 완료', noindex: true, bodyclass: 'page-done', main, js: ['complete.js'] });
+  page('order-complete.html', { title: '주문 완료 | 잠스쿨', desc: '잠스쿨 주문 완료', noindex: true, bodyclass: 'page-done', main, js: ['complete.js'] });
 }
 console.log('shop pages: shop.html, cart.html, checkout.html, order-complete.html');
 
@@ -449,7 +460,7 @@ const CATS = [...new Set(POSTS.map(p => p.category))];
 for (const p of POSTS) {
   const url = `${SITE}blog/${p.slug}.html`;
   let s = blogShell('blog-post.tpl.html', `blog/${p.slug}.html`);
-  s = fill(s, 'title', esc(p.title)); s = fill(s, 'desc', esc(p.description)); s = fill(s, 'canonical', url);
+  s = fill(s, 'title', esc([...p.title].length + 6 <= 40 ? `${p.title} | 잠스쿨` : p.title)); s = fill(s, 'desc', esc(p.description)); s = fill(s, 'canonical', url);
   const prod = PRODUCTS.find(x => String(x.id) === String(p.product || 29)) || P29card;
   const img = p.thumb || prod.imgs[0];
   s = fill(s, 'ogimg', SITE + img); s = fill(s, 'date', esc(p.date));
@@ -520,4 +531,5 @@ ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).jo
 `);
 console.log('built: index.html,', PRODUCTS.map(p => `product-${p.id}.html`).join(', '), ', sitemap.xml, robots.txt, llms.txt');
 console.log(`detail manifests: ${Object.keys(DETAIL).join(', ') || '없음'}`);
+if (SEO_LONG.length) console.log(`검색 제목·설명 권장 길이 초과(제목 40·설명 80자): ${SEO_LONG.join(', ')}`);
 if (noWebp.length) console.warn(`WebP 없는 이미지 ${noWebp.length}개(원본 img 로 출력됨) — python ../motion/tools/to_webp.py assets/img 로 만들 수 있음:\n  ${noWebp.slice(0, 10).join('\n  ')}`);

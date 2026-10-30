@@ -22,7 +22,7 @@ function inline(t) {
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, txt, href) => {
     const safe = /^(https?:\/\/|\/|#|[a-z0-9-]+\.html|blog\/|product-)/i.test(href) ? href : '#';
-    const ext = /^https?:\/\//.test(safe) && !/jamschool\.co\.kr/.test(safe);
+    const ext = /^https?:\/\//.test(safe) && !/^https?:\/\/jamschool\.kr/.test(safe);
     return `<a href="${esc(safe)}"${ext ? ' target="_blank" rel="noopener"' : ''}>${txt}</a>`;
   });
   return s;
