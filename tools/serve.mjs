@@ -8,6 +8,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { handleAdmin } from './admin/server.mjs';
 
 const ROOT = path.resolve(process.argv[2] || '_site');
 const PORT = +process.env.PORT || 8080;
@@ -45,7 +46,9 @@ function gzipped(f) {
   return body;
 }
 
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
+  // 관리자 어드민(/admin, /api/admin/*) — 정식 주소 이동·정적 파일보다 먼저
+  if (await handleAdmin(req, res)) return;
   if (!INDEX) res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, { Allow: 'GET, HEAD' }); res.end(); return; }
   const url = req.url || '/';

@@ -99,6 +99,28 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 - 주제 추가: `_topics.json` 에 `{ "id", "keyword"(대표, 기존과 겹치지 않게), "keywords", "title", "angle"(다룰 내용·주의점), "category", "product", "photo"(선택), "status": "todo" }` 를 넣으면 순서대로 쓴다
 - 발행 전 사람 검토를 원하면 `site.yml` 의 예약(schedule)을 지우고 필요할 때 Run workflow 로 돌린 뒤 결과를 확인
 
+## 관리자 어드민 (https://jamschool.kr/admin, `tools/admin/`)
+클라이언트가 기술 지식 없이 블로그·상품·상세페이지를 고치고, 관리자(owner)만 설정·계정·기록을 본다. 하나회원권 owner/manager 권한 분리를 참고.
+- 구조: `tools/serve.mjs` 가 `/admin`·`/api/admin/*` 을 `tools/admin/server.mjs` 로 넘긴다. 저장 = GitHub 커밋 1개(`store.mjs`, 여러 파일을 한 번에) → Railway·Pages 자동 재배포(약 2분, 화면 오른쪽 위 '사이트 반영' 표시). 원본은 계속 git 하나 — AI 자동 발행·deploy.bat 과 충돌 없음(커밋 직전 최신 위에 다시 올림)
+- 클라이언트: 블로그(새 글·수정·임시저장=사이트에서 내리기·썸네일·본문 사진·미리보기, 타사명·의료 표현·외부 링크는 발행 차단, 키워드·분량은 안내), 상품(이름·짧은 이름·요약·정가/판매가·배지·특징·사진 순서/추가·스마트스토어 링크, 3단은 옵션별 가격표), 상세페이지(사진·글 순서, 이 아래에 사진/글 추가, 빼기, 사진 설명)
+- 관리자 전용: 소유확인·추적 코드(`src/site-tags.json`), 블로그 자동 발행 대기열(`_topics.json`), 키워드 점검, 작업 기록(커밋), 계정 관리(추가·비밀번호 새로 만들기·삭제), 블로그 글 삭제
+- 데이터: 상품 수정값은 `content/site.json`(data.js 원래 값 위에 덮어씀 — 빌드 vm 과 각 페이지 `window.JAM_OVERRIDES`), 상세는 `assets/js/detail-<id>.js`, 글은 `content/blog/<slug>.md`(어드민 글은 `source: admin`, 임시저장은 `draft: true` → 사이트·사이트맵·RSS 제외). 올린 사진은 `assets/img/{blog,products/<id>,detail/<id>}/up-*` (화면에서 1000~1600px JPEG 로 줄여 올림, GIF 그대로)
+- 글 규칙은 `tools/blog-ai/rules.mjs` 하나를 생성기와 어드민이 같이 씀. `generate.mjs --check` 는 어드민 글·임시저장 글엔 차단 규칙(타사명·금지 표현·외부 링크)만 적용
+- 보안: 저장소가 공개라 계정은 git 에 없음. 비밀번호는 scrypt 해시, 로그인은 SESSION_SECRET 서명 쿠키(12시간, HttpOnly·SameSite=Strict, 재배포돼도 유지, 비밀번호 바꾸면 기존 로그인 끊김), 쓰기 요청은 `X-Jam-Admin` 헤더 필수, IP+아이디 기준 15분 10회 실패 시 잠금, CSP·noindex, robots `Disallow: /admin`
+- **Railway 변수(처음 한 번, 값은 상위 폴더 `관리자/관리자_계정.txt`)**: `SESSION_SECRET`, `ADMIN_USERS`(해시만 든 계정 JSON), `GITHUB_TOKEN`(fine-grained, 이 저장소 Contents 읽기·쓰기만), 볼륨을 `/data` 로 붙이고 `DATA_DIR=/data`(계정 추가·비밀번호 변경 가능해짐, 없으면 ADMIN_USERS 읽기 전용), `CANONICAL_HOST=jamschool.kr`
+- 계정 다시 만들기: `node tools/admin/make-users.mjs --force` (결과는 저장소 밖 `../관리자/`)
+- 로컬에서 띄우기(시험): `ADMIN_STORE=local ADMIN_USERS_FILE=../관리자/admin-users.json PORT=5620 node tools/serve.mjs _site` → http://localhost:5620/admin (저장하면 이 폴더 파일을 직접 고치고 빌드, 커밋은 deploy.bat). 실제 파일을 안 건드리려면 `ADMIN_LOCAL_ROOT=<복사본> ADMIN_LOCAL_NOBUILD=1`
+
+## AI 노출도 측정 · 블로그 키워드 점검 · 주간/월간 리포트 (`tools/monitor/`)
+하나회원권(`바탕화면/하나회원권 홈페이지/측정/AI검색`) 체계를 옮겼다. 결과는 저장소 밖 상위 폴더 `측정/`·`보고/`.
+- 매일: Claude 데스크톱 예약 작업 `jamschool-ai-monitor`(10:40, 앱이 켜져 있을 때 — 꺼져 있으면 다음 실행 때) → `node tools/monitor/run.mjs auto`
+  1. `ai-check.mjs`: 질의 12개(`queries.json`: 브랜드·핵심·상품) × 엔진. 검색 결과 화면(네이버·Bing·구글)은 전용 크롬 프로필 창으로 열어 전체 캡처(jpg)+본문/링크 저장. AI 답변(Claude·ChatGPT·Gemini·Perplexity)과 네이버 검색 API(웹문서·블로그)는 공식 API 로 — `측정/.env` 에 키가 있는 엔진만(예시 `측정/.env.example`). 판정: 공식 홈 jamschool.kr / 공식몰·스마트스토어(jamschool.co.kr, healingq) / 상호 언급(질의 문구 제외) / 경쟁사 / 링크 순서(광고 포함). → `측정/AI검색/<날짜>/`(result.json·요약 md·jpg·txt), 누적 `측정/AI검색/추이.csv`
+     - 하나회원권 스크립트의 봇 감지 회피 설정(webdriver 숨김·AutomationControlled 끄기·차단 뒤 재시도)과 대화형 AI 웹 화면 자동 조작은 쓰지 않는다. 차단 화면이 나오면 그날 그 엔진은 건너뛰고 `blocked=1` 로 남긴다
+  2. `keyword-check.mjs`: 발행 글 대표 키워드 중복, 제목 유사도(0.5↑), 앞 수식어만 다른 키워드 겹침(뒤에 말을 붙인 롱테일은 의도된 묶음이라 제외), 대기열이 발행 키워드와 겹침, 상품 페이지와 같은 검색어인 글의 상품 링크, 대기열 소진 예상일, 3일 넘게 새 글 없음(자동 발행 멈춤), `generate.mjs --check` → `측정/블로그/키워드점검_<날짜>.md·json`
+  3. 리포트: 지난주(월~일) 주간 리포트가 없으면 `report.mjs --period week`, 지난달 월간 리포트가 없으면 `--period month` → `보고/잠스쿨_주간리포트_<일요일>.html·pdf`, `보고/잠스쿨_월간리포트_<YYYY-MM>.html·pdf` (KPI·지난 기간 대비, 날짜별 추이, 새로 보이기 시작한 곳 캡처, 질의×엔진 표, 엔진별, 경쟁 브랜드, 블로그 발행·키워드 점검, 다음 할 일). 측정 기록이 없는 기간은 건너뜀
+- 수동: `node tools/monitor/run.mjs daily|weekly|monthly`, 한 엔진·질의만 `node tools/monitor/ai-check.mjs --engines naver --queries "잠스쿨,3단 접이식 매트리스"`. 실행 기록 `측정/monitor.log`
+- 질의를 바꾸면 `queries.json` 만 고친다(추이는 질의 문자열로 묶이므로 같은 질의는 문구를 바꾸지 말 것)
+
 ## 배포 (Railway 운영 jamschool.kr + GitHub Pages 미리보기)
 이 폴더가 곧 git 저장소다(`zzangusz-art/jamschool-preview`, 소스만 올리고 빌드 결과물은 `.gitignore`). 푸시 한 번으로 두 곳이 자동 배포된다.
 - 반영: 상위 폴더 `deploy.bat` 더블클릭(메시지 지정은 `deploy.bat "메시지"`) → 빌드·글 검증 → 커밋 → AI가 올린 글 받아오기(`git pull --rebase`) → 푸시

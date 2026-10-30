@@ -32,7 +32,12 @@ const BODY_END = [
   TRACK_JS,
   tag('naverAnalytics') && `<script src="https://wcs.naver.net/wcslog.js"></script>\n<script>if(!wcs_add) var wcs_add = {};wcs_add["wa"] = "${tag('naverAnalytics')}";if(window.wcs) { wcs_do(); }</script>`,
 ].filter(Boolean).join('\n');
+// 어드민 값이 있으면 data.js 바로 앞에 넣는다(OVERRIDES 는 아래에서 읽고, 이 함수는 페이지를 쓸 때 불린다)
+const ovTag = () => Object.values(OVERRIDES).some(v => v && typeof v === 'object' && Object.keys(v).length)
+  ? `<script>window.JAM_OVERRIDES=${JSON.stringify(OVERRIDES).replace(/</g, '\\u003c')}</script>\n` : '';
 const withTags = s => {
+  const ov = ovTag();
+  if (ov) s = s.replace(/<script src="[^"]*assets\/js\/data\.js"><\/script>/, m => ov + m);
   if (HEAD_TAGS) s = s.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n${HEAD_TAGS}`);
   if (BODY_OPEN) s = s.replace(/<body[^>]*>/, m => `${m}\n${BODY_OPEN}`);
   if (BODY_END) s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, `${BODY_END}\n</body>`);
@@ -55,7 +60,10 @@ const IMGS = walk('assets/img');
 const WEBP = new Set(IMGS.filter(f => f.endsWith('.webp')));
 const noWebp = IMGS.filter(f => /\.(jpe?g|png)$/i.test(f) && !WEBP.has(f.replace(/\.(jpe?g|png)$/i, '.webp')));
 
-const ctx = { window: { WEBP }, console };
+// 어드민에서 고친 상품 값(content/site.json): 빌드(vm)와 각 페이지(window.JAM_OVERRIDES)에 똑같이 넣는다
+const OVERRIDES = fs.existsSync(path.join(ROOT, 'content/site.json')) ? JSON.parse(rd('content/site.json')) : {};
+delete OVERRIDES._설명;
+const ctx = { window: { WEBP, JAM_OVERRIDES: OVERRIDES }, console };
 ctx.globalThis = ctx.window;
 vm.createContext(ctx);
 // 상품 상세 매니페스트: assets/js/detail-<id>.js → window.DETAIL[id] (빌드 전용, 페이지에서는 불러오지 않음)
@@ -490,7 +498,7 @@ console.log(`blog: ${POSTS.length} posts`);
 
 const today = new Date().toISOString().slice(0, 10);
 wr('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}</loc><lastmod>${today}</lastmod></url>\n<url><loc>${SITE}shop.html</loc><lastmod>${today}</lastmod></url>\n${PRODUCTS.map(p => `<url><loc>${SITE}product-${p.id}.html</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n<url><loc>${SITE}blog/</loc><lastmod>${today}</lastmod></url>\n${POSTS.map(p => `<url><loc>${SITE}blog/${p.slug}.html</loc><lastmod>${p.updated || p.date}</lastmod></url>`).join('\n')}\n</urlset>\n`);
-wr('robots.txt', `User-agent: *\nAllow: /\n\nSitemap: ${SITE}sitemap.xml\n`);
+wr('robots.txt', `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${SITE}sitemap.xml\n`);
 const P29 = PRODUCTS[0];
 wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 

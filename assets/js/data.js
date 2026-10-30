@@ -322,5 +322,14 @@
     ],
   };
 
+  // 관리자 어드민에서 고친 값(content/site.json → 빌드가 페이지마다 window.JAM_OVERRIDES 로 넣는다): 상품 기본 정보·사진, 3단 옵션 가격
+  const OV = (typeof window !== 'undefined' && window.JAM_OVERRIDES) || {};
+  for (const p of PRODUCTS) { const o = (OV.products || {})[p.id]; if (o) Object.assign(p, o); }
+  if (OV.options29) for (const k of ['price', 'list']) Object.assign(OPTIONS_29[k], OV.options29[k] || {});
+  { // 3단 대표 가격 = 가장 싼 옵션의 판매가·정가
+    const p29 = PRODUCTS.find(p => p.id === 29), cheap = Object.keys(OPTIONS_29.price).sort((a, b) => OPTIONS_29.price[a] - OPTIONS_29.price[b])[0];
+    if (p29) { p29.price = OPTIONS_29.price[cheap]; p29.list = OPTIONS_29.list[cheap]; }
+  }
+
   window.JAM = { PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES };
 })();
