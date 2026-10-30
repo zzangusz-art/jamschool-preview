@@ -99,10 +99,14 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 - 주제 추가: `_topics.json` 에 `{ "id", "keyword"(대표, 기존과 겹치지 않게), "keywords", "title", "angle"(다룰 내용·주의점), "category", "product", "photo"(선택), "status": "todo" }` 를 넣으면 순서대로 쓴다
 - 발행 전 사람 검토를 원하면 `site.yml` 의 예약(schedule)을 지우고 필요할 때 Run workflow 로 돌린 뒤 결과를 확인
 
-## 배포 (GitHub Pages)
-이 폴더가 곧 git 저장소다(`zzangusz-art/jamschool-preview`, 소스만 올리고 빌드 결과물은 `.gitignore`).
-- 반영: 상위 폴더 `deploy-preview.bat` 더블클릭 → 빌드·글 검증 → 커밋 → AI가 올린 글 받아오기(`git pull --rebase`) → 푸시 → Actions가 빌드해 2~3분 뒤 https://zzangusz-art.github.io/jamschool-preview/ 반영
-- 미리보기 배포는 `export-site.mjs --preview` 로 모든 페이지 noindex·robots Disallow. 운영 도메인에 올릴 때는 `node build.mjs` 후 `node tools/export-site.mjs <폴더>` (preview 옵션 없이)
+## 배포 (Railway 운영 jamschool.kr + GitHub Pages 미리보기)
+이 폴더가 곧 git 저장소다(`zzangusz-art/jamschool-preview`, 소스만 올리고 빌드 결과물은 `.gitignore`). 푸시 한 번으로 두 곳이 자동 배포된다.
+- 반영: 상위 폴더 `deploy.bat` 더블클릭(메시지 지정은 `deploy.bat "메시지"`) → 빌드·글 검증 → 커밋 → AI가 올린 글 받아오기(`git pull --rebase`) → 푸시
+- **Claude 작업 완료 시 자동 배포**: 상위 폴더 `.claude/settings.local.json` 의 Stop 훅 → `deploy-hook.mjs` → `deploy.bat --hook`. 소스 변경·안 올린 커밋이 없으면 바로 끝나고(0.3초), 배포했거나 실패하면 한 줄 알림 + `deploy.log`. 끄려면 그 파일의 `hooks` 를 지운다. 경로의 `&` 때문에 cmd 를 직접 부르지 않고 deploy-hook.mjs 를 거친다. deploy.bat 은 cp949·CRLF 로 저장(UTF-8+chcp 65001 이면 한글 주석이 명령으로 읽힘)
+- Railway(운영): Railpack 이 `npm ci` → `npm run build`(빌드 + `_site` 내보내기) → `npm start`(`tools/serve.mjs _site`, 의존성 없는 정적 서버: gzip·영상 Range·캐시). 2026-10-29 이전엔 start 명령이 없어 "Railpack failed to prepare the build" 로 실패. 환경변수 `CANONICAL_HOST=jamschool.kr`(www·*.up.railway.app → 301), 미리보기로 쓸 때만 `SITE_NOINDEX=1`
+- GitHub Pages(미리보기): Actions 가 `export-site.mjs --preview` 로 모든 페이지 noindex·robots Disallow → https://zzangusz-art.github.io/jamschool-preview/
+- 정식 주소(canonical·사이트맵·구조화 데이터)는 `build.mjs` 의 `SITE = https://jamschool.kr/`. 로그인·약관·구매평 링크는 공식몰 jamschool.co.kr 그대로
+- 소유확인·추적 코드: `src/site-tags.json` 에 값만 넣고 배포(네이버·구글·Bing 소유확인 메타, GTM, GA4, 네이버 애널리틱스). 빈 항목은 넣지 않음. GTM·GA4 가 있으면 주요 클릭(스마트스토어·N Pay `jam_store_click`, 구매하기 `jam_buy_click`, 장바구니 `jam_cart_click`, 전화 `jam_call_click`, 카카오 `jam_kakao_click`, 공식몰 이동 `jam_mall_click`)을 dataLayer·GA4 이벤트로 보냄. GA4 를 GTM 안에서도 켜면 이중 집계되니 둘 중 하나만
 - AI가 GitHub에서 글을 커밋하므로, 로컬에서 작업하기 전에 `git pull` 로 받아 두면 충돌이 없다
 
 ## 주문·결제
