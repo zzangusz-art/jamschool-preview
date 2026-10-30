@@ -62,12 +62,15 @@
   function shell(title, inner) {
     const r = route()[0], isOwner = ME.user.role === 'owner';
     const link = ([k, t]) => `<a href="#/${k}" class="${r === k ? 'on' : ''}">${t}</a>`;
-    $('#app').innerHTML = `<div class="shell"><aside class="side"><p class="brand">잠스쿨 관리자</p><p class="who">${h(ME.user.name)} · ${h(ME.user.roleName)}</p>
-      <nav>${NAV.map(link).join('')}${isOwner ? `<p class="grp"></p>${OWNER_NAV.map(link).join('')}` : ''}
+    $('#app').innerHTML = `<div class="shell"><aside class="side" id="side"><p class="brand">잠스쿨 관리자</p><button class="navbtn" id="navbtn" type="button" aria-expanded="false" aria-controls="side-nav">메뉴</button><p class="who">${h(ME.user.name)} · ${h(ME.user.roleName)}</p>
+      <nav id="side-nav">${NAV.map(link).join('')}${isOwner ? `<p class="grp"></p>${OWNER_NAV.map(link).join('')}` : ''}
       <div class="bottom">${link(['me', '내 계정'])}<a href="/" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout">로그아웃</a></div></nav></aside>
       <main class="main"><div class="top"><h1>${h(title)}</h1><span id="deploy" class="deploy ${deploy.state}" ${deploy.text ? '' : 'hidden'}>${h(deploy.text)}</span></div>
       ${!ME.storeReady ? '<div class="box bad">저장소 연결이 안 되어 있어 저장할 수 없습니다. 관리자에게 알려 주세요(Railway 변수 GITHUB_TOKEN).</div>' : ''}
       <div id="view">${inner || '<p class="help">불러오는 중…</p>'}</div></main></div>`;
+    // 휴대폰: 메뉴 버튼으로 펼치고, 메뉴를 고르면 닫는다
+    $('#navbtn').onclick = () => { const open = $('#side').classList.toggle('open'); $('#navbtn').setAttribute('aria-expanded', open); $('#navbtn').textContent = open ? '닫기' : '메뉴'; };
+    $('#side-nav').addEventListener('click', e => { if (e.target.closest('a')) $('#side').classList.remove('open'); });
     $('#logout').onclick = async e => { e.preventDefault(); await api('POST', '/api/admin/logout').catch(() => {}); ME.user = null; render(); };
     return $('#view');
   }

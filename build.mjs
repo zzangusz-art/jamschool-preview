@@ -1,5 +1,6 @@
 // 잠스쿨 공식홈 정적 빌드: src/*.tpl.html + assets/js/data.js → index.html, product-<id>.html, shop·cart·checkout·order-complete, blog/, sitemap.xml, llms.txt
 // 실행: node build.mjs   (데이터 수정은 assets/js/data.js 한 곳에서)
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -41,8 +42,14 @@ const withTags = s => {
   if (HEAD_TAGS) s = s.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n${HEAD_TAGS}`);
   if (BODY_OPEN) s = s.replace(/<body[^>]*>/, m => `${m}\n${BODY_OPEN}`);
   if (BODY_END) s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, `${BODY_END}\n</body>`);
-  return s;
+  // CSS·JS 주소에 파일 내용 버전(?v=)을 붙인다 → 배포하면 바뀐 파일만 브라우저·Cloudflare 캐시와 상관없이 바로 새로 받음
+  return s.replace(/(href|src)="(assets\/(?:css|js)\/[\w.-]+\.(?:css|js))"/g, (m, a, rel) => { const v = verOf(rel); return v ? `${a}="${rel}?v=${v}"` : m; });
 };
+const VER = new Map();
+function verOf(rel) {
+  if (!VER.has(rel)) { const f = path.join(ROOT, rel); VER.set(rel, fs.existsSync(f) ? crypto.createHash('md5').update(fs.readFileSync(f)).digest('hex').slice(0, 8) : ''); }
+  return VER.get(rel);
+}
 // 검색 제목·설명 길이(네이버 서치어드바이저 권장 제목 40자·설명 80자 이내): 색인되는 페이지만 빌드 끝에 알림
 const SEO_LONG = [];
 const unent = s => s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');

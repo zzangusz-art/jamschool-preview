@@ -24,6 +24,7 @@
 .inp[aria-invalid="true"] { border-color: var(--red); background: #FFF8F8; }
 .select { appearance: none; -webkit-appearance: none; padding-right: 40px; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2366707C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center / 18px; cursor: pointer; }
 .select--sm { width: auto; height: 42px; padding-left: 12px; border-radius: 10px; font-size: 15px; font-weight: 600; }
+@media (max-width: 767px) { .select--sm { font-size: 16px; } }  /* 아이폰 확대 방지 */
 .fld-grid { display: grid; gap: 16px; }
 @media (min-width: 640px) { .fld-grid { grid-template-columns: 1fr 1fr; } .fld--full { grid-column: 1 / -1; } }
 .fld__l { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; font-size: 15px; font-weight: 700; color: var(--ink); }

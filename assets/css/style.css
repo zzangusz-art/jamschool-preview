@@ -673,3 +673,14 @@ body.has-buybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
   .pgrid--lg .pcard__rv { font-size: 14px; }
 }
 .best .sec-head { margin-bottom: 28px; }
+
+/* ── 모바일 터치 영역(2026-10-30): 보이는 크기는 그대로, 손가락으로 누르는 범위만 넓힌다(44px 안팎) */
+.crumb a, .link-more, .bt__cert, .rv__more, .pd-info__rv, .pd-cp-btn, .footer__links a { position: relative; }
+.crumb a::after, .link-more::after, .bt__cert::after, .rv__more::after, .pd-info__rv::after, .footer__links a::after { content: ''; position: absolute; inset: -10px -6px; }
+.hs__dot::after { content: ''; position: absolute; inset: -10px 0; }
+.footer__links { row-gap: 12px; }
+.badge { font-size: 12px; }
+/* 아이폰은 16px 보다 작은 입력칸을 누르면 화면을 확대한다 → 휴대폰에서는 16px */
+@media (max-width: 767px) {
+  .inp, select, textarea, input[type="text"], input[type="tel"], input[type="email"], input[type="search"], input[type="number"], input[type="password"] { font-size: 16px; }
+}
