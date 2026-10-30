@@ -21,6 +21,8 @@ const TYPES = {
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff2': 'font/woff2', '.woff': 'font/woff', '.pdf': 'application/pdf',
 };
 const TEXT = /^(text\/|application\/(json|xml)|image\/svg)/;
+// 캐시: 페이지·사이트맵·RSS·robots 는 매번 확인(Cloudflare 가 오래 들고 있지 않게), js·css 1시간, 사진·영상·글꼴 7일
+const cacheFor = type => /^text\/(html|plain)|application\/(xml|json)/.test(type) ? 'no-cache' : /javascript|text\/css/.test(type) ? 'public, max-age=3600' : 'public, max-age=604800';
 if (!fs.existsSync(path.join(ROOT, 'index.html'))) { console.error(`${ROOT}/index.html 없음 — 먼저 npm run build`); process.exit(1); }
 
 // URL → 파일(폴더면 index.html, 확장자 없으면 .html). ROOT 밖은 거절
@@ -61,7 +63,7 @@ http.createServer(async (req, res) => {
   if (!f) { res.writeHead(404, { 'Content-Type': TYPES['.html'] }); res.end('<!doctype html><meta charset="utf-8"><title>404</title><p>페이지를 찾을 수 없습니다. <a href="/">홈으로</a></p>'); return; }
   const type = TYPES[path.extname(f.abs).toLowerCase()] || 'application/octet-stream';
   const headers = { 'Content-Type': type, 'Last-Modified': f.st.mtime.toUTCString(), 'Accept-Ranges': 'bytes',
-    'Cache-Control': type.startsWith('text/html') ? 'no-cache' : 'public, max-age=604800' };
+    'Cache-Control': cacheFor(type) };
   const since = Date.parse(req.headers['if-modified-since'] || '');
   if (since && since >= Math.floor(f.st.mtimeMs / 1000) * 1000) { res.writeHead(304, headers); res.end(); return; }
   const size = f.st.size;
