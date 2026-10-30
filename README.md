@@ -131,6 +131,7 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 - Railway(운영): Railpack 이 `npm ci` → `npm run build`(빌드 + `_site` 내보내기) → `npm start`(`tools/serve.mjs _site`, 의존성 없는 정적 서버: gzip·영상 Range·캐시). 2026-10-29 이전엔 start 명령이 없어 "Railpack failed to prepare the build" 로 실패. 환경변수 `CANONICAL_HOST=jamschool.kr`(www·*.up.railway.app → 301), 미리보기로 쓸 때만 `SITE_NOINDEX=1`
 - GitHub Pages(미리보기): Actions 가 `export-site.mjs --preview` 로 모든 페이지 noindex·robots Disallow → https://zzangusz-art.github.io/jamschool-preview/
 - 정식 주소(canonical·사이트맵·구조화 데이터)는 `build.mjs` 의 `SITE = https://jamschool.kr/`. 로그인·약관·구매평 링크는 공식몰 jamschool.co.kr 그대로
+- 등록 현황(2026-10-30): 구글 서치콘솔 https://jamschool.kr/ (HTML 태그 확인·사이트맵·RSS 제출), Bing 웹마스터(서치콘솔에서 가져오기), GA4 G-K336Y525PL(계정 「잠스쿨」), GTM GTM-MXWD3WX5(빈 컨테이너 게시 — GA4 는 gtag 로 직접, GTM 에 GA4 태그를 넣으면 이중 집계), 네이버 서치어드바이저 소유확인. 미리보기(github.io) 빌드는 추적 스크립트를 뺀다(export-site --preview)
 - 소유확인·추적 코드: `src/site-tags.json` 에 값만 넣고 배포(네이버·구글·Bing 소유확인 메타, GTM, GA4, 네이버 애널리틱스). 빈 항목은 넣지 않음. GTM·GA4 가 있으면 주요 클릭(스마트스토어·N Pay `jam_store_click`, 구매하기 `jam_buy_click`, 장바구니 `jam_cart_click`, 전화 `jam_call_click`, 카카오 `jam_kakao_click`, 공식몰 이동 `jam_mall_click`)을 dataLayer·GA4 이벤트로 보냄. GA4 를 GTM 안에서도 켜면 이중 집계되니 둘 중 하나만
 - AI가 GitHub에서 글을 커밋하므로, 로컬에서 작업하기 전에 `git pull` 로 받아 두면 충돌이 없다
 
