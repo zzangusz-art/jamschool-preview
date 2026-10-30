@@ -34,6 +34,11 @@ if (PREVIEW) {
       let s = fs.readFileSync(abs, 'utf8');
       if (!s.includes('name="robots"')) s = s.replace('<meta charset="utf-8">', '<meta charset="utf-8">\n<meta name="robots" content="noindex, nofollow">');
       s = s.replace(/(property="og:image" content=")https:\/\/jamschool\.kr\//g, `$1${PREVIEW}`);
+      // 미리보기 방문이 운영 통계(GA4·GTM·네이버 애널리틱스)에 섞이지 않게 추적 스크립트만 뺀다(소유확인 메타는 그대로)
+      s = s.replace(/<script>\(function\(w,d,s,l,i\)[\s\S]*?<\/script>\n?/g, '')
+        .replace(/<noscript><iframe src="https:\/\/www\.googletagmanager\.com\/ns\.html[\s\S]*?<\/noscript>\n?/g, '')
+        .replace(/<script async src="https:\/\/www\.googletagmanager\.com\/gtag\/js[^"]*"><\/script>\n?<script>window\.dataLayer=window\.dataLayer\|\|\[\];function gtag[\s\S]*?<\/script>\n?/g, '')
+        .replace(/<script src="https:\/\/wcs\.naver\.net\/wcslog\.js"><\/script>\n?<script>if\(!wcs_add\)[\s\S]*?<\/script>\n?/g, '');
       fs.writeFileSync(abs, s);
     }
   })(OUT);
