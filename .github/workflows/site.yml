@@ -51,6 +51,7 @@ jobs:
           npm ci --no-audit --no-fund
           node tools/blog-ai/generate.mjs --count "$COUNT"
           node tools/blog/thumb.mjs || echo "::warning::썸네일 생성 실패 — 상품 사진으로 대신 표시됩니다"
+          node build.mjs   # 새 글로 바뀐 페이지의 사이트맵 lastmod(content/lastmod.json)를 함께 커밋
           git config user.name "jamschool-blog-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add content assets/img/blog

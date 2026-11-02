@@ -61,7 +61,15 @@ function seoCheck(p, s) {
   if ([...t].length > 40) SEO_LONG.push(`${p} 제목 ${[...t].length}자`);
   if ([...d].length > 80) SEO_LONG.push(`${p} 설명 ${[...d].length}자`);
 }
-const wr = (p, s) => { if (p.endsWith('.html')) { s = withTags(s); seoCheck(p, s); } fs.writeFileSync(path.join(ROOT, p), s); };
+// 색인되는 페이지의 내용 해시(CSS·JS 버전 표시 ?v= 는 빼고) → 사이트맵 lastmod 를 '내용이 바뀐 날'로(아래 content/lastmod.json)
+const PAGE_HASH = {};
+const wr = (p, s) => {
+  if (p.endsWith('.html')) {
+    s = withTags(s); seoCheck(p, s);
+    if (!/<meta name="robots" content="noindex/.test(s)) PAGE_HASH[p] = crypto.createHash('md5').update(s.replace(/\?v=[0-9a-f]{8}/g, '')).digest('hex').slice(0, 12);
+  }
+  fs.writeFileSync(path.join(ROOT, p), s);
+};
 
 // WebP 폴백: assets/img 의 jpg/png 옆에 실제로 있는 .webp 만 <picture> 로 쓴다(없으면 원본 img 그대로)
 const walk = d => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(`${d}/${e.name}`) : [`${d}/${e.name}`]);
@@ -96,12 +104,33 @@ const ld = obj => `<script type="application/ld+json">${JSON.stringify(obj)}</sc
 // 템플릿에 직접 적은 <img src="assets/img/….jpg|png"> 도 <picture>(WebP + 원본 폴백)로 바꾼다. 이미 R.pic 으로 만든 것은 건너뜀
 const picturize = html => html.replace(/(?<!type="image\/webp">)<img src="(assets\/img\/[^"]+\.(?:jpe?g|png))"([^>]*)>/g, (m, src, rest) => R.pic(src, rest.trim()));
 
+// 교환·반품(상품 페이지 '배송 · 교환 · 반품'·FAQ 와 같은 내용): 수령 후 7일 이내, 택배 회수, 단순 변심은 왕복 배송비 고객 부담
+// (매트리스 36,000원 — 금액이 정해진 매트리스만 금액을 적고 나머지는 '고객 부담'만), 제품 하자는 무료
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+const returnPolicy = fee => ({
+  '@type': 'MerchantReturnPolicy', applicableCountry: 'KR', returnPolicyCountry: 'KR',
+  returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow', merchantReturnDays: 7, returnMethod: 'https://schema.org/ReturnByMail',
+  ...(fee ? { customerRemorseReturnFees: 'https://schema.org/ReturnShippingFees', customerRemorseReturnShippingFeesAmount: { '@type': 'MonetaryAmount', value: fee, currency: 'KRW' } }
+    : { customerRemorseReturnFees: 'https://schema.org/ReturnFeesCustomerResponsibility' }),
+  itemDefectReturnFees: 'https://schema.org/FreeReturn',
+});
+// 배송(data.js CHECKOUT·배송 안내): 기본 무료배송, 오후 1시 이전 결제 시 당일 출고(평일), 평균 1~3일. 제주·도서산간 추가 배송비는 금액이 정해지지 않아 넣지 않음
+const SHIPPING = {
+  '@type': 'OfferShippingDetails', shippingRate: { '@type': 'MonetaryAmount', value: JAM.CHECKOUT?.shipFee ?? 0, currency: 'KRW' }, shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'KR' },
+  deliveryTime: { '@type': 'ShippingDeliveryTime', cutoffTime: '13:00:00+09:00', businessDays: { '@type': 'OpeningHoursSpecification', dayOfWeek: WEEKDAYS },
+    handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' }, transitTime: { '@type': 'QuantitativeValue', minValue: 1, maxValue: 3, unitCode: 'DAY' } },
+};
+// 근거가 확인된 '국내 생산' 상품: 제공고시 제조국 대한민국(30·36) 또는 상세 이미지 'Made in Korea·100% 국내 생산'(29·37·38·39·40·44). 41(하픽)·43 은 미확인
+const MADE_KR = new Set([29, 30, 36, 37, 38, 39, 40, 44]);
+
+// OnlineStore = 온라인 판매처인 Organization(구글 권장 하위 유형). 공식몰(jamschool.co.kr)·스마트스토어는 같은 브랜드의 판매 채널
 const ORG = {
-  '@type': 'Organization', '@id': SITE + '#org', name: '잠스쿨', legalName: '잠스쿨', alternateName: ['JAMSCHOOL'], url: SITE, taxID: '841-45-00474',
+  '@type': 'OnlineStore', '@id': SITE + '#org', name: '잠스쿨', legalName: '잠스쿨', alternateName: ['JAMSCHOOL'], url: SITE, taxID: '841-45-00474',
   logo: SITE + 'assets/img/brand/logo.png', email: 'jamsale33@gmail.com',
-  contactPoint: { '@type': 'ContactPoint', telephone: '+82-10-9610-8868', contactType: 'customer service', areaServed: 'KR', availableLanguage: 'ko', hoursAvailable: { '@type': 'OpeningHoursSpecification', dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'], opens: '09:00', closes: '17:00' } },
+  contactPoint: { '@type': 'ContactPoint', telephone: '+82-10-9610-8868', contactType: 'customer service', areaServed: 'KR', availableLanguage: 'ko', hoursAvailable: { '@type': 'OpeningHoursSpecification', dayOfWeek: WEEKDAYS, opens: '09:00', closes: '17:00' } },
   address: { '@type': 'PostalAddress', streetAddress: '강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트)', addressLocality: '강서구', addressRegion: '서울특별시', addressCountry: 'KR' },
-  sameAs: ['https://smartstore.naver.com/healingq'],
+  sameAs: ['https://jamschool.co.kr/', 'https://smartstore.naver.com/healingq'],
+  hasMerchantReturnPolicy: returnPolicy(0),
 };
 
 // ───────── index
@@ -275,7 +304,9 @@ function specBase(p) {
     ];
     return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table><h3 class="pd-h3">옵션별 크기 · 무게 · 판매가</h3>${R.specTable(O)}<p class="note" style="margin-top:10px">접은 크기는 폭 × 깊이 × 높이입니다. 정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준이며 쿠폰 적용 전 금액입니다.</p>`;
   }
-  const rows = [['제품명', p.name], ['특징', p.points.length ? p.points.join(' · ') : p.summary], ['원산지', '대한민국'], ['판매원', '잠스쿨']];
+  // 원산지는 근거가 확인된 상품만 '대한민국'(MADE_KR), 나머지는 제공고시·상세 원문을 따른다
+  const rows = [['제품명', p.name], ['브랜드', p.brand || '잠스쿨'], ['특징', p.points.length ? p.points.join(' · ') : p.summary],
+    ['원산지', MADE_KR.has(p.id) ? '대한민국' : '상품 상세·제공고시 참조'], ['판매원', '잠스쿨']];
   return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
 }
 function reviewsHTMLp(p) {
@@ -313,15 +344,31 @@ function mainHTML(p) {
 }
 function productLD(p) {
   const url = SITE + `product-${p.id}.html`;
+  // 배송·반품 정보는 모든 판매 조건(Offer)에 붙인다(구글 판매자 정보 권장 항목)
+  const sell = { availability: 'https://schema.org/InStock', url, seller: { '@id': SITE + '#org' }, shippingDetails: SHIPPING, hasMerchantReturnPolicy: returnPolicy(p.cat === 'mattress' ? 36000 : 0) };
   const offers = p.full
-    ? { '@type': 'AggregateOffer', priceCurrency: 'KRW', lowPrice: Math.min(...Object.values(O.price)), highPrice: Math.max(...Object.values(O.price)), offerCount: Object.keys(O.price).length * O.color.length, availability: 'https://schema.org/InStock', url, seller: { '@id': SITE + '#org' } }
-    : { '@type': 'Offer', priceCurrency: 'KRW', price: p.price, availability: 'https://schema.org/InStock', url, seller: { '@id': SITE + '#org' } };
+    ? { '@type': 'AggregateOffer', priceCurrency: 'KRW', lowPrice: Math.min(...Object.values(O.price)), highPrice: Math.max(...Object.values(O.price)), offerCount: Object.keys(O.price).length * O.color.length, ...sell }
+    : { '@type': 'Offer', priceCurrency: 'KRW', price: p.price, ...sell };
   // 별점·리뷰(aggregateRating·review)는 넣지 않는다: 구매평이 모두 스마트스토어(다른 사이트)에서 모은 것이라
   // 구글 리뷰 스니펫 정책("다른 사이트의 리뷰·평점을 모아 표시하지 말 것") 위반 → 수동 조치 위험. 화면 표시는 출처와 함께 그대로.
+  // 브랜드는 상품의 실제 브랜드(하픽 등 입점 상품), 제조국은 근거가 확인된 상품만
   const prod = {
     '@type': 'Product', '@id': url + '#product', name: p.name, description: p.summary + (p.points.length ? ' · ' + p.points.join(' · ') : ''),
-    image: p.imgs.slice(0, 4).map(i => SITE + i), brand: { '@type': 'Brand', name: '잠스쿨' }, sku: `JAM-${p.id}`, countryOfOrigin: 'KR', offers,
+    image: p.imgs.slice(0, 4).map(i => SITE + i), brand: { '@type': 'Brand', name: p.brand || '잠스쿨' }, sku: `JAM-${p.id}`,
+    ...(MADE_KR.has(p.id) ? { countryOfOrigin: 'KR' } : {}), offers,
   };
+  // 두께·사이즈·색상 옵션이 있는 상품(3단): 옵션마다 가격이 달라 ProductGroup + 변형(hasVariant)으로 — 'OO 슈퍼싱글 가격' 같은 질문에 옵션 가격이 바로 잡히게
+  if (p.full) {
+    Object.assign(prod, {
+      '@type': 'ProductGroup', productGroupID: `JAM-${p.id}`, variesBy: ['https://schema.org/size', 'https://schema.org/color'],
+      hasVariant: O.thickness.flatMap(t => O.size.flatMap(s => O.color.map(c => ({
+        '@type': 'Product', '@id': `${url}#v-${t.id}-${s.id}-${c.id}`, sku: `JAM-${p.id}-${t.id}${s.id}-${c.id}`,
+        name: `${p.name} ${t.label} ${t.sub} ${s.label} ${c.label}`, size: `${t.label} ${t.sub} ${s.label}(${s.w}×200cm)`, color: c.label,
+        image: SITE + (c.id === 'ivory' && p.imgs[8] ? p.imgs[8] : p.imgs[0]),
+        offers: { '@type': 'Offer', priceCurrency: 'KRW', price: O.price[`${t.id}-${s.id}`], ...sell },
+      })))),
+    });
+  }
   if (p.id === 29) {
     prod.additionalProperty = [
       { '@type': 'PropertyValue', name: '폼 밀도', value: '31.30', unitText: 'kg/m³' },
@@ -338,9 +385,8 @@ function productLD(p) {
 for (const p of PRODUCTS) {
   let s = tpl;
   // 검색 제목·설명: 네이버 권장 40자·80자 이내, 수치 대신 브랜드·상품명 위주(2026-10-30 서치어드바이저 간단 체크)
-  // '국내에서 만든'은 근거가 확인된 상품만: 제공고시 제조국 대한민국(30·36) 또는 상세 이미지 'Made in Korea·100% 국내 생산'(29·37·38·39·40·44). 41·43 미확인
-  const MADE_KR = new Set([29, 30, 36, 37, 38, 39, 40, 44]);
-  const title = p.id === 29 ? '잠스쿨 3단 접이식 매트리스 | 탄탄한 바닥·침대 겸용 매트리스' : `잠스쿨 ${p.short} | 공식 홈페이지`;
+  // '국내에서 만든'은 근거가 확인된 상품만(MADE_KR)
+  const title = p.id === 29 ? '잠스쿨 3단 접이식 매트리스 | 탄탄한 바닥·침대 겸용 매트리스' : p.brand ? `${p.short} | 잠스쿨 공식 홈페이지` : `잠스쿨 ${p.short} | 공식 홈페이지`; // 입점 브랜드(하픽 등)는 상품명 앞에 '잠스쿨'을 붙이지 않음
   const desc = p.id === 29
     ? '잠스쿨 3단 접이식 매트리스. 바닥과 침대 위 모두 쓰는 탄탄한 접는 매트리스로, 국내에서 만들고 겉커버를 분리해 세탁할 수 있습니다.'
     : `${p.name}. ${p.summary.split(' · ')[0]}. ${MADE_KR.has(p.id) ? '국내에서 만든 잠스쿨 제품, 공식' : '잠스쿨 공식'} 홈페이지에서 자세히 보세요.`;
@@ -478,6 +524,8 @@ const CATS = [...new Set(POSTS.map(p => p.category))];
 for (const p of POSTS) {
   const url = `${SITE}blog/${p.slug}.html`;
   let s = blogShell('blog-post.tpl.html', `blog/${p.slug}.html`);
+  // 검색 제목(<title>·og:title)만 '| 잠스쿨' 을 붙이고, 화면 제목(h1)은 글 제목 그대로
+  s = fill(s, 'h1', esc(p.title));
   s = fill(s, 'title', esc([...p.title].length + 6 <= 40 ? `${p.title} | 잠스쿨` : p.title)); s = fill(s, 'desc', esc(p.description)); s = fill(s, 'canonical', url);
   const prod = PRODUCTS.find(x => String(x.id) === String(p.product || 29)) || P29card;
   const img = p.thumb || prod.imgs[0];
@@ -506,9 +554,28 @@ ${POSTS.map(p => `<item><title>${esc(p.title)}</title><link>${SITE}blog/${p.slug
 `);
 console.log(`blog: ${POSTS.length} posts`);
 
-const today = new Date().toISOString().slice(0, 10);
-wr('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n<url><loc>${SITE}</loc><lastmod>${today}</lastmod></url>\n<url><loc>${SITE}shop.html</loc><lastmod>${today}</lastmod></url>\n${PRODUCTS.map(p => `<url><loc>${SITE}product-${p.id}.html</loc><lastmod>${today}</lastmod></url>`).join('\n')}\n<url><loc>${SITE}blog/</loc><lastmod>${today}</lastmod></url>\n${POSTS.map(p => `<url><loc>${SITE}blog/${p.slug}.html</loc><lastmod>${p.updated || p.date}</lastmod></url>`).join('\n')}\n</urlset>\n`);
+// 사이트맵 lastmod: 매 빌드 날짜가 아니라 페이지 내용이 실제로 바뀐 날(구글·Bing 은 lastmod 가 늘 '오늘'이면 무시한다).
+// content/lastmod.json 에 페이지별 해시·날짜를 두고 커밋한다 → Railway·Actions 빌드도 같은 날짜. 블로그 글은 글의 date/updated.
+const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
+const LM_FILE = path.join(ROOT, 'content/lastmod.json');
+const LM = fs.existsSync(LM_FILE) ? JSON.parse(fs.readFileSync(LM_FILE, 'utf8')) : {};
+delete LM._설명;
+for (const [p, h] of Object.entries(PAGE_HASH)) if (!/^blog\/(?!index\.html)/.test(p) && (!LM[p] || LM[p].h !== h)) LM[p] = { h, d: today };
+const lmOut = JSON.stringify({ _설명: '사이트맵 lastmod 기준(build.mjs 가 자동 관리). 페이지 내용 해시가 바뀐 날짜', ...Object.fromEntries(Object.keys(LM).filter(p => PAGE_HASH[p]).sort().map(p => [p, LM[p]])) }, null, 1) + '\n';
+if (!fs.existsSync(LM_FILE) || fs.readFileSync(LM_FILE, 'utf8') !== lmOut) fs.writeFileSync(LM_FILE, lmOut);
+const lm = p => (LM[p] && LM[p].d) || today;
+// 이미지 사이트맵: 상품은 대표 사진 5장, 글은 썸네일(구글·네이버 이미지 검색)
+const imgs = list => list.filter(Boolean).map(i => `<image:image><image:loc>${SITE}${esc(i)}</image:loc></image:image>`).join('');
+const urlTag = (loc, d, im = []) => `<url><loc>${loc}</loc><lastmod>${d}</lastmod>${imgs(im)}</url>`;
+wr('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${[
+  urlTag(SITE, lm('index.html')), urlTag(SITE + 'shop.html', lm('shop.html')),
+  ...PRODUCTS.map(p => urlTag(`${SITE}product-${p.id}.html`, lm(`product-${p.id}.html`), p.imgs.slice(0, 5))),
+  urlTag(SITE + 'blog/', lm('blog/index.html')),
+  ...POSTS.map(p => urlTag(`${SITE}blog/${p.slug}.html`, p.updated || p.date, [p.thumb])),
+].join('\n')}\n</urlset>\n`);
 wr('robots.txt', `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${SITE}sitemap.xml\n`);
+// IndexNow 키 파일(Bing·네이버 등에 바뀐 주소를 바로 알림 — tools/seo/indexnow.mjs). 키는 공개용 값이라 저장소에 둬도 된다
+if (tag('indexNowKey')) wr(`${tag('indexNowKey')}.txt`, tag('indexNowKey'));
 const P29 = PRODUCTS[0];
 wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 
@@ -532,7 +599,10 @@ wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 - 교환·반품: 수령 후 7일 이내 고객센터 접수. 단순 변심 왕복 배송비 매트리스 36,000원.
 
 ## 그 밖의 제품 (전체 목록 ${SITE}shop.html)
-${PRODUCTS.slice(1).map(p => `- ${p.name}: ${p.summary}. ${won(p.price)}. ${SITE}product-${p.id}.html`).join('\n')}
+${PRODUCTS.slice(1).map(p => `- ${p.name}${p.brand ? `(${p.brand} 브랜드, 잠스쿨 판매)` : ''}: ${p.summary}. ${won(p.price)}. ${SITE}product-${p.id}.html`).join('\n')}
+
+## 자주 묻는 질문 (요약, 전체 ${SITE}#faq)
+${FAQ.map(f => `- Q. ${f.q}\n  A. ${f.a.join(' ')}`).join('\n')}
 
 ## 가격대 (${MARKET.source} ${MARKET.basis}, ${MARKET.date} 조회)
 ${MARKET.bands.map(b => `- ${b.k}(${b.sub}): ${won(b.lo)}~${won(b.hi)}`).join('\n')}
@@ -542,10 +612,12 @@ ${MARKET.bands.map(b => `- ${b.k}(${b.sub}): ${won(b.lo)}~${won(b.hi)}`).join('\
 ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).join('\n') || '- 준비 중'}
 
 ## 판매처
-공식몰 ${SITE}, 네이버 스마트스토어 https://smartstore.naver.com/healingq, 11번가, 오늘의집, GS샵, 현대Hmall
+공식 홈페이지 ${SITE}, 공식몰 https://jamschool.co.kr/ (회원·구매평), 네이버 스마트스토어 https://smartstore.naver.com/healingq, 11번가, 오늘의집, GS샵, 현대Hmall
 
 ## 회사
 상호 잠스쿨 · 대표 노치영 · 사업자등록번호 841-45-00474 · 통신판매업신고 제2019-서울강서-2200호 · 서울특별시 강서구 강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트) · 고객센터 010-9610-8868(평일 09:00~17:00) · jamsale33@gmail.com
+
+최종 업데이트: ${[...Object.values(LM).map(x => x.d), ...POSTS.map(p => p.updated || p.date)].sort().pop()}
 `);
 console.log('built: index.html,', PRODUCTS.map(p => `product-${p.id}.html`).join(', '), ', sitemap.xml, robots.txt, llms.txt');
 console.log(`detail manifests: ${Object.keys(DETAIL).join(', ') || '없음'}`);

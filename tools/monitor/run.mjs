@@ -35,6 +35,7 @@ if (mode === 'auto' || mode === 'daily') {
   step('AI 검색·검색엔진 노출 측정', ['tools/monitor/ai-check.mjs']);
   step('블로그 대표 키워드 점검', ['tools/monitor/keyword-check.mjs']);
   step('전후 비교 화면 캡처', ['tools/monitor/capture-pages.mjs']);
+  step('IndexNow 바뀐 주소 알림', ['tools/seo/indexnow.mjs']);
 }
 // 측정 기록이 없는 기간(측정 시작 전)은 리포트를 만들지 않는다
 const rows = readCsv();
