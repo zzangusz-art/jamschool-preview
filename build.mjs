@@ -539,8 +539,10 @@ for (const p of POSTS) {
   // 함께 읽을 글: 같은 상품 글 먼저, 그다음 최신순
   const rel = POSTS.filter(x => x.slug !== p.slug).map((x, i) => [x, (String(x.product || 29) === String(p.product || 29) ? 0 : 1000) + i]).sort((a, b) => a[1] - b[1]).slice(0, 3).map(a => a[0]);
   s = fill(s, 'related', rel.length ? `<section class="post-related" aria-labelledby="pr-t"><h2 id="pr-t">함께 읽으면 좋은 글</h2><div class="post-grid">${rel.map(x => R.postCard(x)).join('')}</div></section>` : '');
+  // about 은 상품 페이지의 Product(@id)를 가리키기만 한다 — 여기서 '@type: Product' 를 쓰면 가격(offers) 없는 상품으로 읽혀
+  // 서치콘솔 제품 스니펫 '잘못됨'(offers·review·aggregateRating 중 하나 필요)이 된다(2026-11-02 확인)
   const graph = [ORG,
-    { '@type': 'BlogPosting', '@id': url + '#post', headline: p.title, description: p.description, datePublished: p.date, dateModified: p.updated || p.date, inLanguage: 'ko-KR', url, mainEntityOfPage: url, image: SITE + img, author: { '@type': 'Organization', name: p.author || '잠스쿨 편집팀', url: SITE }, publisher: { '@id': SITE + '#org' }, keywords: p.tags.join(', '), about: { '@type': 'Product', name: prod.name, url: SITE + R.href(prod) } },
+    { '@type': 'BlogPosting', '@id': url + '#post', headline: p.title, description: p.description, datePublished: p.date, dateModified: p.updated || p.date, inLanguage: 'ko-KR', url, mainEntityOfPage: url, image: SITE + img, author: { '@type': 'Organization', name: p.author || '잠스쿨 편집팀', url: SITE }, publisher: { '@id': SITE + '#org' }, keywords: p.tags.join(', '), about: { '@id': SITE + R.href(prod) + '#product', name: prod.name, url: SITE + R.href(prod) } },
     { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '수면 가이드', item: SITE + 'blog/' }, { '@type': 'ListItem', position: 3, name: p.title, item: url }] }];
   if (p.faq.length) graph.push({ '@type': 'FAQPage', mainEntity: p.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/\*\*/g, '') } })) });
   s = fill(s, 'jsonld', ld({ '@context': 'https://schema.org', '@graph': graph }));
