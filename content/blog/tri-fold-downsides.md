@@ -8,6 +8,7 @@ tags: 3단 접이식 매트리스 단점, 접이식 매트리스 단점, 3단 �
 keyword: 3단 접이식 매트리스 단점
 product: 29
 image: assets/img/blog/tri-fold-downsides.jpg
+photo: assets/img/products/29/ss-09.jpg
 author: 잠스쿨 편집팀
 topic: tri-fold-downsides
 ---

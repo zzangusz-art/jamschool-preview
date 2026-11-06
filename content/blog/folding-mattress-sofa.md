@@ -8,6 +8,7 @@ tags: 접는 매트리스 소파, 매트리스 소파, 접이식 소파 매트�
 keyword: 접는 매트리스 소파
 product: 29
 image: assets/img/blog/folding-mattress-sofa.jpg
+photo: assets/img/scenes/sofa-sit.jpg
 author: 잠스쿨 편집팀
 topic: folding-mattress-sofa
 ---

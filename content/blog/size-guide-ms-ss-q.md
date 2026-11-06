@@ -8,7 +8,7 @@ tags: 사이즈, 멀티싱글, 슈퍼싱글, 퀸
 keyword: 접이식 매트리스 사이즈
 product: 29
 image: assets/img/blog/size-guide-ms-ss-q.jpg
-photo: assets/img/products/29/01.jpg
+photo: assets/img/products/29/04.jpg
 author: 잠스쿨 편집팀
 ---
 3단 접이식 매트리스 사이즈는 길이가 모두 200cm로 같고 폭만 다릅니다. 멀티싱글 75cm, 슈퍼싱글 110cm, 퀸 150cm입니다. 사이즈는 몇 명이 쓰는지, 그리고 펼쳐 둘 자리와 접어 둘 자리가 얼마나 되는지로 고르면 됩니다.

@@ -45,7 +45,9 @@ const withTags = s => {
   if (BODY_OPEN) s = s.replace(/<body[^>]*>/, m => `${m}\n${BODY_OPEN}`);
   if (BODY_END) s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, `${BODY_END}\n</body>`);
   // CSS·JS 주소에 파일 내용 버전(?v=)을 붙인다 → 배포하면 바뀐 파일만 브라우저·Cloudflare 캐시와 상관없이 바로 새로 받음
-  return s.replace(/(href|src)="(assets\/(?:css|js)\/[\w.-]+\.(?:css|js))"/g, (m, a, rel) => { const v = verOf(rel); return v ? `${a}="${rel}?v=${v}"` : m; });
+  s = s.replace(/(href|src)="(assets\/(?:css|js)\/[\w.-]+\.(?:css|js))"/g, (m, a, rel) => { const v = verOf(rel); return v ? `${a}="${rel}?v=${v}"` : m; });
+  // 블로그 썸네일은 같은 주소로 다시 만들기 때문에, 버전이 없으면 Cloudflare·브라우저가 7일(max-age)간 옛 그림을 보여 준다(공유 이미지·JSON-LD 포함)
+  return s.replace(/assets\/img\/blog\/[\w.-]+\.(?:jpe?g|png|webp)/g, rel => { const v = verOf(rel); return v ? `${rel}?v=${v}` : rel; });
 };
 const VER = new Map();
 function verOf(rel) {
@@ -573,7 +575,7 @@ wr('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http:/
   urlTag(SITE, lm('index.html')), urlTag(SITE + 'shop.html', lm('shop.html')),
   ...PRODUCTS.map(p => urlTag(`${SITE}product-${p.id}.html`, lm(`product-${p.id}.html`), p.imgs.slice(0, 5))),
   urlTag(SITE + 'blog/', lm('blog/index.html')),
-  ...POSTS.map(p => urlTag(`${SITE}blog/${p.slug}.html`, p.updated || p.date, [p.thumb])),
+  ...POSTS.map(p => urlTag(`${SITE}blog/${p.slug}.html`, p.updated || p.date, [p.thumb && `${p.thumb}?v=${verOf(p.thumb)}`])),
 ].join('\n')}\n</urlset>\n`);
 wr('robots.txt', `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: ${SITE}sitemap.xml\n`);
 // IndexNow 키 파일(Bing·네이버 등에 바뀐 주소를 바로 알림 — tools/seo/indexnow.mjs). 키는 공개용 값이라 저장소에 둬도 된다

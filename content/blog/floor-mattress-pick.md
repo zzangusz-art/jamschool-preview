@@ -8,6 +8,7 @@ tags: 바닥 매트리스 추천, 바닥에 까는 매트리스, 바닥용 매�
 keyword: 바닥 매트리스 추천
 product: 29
 image: assets/img/blog/floor-mattress-pick.jpg
+photo: assets/img/products/29/ss-08.jpg
 author: 잠스쿨 편집팀
 topic: floor-mattress-pick
 ---

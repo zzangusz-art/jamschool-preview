@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { parseFrontmatter } from '../blog/lib.mjs';
+import { photoStatus } from '../blog/thumb.mjs';
 import { BLOG_DIR, SITE_ROOT, addDays, arg, kstDate } from './lib.mjs';
 
 const date = arg('date', kstDate());
@@ -20,7 +21,7 @@ const close = (a, b) => { if (a === b) return false; const [s, l] = a.length < b
 
 const posts = fs.readdirSync(CONTENT).filter(f => f.endsWith('.md')).map(f => {
   const src = fs.readFileSync(path.join(CONTENT, f), 'utf8'); const { meta, body } = parseFrontmatter(src);
-  return { file: f, slug: meta.slug || f.replace(/\.md$/, ''), title: meta.title, keyword: norm(meta.keyword), date: meta.date, product: meta.product ? +meta.product : null, body };
+  return { file: f, slug: meta.slug || f.replace(/\.md$/, ''), title: meta.title, keyword: norm(meta.keyword), date: meta.date, product: meta.product ? +meta.product : null, photo: meta.photo, body };
 }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 const topics = JSON.parse(fs.readFileSync(path.join(CONTENT, '_topics.json'), 'utf8'));
 const todo = topics.filter(t => t.status === 'todo');
@@ -59,6 +60,12 @@ for (const p of posts) {
 const perDay = 3, daysLeft = Math.floor(todo.length / perDay);
 const runOut = addDays(date, daysLeft);
 (daysLeft <= 7 ? warn : info).push(`대기열 남은 주제 ${todo.length}편 — 하루 ${perDay}편이면 ${runOut} 무렵 소진${daysLeft <= 7 ? '. 새 주제를 _topics.json 에 추가해야 자동 발행이 이어짐' : ''}`);
+// ⑧ 썸네일 사진 겹침·남은 사진
+const photos = photoStatus(posts);
+for (const [f, slugs] of photos.dup) warn.push(`썸네일 사진이 겹침 ${f}: ${slugs.join(' · ')}`);
+const queued = new Map();
+for (const t of todo) queued.set(t.product || 29, (queued.get(t.product || 29) || 0) + 1);
+for (const [id, n] of queued) if (photos.left(id) < n) info.push(`상품 ${id} 썸네일 사진 — 안 쓴 사진 ${photos.left(id)}장, 대기열 ${n}편. 모자란 만큼 사진을 다시 쓰게 되니 상품 사진을 더 받아 tools/blog/thumb.mjs POOL 에 추가`);
 // ⑦ 생성기 규칙 검사
 let check = { ok: true, out: '' };
 try { check.out = execFileSync('node', ['tools/blog-ai/generate.mjs', '--check'], { cwd: SITE_ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }

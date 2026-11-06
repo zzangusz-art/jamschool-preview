@@ -8,7 +8,7 @@ tags: 두께, 침대형, 바닥형, 3단 접이식 매트리스
 keyword: 3단 접이식 매트리스 두께
 product: 29
 image: assets/img/blog/thickness-7cm-vs-12cm.jpg
-photo: assets/img/products/29/04.jpg
+photo: assets/img/products/29/03.jpg
 author: 잠스쿨 편집팀
 ---
 3단 접이식 매트리스 두께를 고를 때 먼저 정할 것은 매트리스를 어디에 까느냐입니다. 잠스쿨 3단 접이식 매트리스는 침대 프레임 위에 올리는 **침대형 7cm**와 바닥에 바로 까는 **바닥형 12cm** 두 가지로 나옵니다.
