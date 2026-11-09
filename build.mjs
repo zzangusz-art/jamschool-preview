@@ -546,7 +546,7 @@ for (const p of POSTS) {
   const graph = [ORG,
     { '@type': 'BlogPosting', '@id': url + '#post', headline: p.title, description: p.description, datePublished: p.date, dateModified: p.updated || p.date, inLanguage: 'ko-KR', url, mainEntityOfPage: url, image: SITE + img, author: { '@type': 'Organization', name: p.author || '잠스쿨 편집팀', url: SITE }, publisher: { '@id': SITE + '#org' }, keywords: p.tags.join(', '), about: { '@id': SITE + R.href(prod) + '#product', name: prod.name, url: SITE + R.href(prod) } },
     { '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: '홈', item: SITE }, { '@type': 'ListItem', position: 2, name: '수면 가이드', item: SITE + 'blog/' }, { '@type': 'ListItem', position: 3, name: p.title, item: url }] }];
-  if (p.faq.length) graph.push({ '@type': 'FAQPage', mainEntity: p.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/\*\*/g, '') } })) });
+  if (p.faq.length) graph.push({ '@type': 'FAQPage', mainEntity: p.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a.replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') } })) });
   s = fill(s, 'jsonld', ld({ '@context': 'https://schema.org', '@graph': graph }));
   wr(`blog/${p.slug}.html`, picturize(s));
 }
