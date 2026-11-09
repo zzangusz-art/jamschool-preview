@@ -180,6 +180,7 @@ async function callClaude(client, system, messages) {
 async function main() {
   const J = loadData();
   const sheet = factSheet(J);
+  if (flag('--facts')) { console.log(sheet); return; } // API 키 없이 사실 목록만 출력(예약 작업이 글을 쓸 때 참고)
   const allowed = allowedNumbers(sheet);
   const posts = loadPosts(BLOG);
 

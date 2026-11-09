@@ -37,7 +37,7 @@ const SCENE = {
   'assets/img/products/29/02.jpg': ['원룸', '아침'],                                  // 일어나 기지개
   'assets/img/products/29/03.jpg': ['두께', '7cm', '12cm'],                           // 7cm·12cm 비교
   'assets/img/products/29/04.jpg': ['사이즈', '슈퍼싱글', '퀸', '멀티싱글'],            // 사이즈 겹침
-  'assets/img/products/29/05.jpg': ['세탁', '방수', '커버', '진드기', '미끄럼'],        // 커버 근접
+  'assets/img/products/29/05.jpg': ['세탁', '방수', '커버', '진드기', '미끄럼', '라돈', '시험'],        // 커버 근접
   'assets/img/products/29/06.jpg': ['압축', '기준'],                                  // 세워 접은 모양
   'assets/img/products/29/07.jpg': ['밀도', '탄탄', '국내 생산', '라돈', '유해물질'],   // 커버를 누르는 손
   'assets/img/products/29/08.jpg': ['침대 위', '교체', '수명'],                        // 침대 위에 올린 모습
