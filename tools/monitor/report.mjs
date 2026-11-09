@@ -123,8 +123,29 @@ const blogHtml = `<p>기간 중 새 글 <b>${posts.length}편</b>${kc ? ` · 대
 ${posts.length ? `<table class="t"><tr><th>날짜</th><th>제목</th><th>대표 키워드</th></tr>${posts.map(m => `<tr><td>${m.date}</td><td><a href="https://jamschool.kr/blog/${esc(m.slug)}.html">${esc(m.title)}</a></td><td>${esc(m.keyword)}</td></tr>`).join('')}</table>` : ''}
 ${kc ? `<h3>키워드 점검</h3><ul>${(kc.warn.length ? kc.warn.map(w => `<li class="w">${esc(w)}</li>`) : ['<li>겹치는 대표 키워드·비슷한 제목 없음</li>']).join('')}${kc.info.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '<p class="note">키워드 점검 기록이 없습니다.</p>'}`;
 
+// 방문자(GA4 활성 사용자): 측정/방문자.csv — date,users,new_users,engaged_sessions
+const VISIT_FILE = path.join(path.dirname(AI_DIR), '방문자.csv');
+const visits = fs.existsSync(VISIT_FILE) ? fs.readFileSync(VISIT_FILE, 'utf8').replace(/^﻿/, '').trim().split(/\r?\n/).slice(1).map(l => { const [date, users, nu, eng] = l.split(','); return { date, users: +users, nu: +nu, eng: +eng }; }) : [];
+const vIn = (a, b) => visits.filter(v => v.date >= a && v.date <= b);
+const vSum = list => list.reduce((s, v) => s + v.users, 0);
+const vCur = vIn(from, to), vPrev = vIn(pFrom, pTo);
+const monthEnd = ym => addDays(new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7), 1)).toISOString().slice(0, 10), -1);
+const prevYm = ym => new Date(Date.UTC(+ym.slice(0, 4), +ym.slice(5, 7) - 2, 1)).toISOString().slice(0, 7);
+const vMonth = ym => vIn(`${ym}-01`, ym === to.slice(0, 7) ? to : monthEnd(ym));
+const avg = list => list.length ? (vSum(list) / list.length).toFixed(1) : '—';
+const change = (c, p) => { if (!p) return '<span class="eq">비교 없음</span>'; const d = c - p, cls = d > 0 ? 'up' : d < 0 ? 'down' : 'eq'; return `<span class="${cls}">${d > 0 ? '+' : ''}${d}명 (${d > 0 ? '+' : ''}${Math.round(d / p * 100)}%)</span>`; };
+const vYm = to.slice(0, 7), vThis = vMonth(vYm), vLast = vMonth(prevYm(vYm));
+const visitHtml = !vCur.length ? '<p class="note">이 기간의 방문자 기록이 없습니다(측정/방문자.csv).</p>' : `<table class="t"><tr><th>구분</th><th>이번 기간</th><th>이전 기간</th><th>증감</th></tr>
+<tr><td>기간 방문자(일별 합계)</td><td>${vSum(vCur)}명 (${vCur.length}일)</td><td>${vPrev.length ? `${vSum(vPrev)}명 (${vPrev.length}일)` : '기록 없음'}</td><td>${change(vSum(vCur), vSum(vPrev))}</td></tr>
+<tr><td>일 평균 방문자</td><td>${avg(vCur)}명</td><td>${vPrev.length ? `${avg(vPrev)}명` : '기록 없음'}</td><td>${vPrev.length ? change(+avg(vCur), +avg(vPrev)).replace(/명 \([^)]*\)/, '명') : '<span class="eq">비교 없음</span>'}</td></tr>
+<tr><td>월 방문자(${vYm} 누적)</td><td>${vSum(vThis)}명 (${vThis.length}일)</td><td>${vLast.length ? `${vSum(vLast)}명 (${vLast.length}일)` : '기록 없음'}</td><td>${change(vSum(vThis), vSum(vLast))}</td></tr></table>
+<table class="t"><tr><th>날짜</th>${vCur.map(v => `<th>${v.date.slice(5)}</th>`).join('')}</tr><tr><td>방문자</td>${vCur.map(v => `<td>${v.users}</td>`).join('')}</tr></table>
+<p class="note">GA4 활성 사용자 기준. 일별 값을 더한 숫자라 같은 사람이 며칠 방문하면 여러 번 셉니다. 기록이 있는 날짜 수가 다르면 일 평균으로 비교해 주세요.</p>`;
+
 // 다음 할 일(데이터에서 자동으로)
 const todo = [];
+const vLastDay = visits.map(v => v.date).sort().pop();
+if (!vLastDay || vLastDay < to) todo.push(`방문자 수치가 ${vLastDay || '없음'}까지만 있음 — GA4에서 받아 측정/방문자.csv 갱신`);
 const missing = [['ANTHROPIC_API_KEY', 'Claude'], ['OPENAI_API_KEY', 'ChatGPT'], ['GEMINI_API_KEY', 'Gemini'], ['PERPLEXITY_API_KEY', 'Perplexity'], ['NAVER_CLIENT_ID', '네이버 검색 API']].filter(([k]) => !process.env[k]).map(([, n]) => n);
 if (missing.length) todo.push(`AI 답변 측정 키 없음: ${missing.join(', ')} — 측정/.env 에 넣으면 다음 측정부터 포함`);
 const blk = engines.filter(e => cur.some(r => r.engine === e && r.blocked));
@@ -157,6 +178,7 @@ td.s{color:#2E7FD9}td.m{color:#5A6FD6}td.b{color:#14A38B}td.n,td.na{color:#C3CCD
 <div><b>${K.brand} ${delta(K.brand, P.brand)}</b><span>잠스쿨 상호 언급</span></div>
 <div><b>${rate(valid(cur).filter(r => hit(r) || r.brand).length, K.n)}</b><span>유효 측정 ${K.n}건 중 잠스쿨이 보인 비율</span></div>
 </div>
+<h2>방문자</h2>${visitHtml}
 <h2>처음과 지금</h2>${beforeAfter}
 <h2>날짜별 추이</h2>${trend}
 <h2>새로 보이기 시작한 곳</h2>${newHtml}
