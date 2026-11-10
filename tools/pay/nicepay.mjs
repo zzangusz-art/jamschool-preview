@@ -12,6 +12,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { notifyOrder } from './notify.mjs';   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -237,7 +238,11 @@ async function approve(data) {
   if (o.status !== 'ready' || BUSY.has(o.moid)) return done;   // 새로고침·두 번 전송: 이미 처리 중이거나 끝난 주문
   BUSY.add(o.moid);
   try {
-    const fail = (status, msg) => { o.status = status; o.fail = { msg: String(msg || '').slice(0, 300) }; hist(o, status, msg); save(o); log(status, o.moid, msg); return done; };
+    const fail = (status, msg) => {
+      o.status = status; o.fail = { msg: String(msg || '').slice(0, 300) }; hist(o, status, msg);
+      if (status === 'check') notifyOrder(o, 'check', o.fail.msg);   // 돈이 빠져나갔을 수 있는 주문 — 저장이 실패해도 알리도록 저장보다 먼저
+      save(o); log(status, o.moid, msg); return done;
+    };
     if (String(data.AuthResultCode || '').trim() !== '0000') return fail('failed', data.AuthResultMsg || '결제를 취소했거나 인증에 실패했습니다');
     const token = String(data.AuthToken || '').trim(), tid = String(data.TxTid || '').trim(), amt = String(data.Amt || '').trim();
     const nextUrl = pgUrl(data.NextAppURL, 'pay_process.jsp');
@@ -273,9 +278,11 @@ async function approve(data) {
     try { save(o); } catch (e) {
       const nc = await netCancel(o, tid, token, data.NetCancelURL);
       log('저장 실패', o.moid, e.message, nc.msg);
+      if (!nc.ok) notifyOrder(o, 'check', `결제는 승인됐지만 주문 저장 실패 · 망취소도 실패 — 나이스페이 관리자에서 거래 확인 필요 (${nc.msg})`);
       return `/order-complete.html?e=save`;
     }
     log('paid', o.moid, o.amount, o.pg.authCode);
+    notifyOrder(o, 'paid');
     return done;
   } finally { BUSY.delete(o.moid); }
 }

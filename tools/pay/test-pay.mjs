@@ -1,6 +1,6 @@
 // 홈페이지 결제 서버(tools/pay/nicepay.mjs) 시험 — 나이스페이 응답을 흉내 내 실제 결제 없이 흐름을 확인한다
 //   node tools/pay/test-pay.mjs
-// 가짜 상점키·임시 폴더만 쓰고, 나이스페이로는 아무 요청도 보내지 않는다(fetch 를 바꿔 끼움).
+// 가짜 상점키·가짜 텔레그램 토큰·임시 폴더만 쓰고, 나이스페이·텔레그램으로는 아무 요청도 보내지 않는다(fetch 를 바꿔 끼움).
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -13,8 +13,14 @@ process.env.DATA_DIR = TMP;
 process.env.SEEDPAY_MID = 'testmid00m';
 process.env.SEEDPAY_MERCHANT_KEY = 'TEST-ONLY-KEY-' + crypto.randomBytes(8).toString('hex');
 process.env.CANONICAL_HOST = 'jamschool.kr';
-const KEY = process.env.SEEDPAY_MERCHANT_KEY, MID = process.env.SEEDPAY_MID;
+process.env.NOTIFY_TELEGRAM_TOKEN = '123456789:TEST-ONLY-' + crypto.randomBytes(8).toString('hex');
+process.env.NOTIFY_TELEGRAM_CHAT_ID = '-1001234567890';
+const KEY = process.env.SEEDPAY_MERCHANT_KEY, MID = process.env.SEEDPAY_MID, TG = process.env.NOTIFY_TELEGRAM_TOKEN, CHAT = process.env.NOTIFY_TELEGRAM_CHAT_ID;
 const PAY = await import('./nicepay.mjs');
+const NOTIFY = await import('./notify.mjs');
+// 알림 로그는 화면에 찍지 않고 모아서 확인한다
+const notifyLogs = [], origLog = console.log;
+console.log = (...a) => { if (a[0] === '[notify]') notifyLogs.push(a.join(' ')); else origLog(...a); };
 const sha = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
 // ── 요청·응답 흉내
@@ -31,7 +37,14 @@ let ipN = 0;
 const form = o => Object.entries(o).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
 // 가짜 나이스페이: 요청을 기록하고 정해 둔 응답을 돌려준다
 let calls = [], plan = {};
+let tgSent = [], tgPlan = null;   // 가짜 텔레그램: 보낸 것을 모으고, tgPlan 이 없으면 성공 응답
 globalThis.fetch = async (url, opt) => {
+  if (String(url).startsWith('https://api.telegram.org/')) {
+    const body = JSON.parse(opt.body); tgSent.push({ url: String(url), body });
+    const out = tgPlan ? await tgPlan(body, String(url)) : { ok: true, result: { message_id: tgSent.length } };
+    if (out instanceof Error) throw out;
+    return new Response(JSON.stringify(out), { status: out.ok ? 200 : 401, headers: { 'Content-Type': 'application/json' } });
+  }
   const params = Object.fromEntries(new URLSearchParams(opt.body));
   calls.push({ url, params, raw: opt.body });
   const h = plan[url];
@@ -63,6 +76,7 @@ function auth(f, over = {}) {
 const ret = data => call('POST', '/api/pay/return', form(data), { 'content-type': 'application/x-www-form-urlencoded' });
 const order = moid => JSON.parse(fs.readFileSync(path.join(TMP, 'orders', moid + '.json'), 'utf8'));
 let n = 0; const ok = t => console.log(`OK ${++n}. ${t}`);
+const won = v => `${String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}원`;
 
 // 1. 설정
 { const r = await call('GET', '/api/pay/config'); assert.equal(r.json.ready, true); assert.equal(r.json.enabled, false); assert.deepEqual(r.json.methods.map(m => m.id), ['card', 'npay', 'kakaopay']); ok('설정: 키 있음 · 꺼짐 · 카드·네이버페이·카카오페이'); }
@@ -86,16 +100,28 @@ for (const [why, over] of [['없는 옵션', { items: [{ key: '29-12-XL-gray', q
 ok('준비 거절: 없는 옵션·수량 0·없는 상품·3단 옵션 누락·결제수단·전화번호');
 // 4. 정상 승인
 {
-  calls = []; plan = { [APPROVE]: okApprove };
+  calls = []; plan = { [APPROVE]: okApprove }; tgSent = [];
   const r = await ret(auth(f.fields));
   assert.equal(r.code, 303); const o = order(f.moid);
   assert.equal(r.headers.Location, `/order-complete.html?o=${o.moid}&t=${o.token}`);
   assert.equal(o.status, 'paid'); assert.equal(o.pg.authCode, '12345678'); assert.equal(calls.length, 1);
   const p = calls[0].params; assert.equal(p.Amt, f.fields.Amt); assert.equal(p.SignData, sha(p.AuthToken + MID + p.Amt + p.EdiDate + KEY)); assert.equal(p.CharSet, 'utf-8');
   ok('승인: 인증 서명 확인 → 승인 요청 SignData 일치 → 응답 서명 확인 → 결제 완료');
+  // 결제 완료 알림: 주문번호·상품·수량·금액·받는 분·어드민 링크만, 전화번호·주소·이메일·카드번호·키 없음
+  await NOTIFY.settled();
+  assert.equal(tgSent.length, 1, '결제 완료 알림 1건');
+  const m = tgSent[0], t = m.body.text;
+  assert.equal(m.url, `https://api.telegram.org/bot${TG}/sendMessage`); assert.equal(m.body.chat_id, CHAT); assert.equal(m.body.parse_mode, 'HTML');
+  assert.match(t, /새 결제 주문/); assert.ok(t.includes(`주문번호 ${o.moid}`));
+  for (const x of o.items) assert.ok(t.includes(x.name) && t.includes(`× ${x.qty}`), x.name);
+  assert.ok(t.includes(won(o.amount)), won(o.amount)); assert.ok(t.includes('받는 분 김시험'));
+  assert.ok(t.includes(`<a href="https://jamschool.kr/admin#/payments/${o.moid}">`), '어드민 상세 링크');
+  for (const bad of ['01012345678', '010-1234-5678', '1234-5678', '06236', '테헤란로', '101호', '문 앞에', 'test@example.com', '4518****', o.token, KEY, TG]) assert.ok(!t.includes(bad), `알림에 들어가면 안 되는 값: ${bad}`);
+  ok(`결제 완료 알림: 텔레그램 1건 · ${won(o.amount)} · 어드민 링크 · 전화번호·주소·이메일·카드번호 없음`);
   // 같은 인증 결과를 다시 보내도 두 번 승인하지 않음
   calls = []; const r2 = await ret(auth(f.fields)); assert.equal(r2.code, 303); assert.equal(calls.length, 0); assert.equal(order(f.moid).status, 'paid');
-  ok('중복 전송: 승인 요청을 다시 보내지 않음');
+  await NOTIFY.settled(); assert.equal(tgSent.length, 1, '중복 전송에 알림 또 보냄');
+  ok('중복 전송: 승인 요청·알림을 다시 보내지 않음');
   // 주문 완료 화면 조회
   const v = await call('GET', `/api/pay/order?o=${o.moid}&t=${o.token}`); assert.equal(v.json.status, 'paid'); assert.equal(v.json.name, '김*험'); assert.ok(!JSON.stringify(v.json).includes('101호'));
   assert.match(v.json.payLabel, /신한 · 일시불/);
@@ -108,9 +134,11 @@ for (const [why, over] of [['인증 서명 위조', { Signature: 'a'.repeat(64) 
   const g = await readyOrder(); calls = []; plan = { [APPROVE]: okApprove };
   const a = auth(g.fields); const data = { ...a, ...over };
   if (over.Amt) data.Signature = sha(a.AuthToken + MID + over.Amt + KEY);   // 금액만 바꾸고 서명은 맞춘 경우도 막는지
+  tgSent = [];
   const r = await ret(data); assert.equal(r.code, 303); assert.equal(order(g.moid).status, 'failed', why); assert.equal(calls.length, 0, why);
+  await NOTIFY.settled(); assert.equal(tgSent.length, 0, why + ': 실패 주문은 알리지 않음');
 }
-ok('거절: 인증 서명 위조·금액 위조(서명까지 맞춰도)·다른 상점·승인 주소 위조·인증 실패 → 승인 요청 안 보냄');
+ok('거절: 인증 서명 위조·금액 위조(서명까지 맞춰도)·다른 상점·승인 주소 위조·인증 실패 → 승인 요청·알림 안 보냄');
 // 6. 승인 응답이 없거나 이상하면 망취소
 for (const [why, approve, net, status] of [
   ['승인 시간 초과', () => Object.assign(new Error('timeout'), { name: 'TimeoutError' }), okNet, 'failed'],
@@ -118,13 +146,18 @@ for (const [why, approve, net, status] of [
   ['승인 응답 금액 불일치', p => { const x = okApprove(p); x.Amt = '000000000100'; x.Signature = sha(x.TID + x.MID + x.Amt + KEY); return x; }, okNet, 'failed'],
   ['승인 시간 초과 + 망취소 실패', () => new Error('reset'), () => ({ ResultCode: '2003', ResultMsg: '실패' }), 'check'],
 ]) {
-  const g = await readyOrder(); calls = []; plan = { [APPROVE]: approve, [NETC]: net };
+  const g = await readyOrder(); calls = []; plan = { [APPROVE]: approve, [NETC]: net }; tgSent = [];
   const r = await ret(auth(g.fields)); assert.equal(r.code, 303);
   const o = order(g.moid); assert.equal(o.status, status, why);
   const nc = calls.find(c => c.url === NETC); assert.ok(nc, why + ': 망취소 안 함');
   assert.equal(nc.params.NetCancel, '1'); assert.equal(nc.params.SignData, sha(nc.params.AuthToken + MID + nc.params.Amt + nc.params.EdiDate + KEY));
+  await NOTIFY.settled();
+  if (status === 'check') {
+    assert.equal(tgSent.length, 1, why + ': 확인 필요 알림');
+    const t = tgSent[0].body.text; assert.match(t, /결제 확인 필요/); assert.match(t, /사유 .*망취소/); assert.ok(t.includes(`주문번호 ${g.moid}`)); assert.ok(t.includes(`/admin#/payments/${g.moid}`));
+  } else assert.equal(tgSent.length, 0, why + ': 망취소된 주문은 알리지 않음');
 }
-ok('망취소: 승인 시간 초과·응답 서명/금액 불일치 → 망취소, 망취소도 실패하면 \'확인 필요\'');
+ok('망취소: 승인 시간 초과·응답 서명/금액 불일치 → 망취소, 망취소도 실패하면 \'확인 필요\' + 텔레그램 알림(사유 포함)');
 // 7. 승인 거절(카드 한도 등)은 망취소 없이 실패
 { const g = await readyOrder(); calls = []; plan = { [APPROVE]: p => ({ ResultCode: '3011', ResultMsg: '카드 한도 초과' }) };
   await ret(auth(g.fields)); const o = order(g.moid); assert.equal(o.status, 'failed'); assert.match(o.fail.msg, /한도/); assert.ok(!calls.some(c => c.url === NETC)); ok('승인 거절: 실패 표시, 망취소 없음'); }
@@ -156,6 +189,65 @@ ok('간편결제: 카카오페이(E016)·네이버페이(E020, 카드) 직접 �
 // 9. 휴대폰·PC 결과 인코딩: euc-kr 로 온 한글도 읽는다
 { const d = PAY._test.parseForm(Buffer.from('AuthResultMsg=%C0%CE%C1%F5+%BC%BA%B0%F8&Moid=JS1')); assert.equal(d.AuthResultMsg, '인증 성공');
   const u = PAY._test.parseForm(Buffer.from('AuthResultMsg=' + encodeURIComponent('인증 성공'))); assert.equal(u.AuthResultMsg, '인증 성공'); ok('결과 인코딩: euc-kr·utf-8 모두 읽음'); }
+// 10. 주문 알림(텔레그램): 실패·지연이 결제를 막지 않음 · 변수 없으면 안 보냄 · 문구 이스케이프 · 어드민 시험/대화방 찾기
+const payOnce = async () => { const g = await readyOrder(); calls = []; plan = { [APPROVE]: okApprove }; const r = await ret(auth(g.fields)); return { g, r, o: order(g.moid) }; };
+{
+  // 텔레그램이 응답하지 않는 동안에도 승인·저장·완료 화면 이동은 바로 끝난다
+  let release; tgPlan = () => new Promise(res => { release = res; }); tgSent = []; notifyLogs.length = 0;
+  const a = await payOnce();
+  assert.equal(a.r.code, 303); assert.match(a.r.headers.Location, /^\/order-complete\.html\?o=JS/); assert.equal(a.o.status, 'paid');
+  assert.equal(tgSent.length, 1); assert.equal(typeof release, 'function', '알림 요청이 아직 끝나지 않은 상태');
+  release(new Error('network down')); await NOTIFY.settled();
+  assert.ok(notifyLogs.some(l => l.includes('실패') && l.includes(a.g.moid) && l.includes('network down')), notifyLogs.join('\n'));
+  // 토큰이 틀린 응답(401)·fetch 예외(메시지에 토큰이 섞여도 로그에는 가림)
+  for (const plan2 of [() => ({ ok: false, error_code: 401, description: 'Unauthorized' }), () => { throw new Error('boom ' + TG); }]) {
+    tgPlan = plan2; notifyLogs.length = 0;
+    const b = await payOnce(); assert.equal(b.r.code, 303); assert.equal(b.o.status, 'paid');
+    await NOTIFY.settled(); assert.ok(notifyLogs.some(l => l.includes('실패') && l.includes(b.g.moid)), notifyLogs.join('\n'));
+    assert.ok(!notifyLogs.join('\n').includes(TG), '로그에 텔레그램 토큰이 찍힘');
+  }
+  assert.ok(notifyLogs.join('\n').includes('***'));
+  tgPlan = null;
+  ok('알림 실패: 응답 없음·401·예외여도 결제 완료·완료 화면 이동은 그대로, 실패는 로그만(토큰 가림)');
+}
+{
+  // 변수 하나라도 없으면 보내지 않음
+  for (const k of ['NOTIFY_TELEGRAM_CHAT_ID', 'NOTIFY_TELEGRAM_TOKEN']) {
+    const keep = process.env[k]; delete process.env[k]; tgSent = [];
+    const a = await payOnce(); assert.equal(a.o.status, 'paid'); await NOTIFY.settled(); assert.equal(tgSent.length, 0, k + ' 없이 보냄');
+    process.env[k] = keep;
+  }
+  ok('알림 변수(NOTIFY_TELEGRAM_TOKEN·CHAT_ID) 없으면: 결제는 그대로, 알림 요청 없음');
+}
+{
+  // HTML 이스케이프·금액 쉼표·여러 대화방
+  const t = NOTIFY.orderText({ moid: 'JS1', items: [{ name: '<b>매트&리스', opt: 'A/B', qty: 3 }], amount: 1234567, payLabel: '카드', receiver: { name: '김<i>' } }, 'check', '망취소 실패 <x>');
+  assert.ok(t.includes('&lt;b&gt;매트&amp;리스 (A/B) × 3')); assert.ok(t.includes('1,234,567원')); assert.ok(!t.includes('<i>')); assert.ok(t.includes('사유 망취소 실패 &lt;x&gt;')); assert.match(t, /^<b>⚠️ \[잠스쿨\] 결제 확인 필요<\/b>/);
+  process.env.NOTIFY_TELEGRAM_CHAT_ID = `${CHAT}, 5551234 ,abc`; tgSent = [];
+  assert.deepEqual(NOTIFY.notifyStatus(), { channel: 'telegram', token: true, chats: 2, badChats: 1 });
+  const a = await payOnce(); await NOTIFY.settled(); assert.deepEqual(tgSent.map(x => x.body.chat_id), [CHAT, '5551234']); assert.equal(a.o.status, 'paid');
+  process.env.NOTIFY_TELEGRAM_CHAT_ID = CHAT;
+  ok('알림 문구: HTML 이스케이프 · 금액 쉼표 · 대화방 여러 곳(형식 틀린 ID 는 빼고 어드민에 표시)');
+}
+{
+  // 어드민 시험 알림 · 대화방 ID 찾기
+  const u = { id: 'owner1', name: '관리자', role: 'owner' };
+  tgSent = []; let r = await NOTIFY.notifyTest(u);
+  assert.equal(r.ok, true, r.msg); assert.equal(tgSent.length, 1); assert.match(tgSent[0].body.text, /주문 알림 시험/); assert.ok(tgSent[0].url.endsWith('/sendMessage'));
+  delete process.env.NOTIFY_TELEGRAM_CHAT_ID; tgSent = [];
+  tgPlan = (b, url) => url.endsWith('/getUpdates') ? { ok: true, result: [
+    { update_id: 1, message: { chat: { id: 5551234, type: 'private', first_name: '잠스쿨', last_name: '대표' } } },
+    { update_id: 2, my_chat_member: { chat: { id: -100777, type: 'supergroup', title: '잠스쿨 주문' } } },
+    { update_id: 3, message: { chat: { id: 5551234, type: 'private', first_name: '잠스쿨' } } }] } : { ok: false, description: '예상 못 한 요청' };
+  r = await NOTIFY.notifyTest(u);
+  assert.equal(r.ok, false); assert.deepEqual(r.chats, [{ id: '5551234', type: 'private', name: '잠스쿨 대표' }, { id: '-100777', type: 'supergroup', name: '잠스쿨 주문' }]); assert.match(r.msg, /NOTIFY_TELEGRAM_CHAT_ID/);
+  assert.equal(tgSent.length, 1); assert.ok(tgSent[0].url.endsWith('/getUpdates'));
+  tgPlan = () => ({ ok: false, description: 'Unauthorized' }); r = await NOTIFY.notifyTest(u); assert.equal(r.ok, false); assert.match(r.msg, /Unauthorized/); assert.ok(!r.msg.includes(TG));
+  delete process.env.NOTIFY_TELEGRAM_TOKEN; r = await NOTIFY.notifyTest(u); assert.equal(r.ok, false); assert.match(r.msg, /NOTIFY_TELEGRAM_TOKEN/);
+  process.env.NOTIFY_TELEGRAM_TOKEN = TG; process.env.NOTIFY_TELEGRAM_CHAT_ID = CHAT; tgPlan = null;
+  ok('어드민: 시험 알림 보내기 · 대화방 ID 없으면 봇에게 말 건 대화방 찾기(중복 제거) · 토큰 오류·변수 없음 안내');
+}
+console.log = origLog;
 
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(`\n결제 서버 시험 ${n}개 통과`);

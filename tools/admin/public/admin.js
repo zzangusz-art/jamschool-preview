@@ -212,14 +212,30 @@
       : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
         · 상점 ID ${h(d.mid)}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
         ${owner ? `<div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button></div>` : ''}</div>`;
+    const nt = d.notify || {}, on = nt.token && nt.chats;
+    const notify = `<div class="box ${on ? 'ok' : 'info'}"><b>주문 알림(텔레그램) ${on ? `켜짐 · 대화방 ${nt.chats}곳` : nt.token ? '대화방 ID 필요' : '꺼짐'}</b>
+        ${on ? '결제 완료·확인 필요 주문이 들어오면 텔레그램으로 바로 알려 줍니다.' : nt.token ? '텔레그램에서 봇에게 아무 말이나 보낸 뒤 \'대화방 ID 찾기\'를 누르고, 찾은 ID 를 Railway 변수 NOTIFY_TELEGRAM_CHAT_ID 에 넣어 주세요.'
+          : 'Railway 변수 NOTIFY_TELEGRAM_TOKEN(봇 토큰)과 NOTIFY_TELEGRAM_CHAT_ID(대화방 ID)를 넣으면 결제 완료·확인 필요 주문을 텔레그램으로 알려 줍니다.'}
+        ${nt.badChats ? `<br><b>NOTIFY_TELEGRAM_CHAT_ID 에 형식이 맞지 않는 값이 ${nt.badChats}개 있습니다(숫자 ID 를 쉼표로 구분).</b>` : ''}
+        ${owner && nt.token ? `<div class="actions static"><button class="btn sm" id="notify-test">${on ? '시험 알림 보내기' : '대화방 ID 찾기'}</button></div>` : ''}</div>`;
     const rows = d.orders;
-    v.innerHTML = `${state}<div class="card"><h2>${all ? '결제 시도 전체' : '결제된 주문'}</h2><p class="h-sub">${all ? '결제 창을 열었다가 닫았거나 실패한 주문까지 모두(최근 500건)' : '결제 완료·취소·확인 필요 주문(최근 순)'}</p>
+    v.innerHTML = `${state}${notify}<div class="card"><h2>${all ? '결제 시도 전체' : '결제된 주문'}</h2><p class="h-sub">${all ? '결제 창을 열었다가 닫았거나 실패한 주문까지 모두(최근 500건)' : '결제 완료·취소·확인 필요 주문(최근 순)'}</p>
       ${rows.length ? `<table class="list"><thead><tr><th>주문 일시</th><th>상품</th><th class="r">금액</th><th>상태</th><th>발송</th><th>받는 분</th><th></th></tr></thead><tbody>${rows.map(o => `<tr>
         <td class="nw">${h(dt(o.createdAt))}<br><small>${h(o.moid)}</small></td><td>${o.items.map(h).join('<br>')}</td><td class="r nw">${won(o.amount)}</td>
         <td><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? `<br><small>${h(o.fail)}</small>` : ''}</td>
         <td>${o.status === 'paid' ? (o.fulfil === 'shipped' ? '<span class="tag live">발송함</span>' : '<span class="tag draft">발송 전</span>') : ''}</td>
         <td>${h(o.receiver)}</td><td class="nw"><a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></td></tr>`).join('')}</tbody></table>`
         : empty(all ? '아직 결제 시도가 없습니다.' : '아직 결제된 주문이 없습니다.')}</div>`;
+    const nb = $('#notify-test');
+    if (nb) nb.onclick = async () => {
+      nb.disabled = true;
+      try {
+        const r = await api('POST', '/api/admin/payments-notify-test', {});
+        if (r.chats && r.chats.length) alert(`${r.msg}\n\n${r.chats.map(c => `${c.name || '(이름 없음)'} · ${c.type === 'private' ? '개인 대화' : c.type === 'channel' ? '채널' : '그룹'}: ${c.id}`).join('\n')}`);
+        else toast(r.msg, 6000);
+      } catch (e) { toast(e.message); }
+      nb.disabled = false;
+    };
     const tg = $('#pay-toggle');
     if (tg) tg.onclick = async () => {
       const on = !d.enabled;
