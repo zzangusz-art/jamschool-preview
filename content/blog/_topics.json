@@ -186,7 +186,9 @@
     "angle": "잠스쿨 폭신탄탄 양면 매트리스: 한 면은 폭신, 한 면은 탄탄, 미끌림 방지, 고정 벨트 증정, 판매가·구매평.",
     "category": "제품 이야기",
     "product": 39,
-    "status": "todo"
+    "status": "done",
+    "slug": "reversible-mattress",
+    "date": "2026-11-10"
   },
   {
     "id": "mattress-harmful-test",
@@ -199,7 +201,9 @@
     "angle": "SGS 6대 유해물질 N.D., KATRI 중금속·브롬계 난연제 미검출, 폼알데하이드 검출 안 됨, 아릴아민·알레르기성 염료 통과. 무해 단정 대신 시험 항목·결과로.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-harmful-test",
+    "date": "2026-11-10"
   },
   {
     "id": "folding-mattress-back",
@@ -212,7 +216,9 @@
     "angle": "의료 효과는 말하지 않는다. 증상이 있으면 의료진 상담을 먼저 권한다. 탄탄함은 밀도·경도·두께 숫자로, 바닥/침대 사용, 14일 체험으로 직접 확인.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-back",
+    "date": "2026-11-10"
   },
   {
     "id": "firm-mattress",
