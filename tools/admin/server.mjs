@@ -13,6 +13,7 @@ import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
 import * as PAY from '../pay/nicepay.mjs';
 import * as NOTIFY from '../pay/notify.mjs';
+import { clientIp } from '../client-ip.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -312,7 +313,7 @@ export async function handleAdmin(req, res) {
       need(req.headers['x-jam-admin'] === '1', 403, '잘못된 요청');
       need(ready(), 503, '어드민 초기 설정이 필요합니다(계정·SESSION_SECRET)');
       const d = await body(req);
-      const r = login(d.id, d.pw, String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim());
+      const r = login(d.id, d.pw, clientIp(req));
       if (r.error) return send(res, 401, { error: r.error }), true;
       send(res, 200, { ok: true }, { 'Set-Cookie': cookieHeader(r.cookie, secure) }); return true;
     }

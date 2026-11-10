@@ -6,6 +6,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { clientIp } from '../client-ip.mjs';
 
 const DIR = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'analytics') : (process.env.STATS_DIR || '');
 export const persistent = () => !!DIR;
@@ -61,7 +62,6 @@ function source(ref, selfHost, utm) {
 const BOT_RE = /bot|crawl|spider|slurp|yeti|daumoa|preview|facebookexternalhit|kakaotalk-scrap|monitor|curl|wget|python|node-fetch|axios|go-http|java\/|headless|lighthouse|pingdom|uptime|semrush|ahrefs|mj12|petal|bytespider|gptbot|chatgpt-user|oai-searchbot|claude|anthropic|perplexity|ccbot|google-inspectiontool|google-extended|validator|scan/i;
 const BOT_NAMES = [[/gptbot|oai-searchbot|chatgpt-user/i, 'OpenAI(ChatGPT)'], [/claudebot|claude-|anthropic/i, 'Anthropic(Claude)'], [/perplexity/i, 'Perplexity'], [/google-extended|googleother/i, 'Google AI'], [/googlebot|google-inspectiontool/i, 'Googlebot'], [/yeti/i, '네이버 Yeti'], [/bingbot|bingpreview/i, 'Bingbot'], [/daumoa|daum/i, '다음'], [/bytespider/i, 'ByteDance'], [/ccbot/i, 'Common Crawl']];
 const device = ua => /ipad|tablet/i.test(ua) ? '태블릿' : /mobi|iphone|android/i.test(ua) ? '휴대폰' : 'PC';
-const clientIp = req => String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 
 // 페이지 보기 1건(serve.mjs 가 html 200 응답 때 부른다)
 export function countPage(req, pathname, selfHost) {

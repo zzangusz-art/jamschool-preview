@@ -12,6 +12,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { clientIp } from '../client-ip.mjs';
 import { notifyOrder } from './notify.mjs';   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -192,7 +193,7 @@ function origin(req) {
 }
 async function ready(req) {
   if (!KEY()) throw new PayError(503, '결제 설정이 아직 끝나지 않았습니다. 고객센터로 문의해 주세요.');
-  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const ip = clientIp(req);
   if (limited(ip)) throw new PayError(429, '잠시 뒤 다시 시도해 주세요.');
   let d; try { d = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8')); } catch (e) { throw e instanceof PayError ? e : new PayError(400, '요청 형식 오류'); }
   const J = siteData();

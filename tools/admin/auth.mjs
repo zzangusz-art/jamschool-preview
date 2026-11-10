@@ -40,17 +40,24 @@ export function saveUsers(list) {
 }
 export const ready = () => !!SECRET && loadUsers().length > 0;
 
-// 로그인 시도 제한: 같은 IP·같은 아이디로 15분에 10번 실패하면 잠시 막음(같은 사무실의 다른 계정은 영향 없음)
-const fails = new Map();
+// 로그인 시도 제한 — 두 겹(IP 를 꾸미거나 Cloudflare 쪽 주소가 바뀌어도 무제한 대입이 안 되게)
+//   ① 같은 IP·같은 아이디: 15분에 10번 실패 → 15분 막음(같은 사무실의 다른 계정은 영향 없음)
+//   ② 같은 아이디(어느 IP 든): 15분에 30번 실패 → 그 아이디 15분 막음. 성공해도 ②는 바로 풀지 않는다(대입 중 정상 로그인으로 숫자가 초기화되지 않게)
+//   IP 는 tools/client-ip.mjs(clientIp)로 정한다.
+const fails = new Map(), WINDOW = 15 * 60e3, MAX_IP = 10, MAX_ID = 30;
+const isLocked = (key, max) => { const f = fails.get(key); return !!f && f.n >= max && Date.now() < f.until; };
+function bump(key) { const f = fails.get(key), now = Date.now(); fails.set(key, { n: (f && now < f.until ? f.n : 0) + 1, until: now + WINDOW }); }
+function prune() { if (fails.size < 5000) return; const now = Date.now(); for (const [k, v] of fails) if (now >= v.until) fails.delete(k); }
 export function login(id, pw, ip) {
-  const key = `${ip}|${String(id || '').trim()}`, f = fails.get(key);
-  if (f && f.n >= 10 && Date.now() < f.until) return { error: '로그인 실패가 많아 15분 동안 막혔습니다' };
-  const u = loadUsers().find(x => x.id === String(id || '').trim());
+  const uid = String(id || '').trim().slice(0, 64);
+  const kIp = `ip:${ip}|${uid}`, kId = `id:${uid}`;
+  if (isLocked(kIp, MAX_IP) || isLocked(kId, MAX_ID)) return { error: '로그인 실패가 많아 15분 동안 막혔습니다' };
+  const u = loadUsers().find(x => x.id === uid);
   if (!u || !checkPassword(String(pw || ''), u.hash)) {
-    const n = (f && Date.now() < f.until ? f.n : 0) + 1; fails.set(key, { n, until: Date.now() + 15 * 60e3 });
+    prune(); bump(kIp); bump(kId);
     return { error: '아이디 또는 비밀번호가 맞지 않습니다' };
   }
-  fails.delete(key);
+  fails.delete(kIp);
   return { user: u, cookie: sign({ u: u.id, v: u.hash.slice(-10), exp: Date.now() + TTL }) };
 }
 const b64 = s => Buffer.from(s).toString('base64url');
