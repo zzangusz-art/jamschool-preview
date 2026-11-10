@@ -1,6 +1,6 @@
 ---
 title: 매트리스 유해물질 시험, 무엇을 확인했나
-description: 매트리스 유해물질 시험은 기관, 대상 물질, 결과 표기를 함께 봐야 합니다. 잠스쿨 3단 접이식 매트리스의 SGS, KATRI 시험 항목과 N.D., 미검출, 통과의 뜻을 정리했습니다.
+description: 매트리스 유해물질 시험은 기관·대상 물질·결과 표기를 함께 봅니다. 잠스쿨 3단 접이식 매트리스의 SGS·KATRI 시험 결과를 정리했습니다.
 slug: mattress-harmful-test
 date: 2026-11-10
 category: 제품 이야기
