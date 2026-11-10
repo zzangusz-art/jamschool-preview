@@ -1,10 +1,13 @@
 /* 주문서: 주문 상품(바로 구매 또는 장바구니 선택분), 주문자·배송지(다음 우편번호), 결제 수단, 동의, 검증, 결제 요청
-   결제 방식은 data.js 의 CHECKOUT.mode — 'preview'(지금)는 결제 대신 안내 창, 'pg' 는 requestPayment() 에 PG 결제창을 붙인다 */
+   결제: 서버(/api/pay/config)가 홈페이지 결제를 켜 두었으면(또는 ?pg=test 시험) 씨드페이먼츠·나이스페이 결제창으로 결제하고,
+   꺼져 있으면 같은 상품의 스마트스토어로 보낸다. 금액·주문 저장·승인은 서버(tools/pay/nicepay.mjs)가 한다 */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, cart, store } = UI;
   const { OPTIONS_29: O, CHECKOUT, CS } = JAM;
   const form = $('#co-form'); if (!form) return;
-  const buyNow = new URLSearchParams(location.search).get('buy') === 'now';
+  const qs = new URLSearchParams(location.search);
+  const buyNow = qs.get('buy') === 'now', pgTest = qs.get('pg') === 'test';
+  let PG = null;   // 홈페이지 결제 설정(켜져 있을 때만)
 
   // ───────── 주문 상품: 금액은 저장된 값 대신 상품 데이터로 다시 계산한다
   function load() {
@@ -54,25 +57,37 @@
   ['b-name', 'b-tel'].forEach(id => f(id).addEventListener('input', copy));
   f('r-memo').addEventListener('change', e => { const x = f('r-memo-x'); x.hidden = e.target.value !== 'direct'; if (!x.hidden) x.focus(); });
 
-  // ───────── 결제 수단
-  let pay = CHECKOUT.pay[0].id;
-  const payBtns = $$('#paym [role="radio"]');
+  // ───────── 결제 수단: 처음엔 주문서에 그려진 목록, 홈페이지 결제가 켜지면 CHECKOUT.pgPay(서버가 준 목록)로 바꾼다
+  let pay = CHECKOUT.pay[0].id, payList = CHECKOUT.pay, payBtns = [];
   function pickPay(b, focus) {
     payBtns.forEach(x => { const on = x === b; x.setAttribute('aria-checked', on); x.tabIndex = on ? 0 : -1; });
     pay = b.dataset.v; if (focus) b.focus();
-    $('#paym-note').textContent = (CHECKOUT.pay.find(m => m.id === pay) || {}).note || '';
-    f('bank-fld').hidden = pay !== 'bank';
-    if (pay === 'bank' && !f('dep').value) f('dep').value = f('b-name').value;
+    $('#paym-note').textContent = (payList.find(m => m.id === pay) || {}).note || '';
+    f('bank-fld').hidden = pay !== 'bank' || !!PG;   // 입금자명은 무통장입금(결제 꺼짐)일 때만
+    if (pay === 'bank' && !PG && !f('dep').value) f('dep').value = f('b-name').value;
     clearErr('pay');
   }
-  payBtns.forEach((b, i) => {
-    b.addEventListener('click', () => pickPay(b));
-    b.addEventListener('keydown', e => {
-      const d = ['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 0;
-      if (d) { e.preventDefault(); pickPay(payBtns[(i + d + payBtns.length) % payBtns.length], true); }
+  function setupPay(list) {
+    payList = list;
+    if (list !== CHECKOUT.pay) $('#paym').innerHTML = list.map((m, i) => `<button class="paym__opt" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${esc(m.id)}">${esc(m.label)}</button>`).join('');
+    payBtns = $$('#paym [role="radio"]');
+    payBtns.forEach((b, i) => {
+      b.addEventListener('click', () => pickPay(b));
+      b.addEventListener('keydown', e => {
+        const d = ['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 0;
+        if (d) { e.preventDefault(); pickPay(payBtns[(i + d + payBtns.length) % payBtns.length], true); }
+      });
     });
-  });
-  pickPay(payBtns[0]);
+    pickPay(payBtns[0]);
+  }
+  setupPay(CHECKOUT.pay);
+  fetch('/api/pay/config', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(c => {
+    if (!c || !c.ready || !(c.enabled || pgTest) || !c.methods || !c.methods.length) return;
+    PG = c;
+    $$('.co-pv').forEach(x => x.remove());   // '스마트스토어에서 결제' 안내
+    setupPay(c.methods);
+    if (pgTest && !c.enabled) toast('시험 결제 모드입니다. 실제로 결제되니 확인 후 관리자 화면에서 취소해 주세요.');
+  }).catch(() => { /* 설정을 못 읽으면 스마트스토어 결제 그대로 */ });
 
   // ───────── 동의
   const ags = () => $$('.ag').filter(x => !x.disabled);
@@ -150,33 +165,56 @@
     need('r-tel', '받는 분 휴대폰 번호를 정확히 입력해 주세요.', v => /^01[016789]\d{7,8}$/.test(digits(v)));
     if (!/^\d{5}$/.test(f('r-zip').value) || !f('r-addr1').value.trim()) { setErr('r-addr', '주소 검색으로 배송지 주소를 골라 주세요.'); errs.push('r-zip'); }
     else if (!f('r-addr2').value.trim()) { setErr('r-addr', '상세 주소(동·호수 등)를 입력해 주세요.'); errs.push('r-addr2'); }
-    if (pay === 'bank') need('dep', '입금하실 분 이름을 입력해 주세요.');
+    if (pay === 'bank' && !PG) need('dep', '입금하실 분 이름을 입력해 주세요.');
     if (!ags().every(x => x.checked)) { setErr('ag', '필수 항목에 모두 동의해 주세요.'); errs.push('ag-all'); }
     return errs;
   }
 
-  // ───────── 결제
-  // PG 연동 자리: 계약한 결제대행사 SDK 의 결제창 호출을 여기에 넣는다.
-  // 결제 승인은 반드시 서버에서 비밀 키로 처리하고, 금액도 서버가 상품 데이터로 다시 계산해야 한다(브라우저 금액을 믿지 않는다).
-  async function requestPayment(order) { throw new Error('PG 미연동: assets/js/checkout.js requestPayment()'); }
-
-  const PAY_LABEL = id => (CHECKOUT.pay.find(m => m.id === id) || {}).label || id;
-  const mask = s => s.length <= 1 ? s : s.length === 2 ? s[0] + '*' : s[0] + '*'.repeat(s.length - 2) + s[s.length - 1];
-  const maskTel = t => { const d = digits(t); return `${d.slice(0, 3)}-****-${d.slice(-4)}`; };
-  function orderNo() {
-    const d = new Date(), z = n => String(n).padStart(2, '0');
-    return `${CHECKOUT.mode === 'pg' ? 'JS' : 'PV'}${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
-  }
-  function summary() {
+  // ───────── 홈페이지 결제: 서버가 주문을 만들고(금액은 서버 계산) 결제창 값을 주면 나이스페이 결제창(goPay)을 연다.
+  // 인증이 끝나면 결제창이 nicepaySubmit() 을 부르고, 폼이 /api/pay/return 으로 넘어가 서버가 승인한 뒤 주문 완료 화면으로 보낸다.
+  // 휴대폰은 goPay() 가 결제 페이지로 넘어갔다가 ReturnURL(/api/pay/return)로 돌아온다.
+  const payButtons = () => $$('.co-pay, #co-bar-pay');
+  let pgjs = null;
+  const loadPg = src => pgjs || (pgjs = new Promise((ok, no) => {
+    if (typeof window.goPay === 'function') { ok(); return; }
+    const s = document.createElement('script'); s.src = src; s.charset = 'euc-kr';
+    s.onload = () => (typeof window.goPay === 'function' ? ok() : no(new Error('pg')));
+    s.onerror = () => { pgjs = null; no(new Error('pg')); };
+    document.head.appendChild(s);
+  }));
+  async function payPg() {
+    payButtons().forEach(b => { b.disabled = true; });
     const memo = f('r-memo').value === 'direct' ? f('r-memo-x').value.trim() : f('r-memo').value;
-    return {
-      no: orderNo(), mode: CHECKOUT.mode, pay: pay, payLabel: PAY_LABEL(pay), total, sub, ship: CHECKOUT.shipFee,
-      items: items.map(({ id, name, opt, qty, price, img, cat }) => ({ id, name, opt, qty, price, img, cat })),
-      name: mask(f('r-name').value.trim()), tel: maskTel(f('r-tel').value), addr: `(${f('r-zip').value}) ${f('r-addr1').value.trim()} · 상세 주소 생략`,
-      memo, jeju: !$('#co-jeju').hidden, at: Date.now(),
-    };
+    try {
+      const res = await fetch('/api/pay/ready', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method: pay, buyNow, items: items.map(x => ({ key: x.key, qty: x.qty })),
+          buyer: { name: f('b-name').value.trim(), tel: f('b-tel').value, email: f('b-mail').value.trim() },
+          receiver: { name: f('r-name').value.trim(), tel: f('r-tel').value, zip: f('r-zip').value, addr1: f('r-addr1').value.trim(), addr2: f('r-addr2').value.trim(), memo, jeju: !$('#co-jeju').hidden },
+        }),
+      });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok || !r.fields) throw new Error(r.error || '결제를 시작하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+      if (+r.fields.Amt !== total) { toast(`상품 가격이 바뀌어 결제 금액이 ${won(+r.fields.Amt)}입니다. 주문서를 새로 불러옵니다.`); setTimeout(() => location.reload(), 1800); return; }
+      await loadPg(r.script).catch(() => { throw new Error('결제 창을 불러오지 못했습니다. 네트워크를 확인하고 다시 시도해 주세요.'); });
+      document.getElementById('nice-pay-form')?.remove();
+      const pf = document.createElement('form');
+      pf.id = 'nice-pay-form'; pf.name = 'payForm'; pf.method = 'post'; pf.action = r.action; pf.acceptCharset = 'euc-kr';
+      Object.entries(r.fields).forEach(([k, v]) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; pf.appendChild(i); });
+      document.body.appendChild(pf);
+      window.nicepaySubmit = () => { pf.submit(); };
+      window.nicepayClose = () => { payButtons().forEach(b => { b.disabled = false; }); toast('결제 창을 닫았습니다. 결제하려면 다시 눌러 주세요.'); };
+      store.sset('jam_pg_pending', JSON.stringify({ moid: r.moid, keys: items.map(x => x.key), buyNow }));
+      beaconSubmit();
+      window.goPay(pf);
+    } catch (err) {
+      payButtons().forEach(b => { b.disabled = false; });
+      toast(err.message || '결제를 시작하지 못했습니다.');
+    }
   }
-  // PG 연동 전: 결제를 누르면 스마트스토어로 보낸다. 상품이 하나면 그 상품 페이지로 바로, 여러 개면 상품별 버튼
+
+  // 결제가 꺼져 있을 때: 결제를 누르면 스마트스토어로 보낸다. 상품이 하나면 그 상품 페이지로 바로, 여러 개면 상품별 버튼
   const storeOf = id => SHOP.P(id).store || CHECKOUT.storeHome;
   // 어드민 '주문' 집계용(이름·연락처·주소는 보내지 않는다)
   function beaconSubmit() {
@@ -205,19 +243,7 @@
       return;
     }
     const opener = e.submitter || $('#co-pay');
-    if (CHECKOUT.mode !== 'pg') { toStore(opener); return; }
-    try {
-      const btns = $$('.co-pay, #co-bar-pay'); btns.forEach(b => { b.disabled = true; });
-      const s = summary();
-      await requestPayment(s);
-      // 결제가 끝난 상품만 장바구니에서 뺀다(바로 구매는 장바구니를 건드리지 않음)
-      if (!buyNow) { cart.items = cart.items.filter(x => !items.some(i => i.key === x.key)); cart.save(); }
-      store.sset('jam_order_done', JSON.stringify(s));
-      location.href = 'order-complete.html';
-    } catch (err) {
-      $$('.co-pay, #co-bar-pay').forEach(b => { b.disabled = false; });
-      toast('결제를 시작하지 못했습니다. 잠시 뒤 다시 시도하거나 고객센터로 문의해 주세요.');
-      console.warn(err);
-    }
+    if (!PG) { toStore(opener); return; }
+    await payPg();
   });
 })();

@@ -10,6 +10,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { handleAdmin } from './admin/server.mjs';
 import { countEvent, countPage } from './admin/stats.mjs';
+import { handlePay } from './pay/nicepay.mjs';
 
 const ROOT = path.resolve(process.argv[2] || '_site');
 const PORT = +process.env.PORT || 8080;
@@ -52,6 +53,8 @@ function gzipped(f) {
 http.createServer(async (req, res) => {
   // 관리자 어드민(/admin, /api/admin/*) — 정식 주소 이동·정적 파일보다 먼저
   if (await handleAdmin(req, res)) return;
+  // 홈페이지 결제(/api/pay/*) — 씨드페이먼츠·나이스페이 웹표준 인증결제, tools/pay/nicepay.mjs
+  if (await handlePay(req, res)) return;
   // 사이트 자체 집계: 클릭·주문서 제출 이벤트(개인정보 없음) — tools/admin/stats.mjs
   if (req.method === 'POST' && (req.url || '').split('?')[0] === '/api/t') {
     let n = 0; const chunks = [];

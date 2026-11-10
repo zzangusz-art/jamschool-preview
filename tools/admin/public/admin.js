@@ -73,7 +73,7 @@
     menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
   };
   const ico = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
-  const NAV = [['현황', [['', '홈', 'home'], ['traffic', '방문·유입', 'traffic'], ['orders', '주문', 'orders']]], ['콘텐츠', [['blog', '블로그', 'blog'], ['products', '상품·상세페이지', 'products']]]];
+  const NAV = [['현황', [['', '홈', 'home'], ['traffic', '방문·유입', 'traffic'], ['payments', '결제 주문', 'orders'], ['orders', '주문 흐름', 'traffic']]], ['콘텐츠', [['blog', '블로그', 'blog'], ['products', '상품·상세페이지', 'products']]]];
   const OWNER_NAV = [['settings', '소유확인·추적 코드', 'settings'], ['topics', '블로그 자동 발행', 'topics'], ['check', '키워드 점검', 'check'], ['log', '작업 기록', 'log'], ['users', '계정 관리', 'users']];
   const route = () => location.hash.replace(/^#\/?/, '').split('/');
   // shell(제목, { desc: 제목 아래 한 줄, tool: 오른쪽 버튼, back: [주소, 글자] })
@@ -185,7 +185,7 @@
     const views = Object.values(t.products).reduce((a, p) => a + p.views, 0), buy = (e.buy_click || 0) + (e.cart_click || 0), sent = (e.store_click || 0) + (e.checkout_submit || 0);
     const step = (label, val, base, note) => `<div><span>${label}</span><b>${num(val)}</b><small>${base == null ? note : `${note} · ${pct(val, base)}`}</small></div>`;
     const rows = Object.entries(t.products).map(([id, p]) => [id, p, t.orders.items[id] || 0]).sort((a, b) => b[1].views - a[1].views);
-    v.innerHTML = `${persistNote(s)}<div class="box info"><b>결제(PG) 연결 전입니다.</b> 주문서에서 '결제하기'를 누르면 같은 상품의 잠스쿨 스마트스토어로 넘어가 거기서 결제합니다. 실제 결제·배송은 <a href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어 판매자센터</a>에서 확인하세요.</div>
+    v.innerHTML = `${persistNote(s)}<div class="box info"><b>주문서까지 온 흐름입니다.</b> 홈페이지 결제로 실제 결제된 주문은 <a href="#/payments">결제 주문</a>에서 봅니다. 홈페이지 결제가 꺼져 있을 때는 '결제하기'를 누르면 같은 상품의 잠스쿨 스마트스토어로 넘어가 거기서 결제합니다. 실제 결제·배송은 <a href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어 판매자센터</a>에서 확인하세요.</div>
       <div class="funnel">${step('상품 페이지 조회', views, null, '상품 상세를 연 수')}${step('구매·장바구니 클릭', buy, views, '조회 대비')}${step('주문서 제출', t.orders.n, buy || null, buy ? '클릭 대비' : '주문서에서 결제하기')}${step('스마트스토어로 이동', sent, null, 'N Pay·스마트스토어 버튼 포함')}</div>
       <div class="kpis"><div class="kpi"><span>주문서 금액 합계</span><b>${won(t.orders.sum)}</b><small>참고용 — 실제 결제 금액 아님</small></div>
         <div class="kpi"><span>공식몰로 이동</span><b>${num(e.mall_click)}</b><small>jamschool.co.kr</small></div>
@@ -196,6 +196,71 @@
         ${rows.length ? `<table class="list"><thead><tr><th>상품</th><th class="r">조회</th><th class="r">구매 클릭</th><th class="r">클릭률</th><th class="r">주문서 수량</th><th></th></tr></thead><tbody>${rows.map(([id, p, q]) => `<tr><td><b>${h(s.names[id] || '상품 ' + id)}</b></td><td class="r">${num(p.views)}</td><td class="r">${num(p.buy)}</td><td class="r">${pct(p.buy, p.views)}</td><td class="r">${num(q)}</td><td class="r nw"><a class="btn sm" href="#/products/${h(id)}">고치기</a></td></tr>`).join('')}</tbody></table>` : empty('아직 상품을 본 기록이 없습니다.')}</div>
       <div class="cols"><div class="card"><h2>고른 결제 수단</h2><p class="h-sub">주문서에서 고른 것(실제 결제는 스마트스토어)</p>${bars(top(t.orders.pay), t.orders.n, k => h(PAY_NAME[k] || k))}</div>
         <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(top({ '구매하기': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '스마트스토어·N Pay': e.store_click || 0, '공식몰': e.mall_click || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]), sum(e) - (e.checkout_submit || 0))}</div></div>`;
+  }
+
+  // ── 결제 주문(홈페이지 결제: 씨드페이먼츠 · 나이스페이) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
+  const PST = { paid: 'live', cancelled: '', check: 'bad', failed: 'draft', approving: 'draft', ready: '' };
+  const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  const telFmt = t => String(t || '').replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
+  async function payments() {
+    const all = route()[1] === 'all';
+    const v = shell('결제 주문', { desc: '홈페이지에서 카드로 결제된 주문입니다. 배송지를 확인하고 보낸 뒤 \'발송 처리\'를 눌러 주세요.',
+      tool: `<div class="seg"><a href="#/payments" class="${all ? '' : 'on'}">결제된 주문</a><a href="#/payments/all" class="${all ? 'on' : ''}">결제 시도 전체</a></div>` });
+    const d = await api('GET', `/api/admin/payments${all ? '?all=1' : ''}`);
+    const owner = ME.user.role === 'owner';
+    const state = !d.keySet ? '<div class="box bad"><b>상점키가 없습니다.</b> Railway 변수 SEEDPAY_MERCHANT_KEY 를 넣어야 결제할 수 있습니다.</div>'
+      : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
+        · 상점 ID ${h(d.mid)}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
+        ${owner ? `<div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button></div>` : ''}</div>`;
+    const rows = d.orders;
+    v.innerHTML = `${state}<div class="card"><h2>${all ? '결제 시도 전체' : '결제된 주문'}</h2><p class="h-sub">${all ? '결제 창을 열었다가 닫았거나 실패한 주문까지 모두(최근 500건)' : '결제 완료·취소·확인 필요 주문(최근 순)'}</p>
+      ${rows.length ? `<table class="list"><thead><tr><th>주문 일시</th><th>상품</th><th class="r">금액</th><th>상태</th><th>발송</th><th>받는 분</th><th></th></tr></thead><tbody>${rows.map(o => `<tr>
+        <td class="nw">${h(dt(o.createdAt))}<br><small>${h(o.moid)}</small></td><td>${o.items.map(h).join('<br>')}</td><td class="r nw">${won(o.amount)}</td>
+        <td><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? `<br><small>${h(o.fail)}</small>` : ''}</td>
+        <td>${o.status === 'paid' ? (o.fulfil === 'shipped' ? '<span class="tag live">발송함</span>' : '<span class="tag draft">발송 전</span>') : ''}</td>
+        <td>${h(o.receiver)}</td><td class="nw"><a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></td></tr>`).join('')}</tbody></table>`
+        : empty(all ? '아직 결제 시도가 없습니다.' : '아직 결제된 주문이 없습니다.')}</div>`;
+    const tg = $('#pay-toggle');
+    if (tg) tg.onclick = async () => {
+      const on = !d.enabled;
+      if (!confirm(on ? '홈페이지 결제를 켤까요? 주문서에서 바로 카드 결제가 됩니다. 시험 결제와 취소를 먼저 확인했는지 확인해 주세요.' : '홈페이지 결제를 끌까요? 주문서에서 결제하기를 누르면 다시 스마트스토어로 넘어갑니다.')) return;
+      tg.disabled = true;
+      try { await api('POST', '/api/admin/payments-settings', { enabled: on }); toast(on ? '홈페이지 결제를 켰습니다' : '홈페이지 결제를 껐습니다'); payments(); }
+      catch (e) { toast(e.message); tg.disabled = false; }
+    };
+  }
+  async function payDetail(moid) {
+    const v = shell('결제 주문 상세', { back: ['#/payments', '결제 주문'] });
+    const { order: o, canCancel } = await api('GET', `/api/admin/payments/${encodeURIComponent(moid)}`);
+    const dl = rows => `<table class="list"><tbody>${rows.filter(r => r[1] !== '' && r[1] != null).map(([k, val]) => `<tr><th style="width:130px">${h(k)}</th><td>${val}</td></tr>`).join('')}</tbody></table>`;
+    const pg = o.pg || {}, rc = o.receiver, by = o.buyer;
+    v.innerHTML = `<div class="cols"><div class="card"><h2>결제</h2><p class="h-sub">주문번호 ${h(o.moid)}</p>${dl([
+        ['상태', `<span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? ` ${h(o.fail.msg)}` : ''}`],
+        ['결제 금액', `<b>${won(o.amount)}</b>${o.ship ? ` (배송비 ${won(o.ship)} 포함)` : ''}`], ['결제 수단', h(o.payLabel)],
+        ['카드', pg.cardName ? h(`${pg.cardName} ${pg.cardNo || ''} · ${!pg.cardQuota || +pg.cardQuota === 0 ? '일시불' : +pg.cardQuota + '개월'}`) : ''],
+        ['승인번호', h(pg.authCode || '')], ['거래번호(TID)', h(pg.tid || '')], ['주문 일시', h(dt(o.createdAt))], ['결제 일시', h(dt(o.paidAt))],
+        ['취소', o.cancel ? h(`${dt(o.cancel.at)} · ${o.cancel.msg} · ${o.cancel.by}`) : ''],
+      ])}</div>
+      <div class="card"><h2>배송</h2><p class="h-sub">${o.status === 'paid' ? (o.fulfil && o.fulfil.status === 'shipped' ? `발송 처리함 · ${h(dt(o.fulfil.at))} ${h(o.fulfil.by || '')}` : '아직 발송 전') : '결제 완료 주문만 보냅니다'}</p>${dl([
+        ['받는 분', h(rc.name)], ['연락처', h(telFmt(rc.tel))], ['주소', h(`(${rc.zip}) ${rc.addr1} ${rc.addr2}`)], ['배송 메모', h(rc.memo || '')],
+        ['제주·도서산간', rc.jeju ? '<b>추가 배송비 안내 필요</b>' : ''], ['주문하는 분', h(`${by.name} · ${telFmt(by.tel)}${by.email ? ' · ' + by.email : ''}`)],
+      ])}</div></div>
+      <div class="card"><h2>주문 상품</h2><table class="list"><thead><tr><th>상품</th><th>옵션</th><th class="r">수량</th><th class="r">금액</th></tr></thead><tbody>${o.items.map(x => `<tr><td>${h(x.name)}</td><td>${h(x.opt || '')}</td><td class="r">${x.qty}</td><td class="r">${won(x.price * x.qty)}</td></tr>`).join('')}</tbody></table></div>
+      ${o.status === 'paid' ? `<div class="actions static"><button class="btn pri" id="ship">${o.fulfil && o.fulfil.status === 'shipped' ? '발송 전으로 되돌리기' : '발송 처리'}</button>${canCancel ? '<button class="btn danger" id="cancel">결제 취소(전액)</button>' : ''}</div>` : ''}
+      <div class="card" style="margin-top:16px"><h2>처리 기록</h2>${dl((o.history || []).map(x => [dt(x.at), h(`${x.ev}${x.note ? ' · ' + x.note : ''}`)]))}</div>`;
+    const sb = $('#ship'), cb = $('#cancel');
+    if (sb) sb.onclick = async () => {
+      sb.disabled = true;
+      try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/fulfil`, { status: o.fulfil && o.fulfil.status === 'shipped' ? 'new' : 'shipped' }); toast('저장했습니다'); payDetail(moid); }
+      catch (e) { toast(e.message); sb.disabled = false; }
+    };
+    if (cb) cb.onclick = async () => {
+      const reason = prompt(`${won(o.amount)} 전액을 취소합니다. 되돌릴 수 없습니다.\n취소 사유를 적어 주세요.`, '고객 요청 취소');
+      if (reason == null) return;
+      cb.disabled = true;
+      try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/cancel`, { reason }); toast('결제를 취소했습니다'); payDetail(moid); }
+      catch (e) { toast(e.message, 6000); cb.disabled = false; }
+    };
   }
 
   // ── 블로그 목록
@@ -433,6 +498,8 @@
       else if (a === 'detail') { location.replace(b ? `#/products/${b}/detail` : '#/products'); return; }
       else if (a === 'traffic') await traffic();
       else if (a === 'orders') await orders();
+      else if (a === 'payments' && b && b !== 'all') await payDetail(b);
+      else if (a === 'payments') await payments();
       else if (a === 'me') await me();
       else if (owner && a === 'settings') await settings();
       else if (owner && a === 'topics') await topics();

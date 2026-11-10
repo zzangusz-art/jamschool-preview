@@ -8,3 +8,6 @@ _site/
 /sitemap.xml
 /robots.txt
 /llms.txt
+
+# 로컬 결제 시험 주문(운영은 Railway DATA_DIR)
+.data/

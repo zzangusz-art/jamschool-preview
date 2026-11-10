@@ -11,6 +11,7 @@ import { makeStore } from './store.mjs';
 import { summary as statsSummary } from './stats.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
+import * as PAY from '../pay/nicepay.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -270,7 +271,13 @@ route('GET', '/api/admin/check', 'owner', async () => {
   const last = posts.map(p => p.date).filter(Boolean).sort().pop();
   return { warn, posts: posts.length, todo: todo.length, last };
 });
-route('GET', '/api/admin/log', 'owner', async () => ({ commits: await store.recent(30) }));
+// ── 결제 주문(홈페이지 결제, tools/pay/nicepay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
+route('GET', '/api/admin/payments', 'client', async ({ query, user }) => ({ ...PAY.adminStatus(), canCancel: user.role === 'owner', orders: PAY.listOrders({ all: query.get('all') === '1' }) }));
+route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => ({ order: PAY.getOrderAdmin(params.moid), canCancel: user.role === 'owner' }));
+route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data.status, user) }));
+route('POST', '/api/admin/payments/:moid/cancel', 'owner', async ({ params, data, user }) => ({ order: await PAY.cancelOrder(params.moid, data.reason, user) }));
+route('POST', '/api/admin/payments-settings', 'owner', async ({ data, user }) => PAY.setSettings({ enabled: !!data.enabled }, user));
+route('GET', '/api/admin/log', 'owner',async () => ({ commits: await store.recent(30) }));
 route('GET', '/api/admin/users', 'owner', async () => ({ users: loadUsers().map(u => ({ id: u.id, name: u.name, role: u.role, roleName: ROLES[u.role] })), canWrite: canWriteUsers() }));
 route('POST', '/api/admin/users', 'owner', async ({ data, user }) => {
   const list = loadUsers(), act = data.action, id = oneLine(data.id);
@@ -315,7 +322,7 @@ export async function handleAdmin(req, res) {
         need(r.role === 'client' || user.role === 'owner', 403, '관리자만 쓸 수 있는 메뉴입니다');
       }
       if (req.method !== 'GET') need(req.headers['x-jam-admin'] === '1', 403, '잘못된 요청');
-      if (r.role && req.method !== 'GET' && !p.startsWith('/api/admin/me') && p !== '/api/admin/preview' && p !== '/api/admin/users') need(store.ready(), 503, '저장소(GitHub) 연결이 안 되어 있습니다 — Railway 변수 GITHUB_TOKEN');
+      if (r.role && req.method !== 'GET' && !p.startsWith('/api/admin/me') && p !== '/api/admin/preview' && p !== '/api/admin/users' && !p.startsWith('/api/admin/payments')) need(store.ready(), 503, '저장소(GitHub) 연결이 안 되어 있습니다 — Railway 변수 GITHUB_TOKEN');
       const data = req.method === 'GET' ? {} : await body(req);
       send(res, 200, await r.fn({ user, data, params: m.groups || {}, query: url.searchParams }) || { ok: true }); return true;
     }
