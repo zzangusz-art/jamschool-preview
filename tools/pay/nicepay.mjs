@@ -23,7 +23,13 @@ export const SCRIPT_URL = 'https://pg-web.nicepay.co.kr/v3/common/js/nicepay-pgw
 const APPROVE_HOSTS = ['dc1-api.nicepay.co.kr', 'dc2-api.nicepay.co.kr', 'webapi.nicepay.co.kr'];
 const CANCEL_URL = 'https://pg-api.nicepay.co.kr/webapi/cancel_process.jsp';
 const SUCCESS = { CARD: '3001', BANK: '4000', VBANK: '4100', CELLPHONE: 'A000' };
-const METHOD = { card: 'CARD', bank: 'BANK', vbank: 'VBANK' };
+const METHOD = { card: 'CARD', npay: 'CARD', kakaopay: 'CARD', bank: 'BANK', vbank: 'VBANK' };
+// 간편결제 단독 버튼: 나이스페이 결제창을 건너뛰고 제휴사 창을 바로 연다(docs/pg/auth/payment-window-skip). 승인 결과는 카드(3001)와 같다
+// 결제창 약관이 생략되므로 주문서가 결제대행 약관 동의를 따로 받는다(checkout.js ag-pg)
+const DIRECT = {
+  kakaopay: { DirectShowOpt: 'CARD', DirectEasyPay: 'E016' },
+  npay: { DirectShowOpt: 'CARD', DirectEasyPay: 'E020', EasyPayMethod: 'E020=CARD' },   // 네이버페이 포인트·머니는 'E020=POINT'(복합결제 불가)
+};
 const TIMEOUT = 30000;
 
 // ───────── 공통
@@ -111,12 +117,14 @@ function lineFor(J, key, qty) {
     const p = J.PRODUCTS.find(x => x.id === 29), t = O.thickness.find(x => x.id === m[1]), s = O.size.find(x => x.id === m[2]), c = O.color.find(x => x.id === m[3]);
     const price = O.price[`${m[1]}-${m[2]}`];
     if (!p || !t || !s || !c || !(price > 0)) throw new PayError(400, '주문할 수 없는 옵션이 있습니다');
-    return { key: k, id: 29, name: p.name, opt: `${t.label} ${t.sub} / ${s.label} ${s.w}×200 / ${c.label}`, qty: q, price, img: c.id === 'ivory' ? p.imgs[8] : p.imgs[0], cat: p.cat };
+    return { key: k, id: 29, name: p.name, gname: gname(p), opt: `${t.label} ${t.sub} / ${s.label} ${s.w}×200 / ${c.label}`, qty: q, price, img: c.id === 'ivory' ? p.imgs[8] : p.imgs[0], cat: p.cat };
   }
   const p = /^\d+$/.test(k) && J.PRODUCTS.find(x => x.id === +k);
   if (!p || p.full || !(p.price > 0)) throw new PayError(400, '주문할 수 없는 상품이 있습니다');
-  return { key: k, id: p.id, name: p.name, opt: '', qty: q, price: p.price, img: p.imgs[0], cat: p.cat };
+  return { key: k, id: p.id, name: p.name, gname: gname(p), opt: '', qty: q, price: p.price, img: p.imgs[0], cat: p.cat };
 }
+// 결제창 상품명(40바이트): 짧은 이름으로. 입점 브랜드(하픽 등)는 '잠스쿨'을 붙이지 않는다
+const gname = p => p.brand ? p.short : `잠스쿨 ${p.short}`;
 export function pgMethods() {
   const J = siteData();
   return (J.CHECKOUT.pgPay || []).filter(m => METHOD[m.id]).map(({ id, label, note }) => ({ id, label, note }));
@@ -206,7 +214,7 @@ async function ready(req) {
     fulfil: { status: 'new' }, history: [],
   };
   hist(o, 'ready', `${m.label} ${amount}원`); save(o);
-  const first = clean(items[0].name), more = items.length > 1 ? ` 외 ${items.length - 1}건` : '';
+  const first = clean(items.length > 1 ? items[0].gname : items[0].name), more = items.length > 1 ? ` 외 ${items.length - 1}건` : '';
   const edi = kstStamp(), amt = String(amount);
   log('ready', o.moid, amt, m.id);
   return {
@@ -215,6 +223,7 @@ async function ready(req) {
       PayMethod: o.payMethod, GoodsName: ecut(first, 40 - ebytes(more)) + more, Amt: amt, MID: MID(), Moid: o.moid,
       BuyerName: ecut(name, 30), BuyerTel: tel, BuyerEmail: mail, ReturnURL: `${origin(req)}/api/pay/return`,
       EdiDate: edi, SignData: sha256(edi + MID() + amt + KEY()), ReqReserved: o.moid, CharSet: 'utf-8', GoodsCl: '1',
+      ...(DIRECT[m.id] || {}),
     },
   };
 }

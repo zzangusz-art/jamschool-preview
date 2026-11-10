@@ -65,7 +65,7 @@ const order = moid => JSON.parse(fs.readFileSync(path.join(TMP, 'orders', moid +
 let n = 0; const ok = t => console.log(`OK ${++n}. ${t}`);
 
 // 1. 설정
-{ const r = await call('GET', '/api/pay/config'); assert.equal(r.json.ready, true); assert.equal(r.json.enabled, false); assert.deepEqual(r.json.methods.map(m => m.id), ['card']); ok('설정: 키 있음 · 꺼짐 · 카드'); }
+{ const r = await call('GET', '/api/pay/config'); assert.equal(r.json.ready, true); assert.equal(r.json.enabled, false); assert.deepEqual(r.json.methods.map(m => m.id), ['card', 'npay', 'kakaopay']); ok('설정: 키 있음 · 꺼짐 · 카드·네이버페이·카카오페이'); }
 // 2. 준비: 금액은 서버 계산(3단 바닥형 슈퍼싱글 239,000 + 떡실신 64,000×2)
 let f;
 {
@@ -80,7 +80,7 @@ let f;
 }
 // 3. 잘못된 주문은 거절
 for (const [why, over] of [['없는 옵션', { items: [{ key: '29-12-XL-gray', qty: 1 }] }], ['수량 0', { items: [{ key: '30', qty: 0 }] }], ['없는 상품', { items: [{ key: '999', qty: 1 }] }],
-  ['3단을 옵션 없이', { items: [{ key: '29', qty: 1 }] }], ['결제수단', { method: 'npay' }], ['전화번호', { buyer: { ...ORDER.buyer, tel: '123' } }]]) {
+  ['3단을 옵션 없이', { items: [{ key: '29', qty: 1 }] }], ['결제수단', { method: 'payco' }], ['전화번호', { buyer: { ...ORDER.buyer, tel: '123' } }]]) {
   const r = await call('POST', '/api/pay/ready', { ...ORDER, ...over }); assert.equal(r.code, 400, why);
 }
 ok('준비 거절: 없는 옵션·수량 0·없는 상품·3단 옵션 누락·결제수단·전화번호');
@@ -144,6 +144,15 @@ ok('망취소: 승인 시간 초과·응답 서명/금액 불일치 → 망취�
   const cfg = await call('GET', '/api/pay/config'); assert.equal(cfg.json.enabled, true);
   ok('관리자: 결제 주문 목록 · 발송 처리 · 전액 취소(SignData·euc-kr 사유) · 중복 취소 막음 · 결제 켜기');
 }
+// 8-2. 네이버페이·카카오페이 단독 버튼: 제휴사 창 직접 호출 값 + 카드(3001)와 같은 승인
+for (const [id, extra] of [['kakaopay', { DirectShowOpt: 'CARD', DirectEasyPay: 'E016' }], ['npay', { DirectShowOpt: 'CARD', DirectEasyPay: 'E020', EasyPayMethod: 'E020=CARD' }]]) {
+  const g = await readyOrder({ method: id });
+  assert.equal(g.fields.PayMethod, 'CARD'); for (const [k, v] of Object.entries(extra)) assert.equal(g.fields[k], v, `${id} ${k}`);
+  assert.equal(g.fields.SignData, sha(g.fields.EdiDate + MID + g.fields.Amt + KEY));
+  calls = []; plan = { [APPROVE]: okApprove };
+  await ret(auth(g.fields)); const o = order(g.moid); assert.equal(o.status, 'paid', id); assert.equal(o.method, id);
+}
+ok('간편결제: 카카오페이(E016)·네이버페이(E020, 카드) 직접 호출 값 · 승인까지');
 // 9. 휴대폰·PC 결과 인코딩: euc-kr 로 온 한글도 읽는다
 { const d = PAY._test.parseForm(Buffer.from('AuthResultMsg=%C0%CE%C1%F5+%BC%BA%B0%F8&Moid=JS1')); assert.equal(d.AuthResultMsg, '인증 성공');
   const u = PAY._test.parseForm(Buffer.from('AuthResultMsg=' + encodeURIComponent('인증 성공'))); assert.equal(u.AuthResultMsg, '인증 성공'); ok('결과 인코딩: euc-kr·utf-8 모두 읽음'); }

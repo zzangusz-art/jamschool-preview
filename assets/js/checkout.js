@@ -69,7 +69,8 @@
   }
   function setupPay(list) {
     payList = list;
-    if (list !== CHECKOUT.pay) $('#paym').innerHTML = list.map((m, i) => `<button class="paym__opt" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${esc(m.id)}">${esc(m.label)}</button>`).join('');
+    const MARK = { npay: '<b class="npay-mark" aria-hidden="true">N</b>', kakaopay: '<b class="kpay-mark" aria-hidden="true">pay</b>' };
+    if (list !== CHECKOUT.pay) $('#paym').innerHTML = list.map((m, i) => `<button class="paym__opt${m.id === 'npay' ? ' paym__opt--npay' : m.id === 'kakaopay' ? ' paym__opt--kakao' : ''}" type="button" role="radio" aria-checked="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-v="${esc(m.id)}">${MARK[m.id] || ''}${esc(m.label)}</button>`).join('');
     payBtns = $$('#paym [role="radio"]');
     payBtns.forEach((b, i) => {
       b.addEventListener('click', () => pickPay(b));
@@ -86,6 +87,11 @@
     PG = c;
     $$('.co-pv').forEach(x => x.remove());   // '스마트스토어에서 결제' 안내
     setupPay(c.methods);
+    // 간편결제 단독 호출은 나이스페이 결제창(약관 동의 화면)을 건너뛰므로 주문서에서 결제대행 약관 동의를 받는다
+    const T = 'https://github.com/nicepayments/nicepay-manual/blob/main/api/terms/';
+    $('#agree').insertAdjacentHTML('beforeend', `<div class="agree__item"><label class="ck"><input type="checkbox" class="ag" id="ag-pg"><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>결제대행 서비스 약관(전자금융거래 이용약관, 개인정보 수집·이용, 개인정보 제3자 제공)에 동의합니다</span></label>
+      <p class="agree__links" style="margin:4px 0 0 30px;font-size:13px">결제대행사 나이스페이먼츠 약관 원문: <a href="${T}electronicFinancialTransactions.md" target="_blank" rel="noopener">전자금융거래</a> · <a href="${T}collectPersonalInfo.md" target="_blank" rel="noopener">개인정보 수집·이용</a> · <a href="${T}sharingPersonalInformation.md" target="_blank" rel="noopener">제3자 제공</a></p></div>`);
+    f('ag-all').checked = false;
     if (pgTest && !c.enabled) toast('시험 결제 모드입니다. 실제로 결제되니 확인 후 관리자 화면에서 취소해 주세요.');
   }).catch(() => { /* 설정을 못 읽으면 스마트스토어 결제 그대로 */ });
 
