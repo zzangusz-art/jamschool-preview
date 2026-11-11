@@ -66,8 +66,11 @@ const ORDER = {
   buyer: { name: '김시험', tel: '010-1234-5678', email: 'test@example.com' },
   receiver: { name: '김시험', tel: '01012345678', zip: '06236', addr1: '서울 강남구 테헤란로 1', addr2: '101호', memo: '문 앞에 놓아 주세요' },
 };
-async function readyOrder(over = {}) {
-  const r = await call('POST', '/api/pay/ready', { ...ORDER, ...over }, { 'content-type': 'application/json' });
+const UA_PC = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36';
+const UA_PHONE = 'Mozilla/5.0 (Linux; Android 14; SM-S921N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36';
+const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+async function readyOrder(over = {}, ua = UA_PC) {
+  const r = await call('POST', '/api/pay/ready', { ...ORDER, ...over }, { 'content-type': 'application/json', 'user-agent': ua });
   assert.equal(r.code, 200, JSON.stringify(r.json)); lastMoid = r.json.moid; return r.json;
 }
 // 결제창 인증 결과(씨드 → returnUrl). signData = tid + mid + ediDate + goodsAmt + ordNo + 가맹점 키
@@ -193,15 +196,20 @@ ok('망취소: 승인 시간 초과·응답 금액/거래번호 불일치 → �
   const cfg = await call('GET', '/api/pay/config'); assert.equal(cfg.json.enabled, true);
   ok('관리자: 결제 주문 목록 · 발송 처리 · 전액 취소(hashString·UTF-8 사유) · 중복 취소 막음 · 결제 켜기');
 }
-// 8-2. 네이버페이·카카오페이 단독 버튼: directType=1 · directCardCode=00 · ezpAuthCd(02·05) + 카드와 같은 승인
+// 8-2. 네이버페이·카카오페이 버튼: 휴대폰은 바로 열기(directType=1 · directCardCode=00 · ezpAuthCd 02·05), PC 는 기본 결제창
 for (const [id, ezp, label] of [['kakaopay', '02', '카카오페이'], ['npay', '05', '네이버페이']]) {
-  const g = await readyOrder({ method: id });
-  const x = g.fields; assert.equal(x.method, 'CARD'); assert.equal(x.directType, '1'); assert.equal(x.directCardCode, '00'); assert.equal(x.ezpAuthCd, ezp);
-  assert.equal(x.directCardQuota, '00'); assert.equal(x.directCardPointFlag, '0'); assert.equal(x.hashString, sha(MID + x.ediDate + x.goodsAmt + KEY));
-  calls = []; plan = { [APPROVE]: p => ({ ...okApprove(p), ezpAuthCd: ezp }) };
-  await ret(auth(x)); const o = order(g.moid); assert.equal(o.status, 'paid', id); assert.equal(o.method, id); assert.ok(o.pg.cardName.startsWith(label), o.pg.cardName);
+  for (const ua of [UA_PHONE, UA_IPHONE]) {
+    const g = await readyOrder({ method: id }, ua);
+    const x = g.fields; assert.equal(x.method, 'CARD'); assert.equal(x.directType, '1'); assert.equal(x.directCardCode, '00'); assert.equal(x.ezpAuthCd, ezp);
+    assert.equal(x.directCardQuota, '00'); assert.equal(x.directCardPointFlag, '0'); assert.equal(x.hashString, sha(MID + x.ediDate + x.goodsAmt + KEY));
+    calls = []; plan = { [APPROVE]: p => ({ ...okApprove(p), ezpAuthCd: ezp }) };
+    await ret(auth(x)); const o = order(g.moid); assert.equal(o.status, 'paid', id); assert.equal(o.method, id); assert.ok(o.pg.cardName.startsWith(label), o.pg.cardName);
+  }
+  const pc = await readyOrder({ method: id }, UA_PC);
+  for (const k of ['directType', 'directCardCode', 'ezpAuthCd', 'directCardQuota', 'directCardPointFlag']) assert.ok(!(k in pc.fields), `PC 에 ${k}`);
+  assert.equal(pc.fields.method, 'CARD');
 }
-ok('간편결제: 카카오페이(ezpAuthCd 02)·네이버페이(05) 바로 열기 값 · 승인까지 · 완료 표시에 간편결제사 이름');
+ok('간편결제: 휴대폰(안드로이드·아이폰)은 카카오페이 02·네이버페이 05 바로 열기 · 승인까지 · PC 는 기본 결제창(바로 열기 값 없음)');
 // 8-3. 결제통보(Webhook): 허용 IP만 · 가맹점 관리자 취소 반영 · 승인 놓친 거래 맞추기 · 재전송 무시
 {
   const SEED_IP = { 'x-real-ip': '13.125.71.243' }, noti = (d, h = SEED_IP) => call('POST', '/api/pay/noti', d, { 'content-type': 'application/json', ...h });

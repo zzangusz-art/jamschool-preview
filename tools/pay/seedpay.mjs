@@ -35,6 +35,14 @@ const DIRECT = {
   npay: { directType: '1', directCardCode: '00', ezpAuthCd: '05', directCardQuota: '00', directCardPointFlag: '0' },
 };
 const EZP = { '02': '카카오페이', '05': '네이버페이' };
+// 바로 열기는 휴대폰에서만: PC 화면 위 결제창 안에서는 카카오페이 인증 화면이 뜨지 않았다(2026-11-11 운영 확인).
+// PC 는 씨드 기본 결제창(신용/체크카드·카카오페이·N Pay 탭)을 열어 손님이 고른다. 판단 기준은 pgAsistant.js checkPlatform 과 같게
+function isMobileUA(ua) {
+  ua = String(ua || '').toLowerCase();
+  // 문자열 위치가 아니라 이 순서대로 먼저 맞는 것(안드로이드 UA 의 'linux' 보다 'android' 가 앞선다)
+  const m = ['ipad', 'ipod', 'windows phone', 'iphone', 'kindle', 'silk', 'android', 'win', 'mac', 'linux', 'cros', 'playbook', 'bb', 'blackberry'].find(k => ua.includes(k)) || '';
+  return ['android', 'bb', 'blackberry', 'ipad', 'iphone', 'ipod', 'kindle', 'playbook', 'silk', 'windows phone'].includes(m);
+}
 const TIMEOUT = 30000;
 
 // ───────── 공통
@@ -197,7 +205,7 @@ async function ready(req) {
       method: o.payMethod, mid: MID(), trxCd: '0', goodsNm: first.slice(0, 40 - more.length) + more, ordNo: o.moid, goodsAmt: amt,
       ordNm: name.slice(0, 30), ordTel: tel, ordEmail: mail, ...(ip && ip.length <= 20 ? { ordIp: ip } : {}),
       mbsReserved: o.moid, returnUrl: `${origin(req)}/api/pay/return`, ediDate: edi, hashString: sha256(MID() + edi + amt + KEY()),
-      ...(DIRECT[m.id] || {}),
+      ...(isMobileUA(req.headers['user-agent']) ? DIRECT[m.id] || {} : {}),
     },
   };
 }
