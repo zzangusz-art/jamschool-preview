@@ -11,7 +11,7 @@ import { makeStore } from './store.mjs';
 import { summary as statsSummary } from './stats.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
-import * as PAY from '../pay/nicepay.mjs';
+import * as PAY from '../pay/seedpay.mjs';
 import * as NOTIFY from '../pay/notify.mjs';
 import { clientIp } from '../client-ip.mjs';
 
@@ -273,7 +273,7 @@ route('GET', '/api/admin/check', 'owner', async () => {
   const last = posts.map(p => p.date).filter(Boolean).sort().pop();
   return { warn, posts: posts.length, todo: todo.length, last };
 });
-// ── 결제 주문(홈페이지 결제, tools/pay/nicepay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
+// ── 결제 주문(홈페이지 결제, tools/pay/seedpay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
 route('GET', '/api/admin/payments', 'client', async ({ query, user }) => ({ ...PAY.adminStatus(), notify: NOTIFY.notifyStatus(), canCancel: user.role === 'owner', orders: PAY.listOrders({ all: query.get('all') === '1' }) }));
 // 주문 알림(텔레그램) 시험 — 대화방 ID 가 없으면 봇에게 말을 건 대화방을 찾아 준다(tools/pay/notify.mjs)
 route('POST', '/api/admin/payments-notify-test', 'owner', async ({ user }) => NOTIFY.notifyTest(user));

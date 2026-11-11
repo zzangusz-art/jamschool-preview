@@ -1,6 +1,6 @@
 /* 주문서: 주문 상품(바로 구매 또는 장바구니 선택분), 주문자·배송지(다음 우편번호), 결제 수단, 동의, 검증, 결제 요청
-   결제: 서버(/api/pay/config)가 홈페이지 결제를 켜 두었으면(또는 ?pg=test 시험) 씨드페이먼츠·나이스페이 결제창으로 결제하고,
-   꺼져 있으면 같은 상품의 스마트스토어로 보낸다. 금액·주문 저장·승인은 서버(tools/pay/nicepay.mjs)가 한다 */
+   결제: 서버(/api/pay/config)가 홈페이지 결제를 켜 두었으면(또는 ?pg=test 시험) 씨드페이먼츠 결제창으로 결제하고,
+   꺼져 있으면 같은 상품의 스마트스토어로 보낸다. 금액·주문 저장·승인은 서버(tools/pay/seedpay.mjs)가 한다 */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, cart, store } = UI;
   const { OPTIONS_29: O, CHECKOUT, CS } = JAM;
@@ -87,12 +87,7 @@
     PG = c;
     $$('.co-pv').forEach(x => x.remove());   // '스마트스토어에서 결제' 안내
     setupPay(c.methods);
-    // 간편결제 단독 호출은 나이스페이 결제창(약관 동의 화면)을 건너뛰므로 주문서에서 결제대행 약관 동의를 받는다
-    const T = 'https://github.com/nicepayments/nicepay-manual/blob/main/api/terms/';
-    $('#agree').insertAdjacentHTML('beforeend', `<div class="agree__item"><label class="ck"><input type="checkbox" class="ag" id="ag-pg"><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>결제대행 서비스 약관(전자금융거래 이용약관, 개인정보 수집·이용, 개인정보 제3자 제공)에 동의합니다</span></label>
-      <p class="agree__links" style="margin:4px 0 0 30px;font-size:13px">결제대행사 나이스페이먼츠 약관 원문: <a href="${T}electronicFinancialTransactions.md" target="_blank" rel="noopener">전자금융거래</a> · <a href="${T}collectPersonalInfo.md" target="_blank" rel="noopener">개인정보 수집·이용</a> · <a href="${T}sharingPersonalInformation.md" target="_blank" rel="noopener">제3자 제공</a></p></div>`);
-    f('ag-all').checked = false;
-    if (pgTest && !c.enabled) toast('시험 결제 모드입니다. 실제로 결제되니 확인 후 관리자 화면에서 취소해 주세요.');
+    if (pgTest && !c.enabled) toast(c.test ? '시험 결제 모드입니다(씨드페이먼츠 테스트 서버).' : '시험 결제 모드입니다. 실제로 결제되니 확인 후 관리자 화면에서 취소해 주세요.');
   }).catch(() => { /* 설정을 못 읽으면 스마트스토어 결제 그대로 */ });
 
   // ───────── 동의
@@ -176,18 +171,23 @@
     return errs;
   }
 
-  // ───────── 홈페이지 결제: 서버가 주문을 만들고(금액은 서버 계산) 결제창 값을 주면 나이스페이 결제창(goPay)을 연다.
-  // 인증이 끝나면 결제창이 nicepaySubmit() 을 부르고, 폼이 /api/pay/return 으로 넘어가 서버가 승인한 뒤 주문 완료 화면으로 보낸다.
-  // 휴대폰은 goPay() 가 결제 페이지로 넘어갔다가 ReturnURL(/api/pay/return)로 돌아온다.
+  // ───────── 홈페이지 결제(씨드페이먼츠): 서버가 주문을 만들고(금액은 서버 계산) 결제창 값을 주면 pgAsistant.js 의 SendPay(payInit)로 결제창을 연다.
+  // PC: 화면 위 결제창 → 인증이 끝나면 pay_result_submit() → payResultSubmit() 이 결과를 returnUrl(/api/pay/return)로 보낸다.
+  // 휴대폰: 페이지째 결제창으로 넘어갔다가 씨드가 returnUrl 로 돌려보낸다. 서버가 승인한 뒤 주문 완료 화면으로 보낸다.
   const payButtons = () => $$('.co-pay, #co-bar-pay');
-  let pgjs = null;
+  const unlock = msg => { payButtons().forEach(b => { b.disabled = false; }); if (msg) toast(msg); };
+  let pgjs = null, pgSet = null;
   const loadPg = src => pgjs || (pgjs = new Promise((ok, no) => {
-    if (typeof window.goPay === 'function') { ok(); return; }
-    const s = document.createElement('script'); s.src = src; s.charset = 'euc-kr';
-    s.onload = () => (typeof window.goPay === 'function' ? ok() : no(new Error('pg')));
+    if (typeof window.SendPay === 'function') { ok(); return; }
+    const s = document.createElement('script'); s.src = src;
+    s.onload = () => (typeof window.SendPay === 'function' ? ok() : no(new Error('pg')));
     s.onerror = () => { pgjs = null; no(new Error('pg')); };
     document.head.appendChild(s);
   }));
+  // 결제창이 '실패'로 끝나면 스크립트가 아무 함수도 부르지 않아 버튼이 잠긴 채 남으므로 직접 받는다(씨드 결제창에서 온 메시지만)
+  window.addEventListener('message', e => {
+    if (pgSet && e.origin === pgSet.base && Array.isArray(e.data) && e.data[0] === 'FAIL') unlock('결제가 완료되지 않았습니다. 카드·결제 수단을 확인하고 다시 시도해 주세요.');
+  });
   async function payPg() {
     payButtons().forEach(b => { b.disabled = true; });
     const memo = f('r-memo').value === 'direct' ? f('r-memo-x').value.trim() : f('r-memo').value;
@@ -202,21 +202,27 @@
       });
       const r = await res.json().catch(() => ({}));
       if (!res.ok || !r.fields) throw new Error(r.error || '결제를 시작하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
-      if (+r.fields.Amt !== total) { toast(`상품 가격이 바뀌어 결제 금액이 ${won(+r.fields.Amt)}입니다. 주문서를 새로 불러옵니다.`); setTimeout(() => location.reload(), 1800); return; }
+      if (+r.fields.goodsAmt !== total) { toast(`상품 가격이 바뀌어 결제 금액이 ${won(+r.fields.goodsAmt)}입니다. 주문서를 새로 불러옵니다.`); setTimeout(() => location.reload(), 1800); return; }
       await loadPg(r.script).catch(() => { throw new Error('결제 창을 불러오지 못했습니다. 네트워크를 확인하고 다시 시도해 주세요.'); });
-      document.getElementById('nice-pay-form')?.remove();
+      pgSet = r;
+      document.getElementById('seed-pay-form')?.remove();
       const pf = document.createElement('form');
-      pf.id = 'nice-pay-form'; pf.name = 'payForm'; pf.method = 'post'; pf.action = r.action; pf.acceptCharset = 'euc-kr';
+      pf.id = 'seed-pay-form'; pf.name = 'payInit'; pf.method = 'post';
       Object.entries(r.fields).forEach(([k, v]) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = k; i.value = v; pf.appendChild(i); });
       document.body.appendChild(pf);
-      window.nicepaySubmit = () => { pf.submit(); };
-      window.nicepayClose = () => { payButtons().forEach(b => { b.disabled = false; }); toast('결제 창을 닫았습니다. 결제하려면 다시 눌러 주세요.'); };
+      // 인증 완료: 결과 폼(payResult)이 우리 returnUrl 로 가는지 확인한 뒤에만 보낸다(결제창 스크립트는 보낼 주소를 따로 확인하지 않음)
+      window.pay_result_submit = () => {
+        const rf = document.payResult, want = new URL(r.returnUrl);
+        let to = null; try { to = rf && new URL(rf.action, location.href); } catch (e) { to = null; }
+        if (!to || to.origin !== want.origin || to.pathname !== want.pathname) { unlock('결제 결과를 확인하지 못했습니다. 다시 시도해 주세요.'); return; }
+        window.payResultSubmit();
+      };
+      window.pay_result_close = () => unlock('결제 창을 닫았습니다. 결제하려면 다시 눌러 주세요.');
       store.sset('jam_pg_pending', JSON.stringify({ moid: r.moid, keys: items.map(x => x.key), buyNow }));
       beaconSubmit();
-      window.goPay(pf);
+      window.SendPay(pf, r.mode);
     } catch (err) {
-      payButtons().forEach(b => { b.disabled = false; });
-      toast(err.message || '결제를 시작하지 못했습니다.');
+      unlock(err.message || '결제를 시작하지 못했습니다.');
     }
   }
 

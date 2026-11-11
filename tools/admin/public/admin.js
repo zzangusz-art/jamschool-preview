@@ -198,7 +198,7 @@
         <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(top({ '구매하기': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '스마트스토어·N Pay': e.store_click || 0, '공식몰': e.mall_click || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]), sum(e) - (e.checkout_submit || 0))}</div></div>`;
   }
 
-  // ── 결제 주문(홈페이지 결제: 씨드페이먼츠 · 나이스페이) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
+  // ── 결제 주문(홈페이지 결제: 씨드페이먼츠) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
   const PST = { paid: 'live', cancelled: '', check: 'bad', failed: 'draft', approving: 'draft', ready: '' };
   const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
   const telFmt = t => String(t || '').replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
@@ -210,7 +210,8 @@
     const owner = ME.user.role === 'owner';
     const state = !d.keySet ? '<div class="box bad"><b>상점키가 없습니다.</b> Railway 변수 SEEDPAY_MERCHANT_KEY 를 넣어야 결제할 수 있습니다.</div>'
       : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
-        · 상점 ID ${h(d.mid)}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
+        · 상점 ID ${h(d.mid)}${d.test ? ' · <b>씨드페이먼츠 테스트 서버(devpay)</b>' : ''}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
+        <br><small>결제통보 URL <code>${h(d.notiUrl)}</code> — 씨드페이먼츠 가맹점 관리자(mms.seedpayments.co.kr) → 가맹점정보 → 결제환경 설정 → 결제결과 통보관리에 신용카드용으로 등록하면, 가맹점 관리자에서 한 취소도 여기 반영됩니다.</small>
         ${owner ? `<div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button></div>` : ''}</div>`;
     const nt = d.notify || {}, on = nt.token && nt.chats;
     const notify = `<div class="box ${on ? 'ok' : 'info'}"><b>주문 알림(텔레그램) ${on ? `켜짐 · 대화방 ${nt.chats}곳` : nt.token ? '대화방 ID 필요' : '꺼짐'}</b>

@@ -1,4 +1,4 @@
-// 결제 주문 알림(텔레그램 봇) — nicepay.mjs 가 결제 완료(paid) 저장 직후와 '확인 필요'(check) 때 부른다
+// 결제 주문 알림(텔레그램 봇) — seedpay.mjs 가 결제 완료(paid) 저장 직후와 '확인 필요'(check) 때 부른다
 //   환경 변수(Railway 에만 넣는다. 공개 저장소라 코드·커밋에 값을 쓰지 않는다):
 //     NOTIFY_TELEGRAM_TOKEN    BotFather 가 준 봇 토큰(비밀)
 //     NOTIFY_TELEGRAM_CHAT_ID  알림 받을 대화방 ID(여러 곳이면 쉼표로). 모르면 비워 두고 봇에게 말을 건 뒤
