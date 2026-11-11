@@ -331,3 +331,5 @@
 .bento-more .acc__btn { padding: 18px 20px; }
 .bento-more .acc__panel > div { padding: 0 20px 20px; }
 @media (prefers-reduced-motion: reduce) { .bt, .bt img, .bt__bg, .bt__meter i { transition: none; } }
+.blog-hero p.blog-hero__more { margin-top: 6px; font-size: 15px; }
+.blog-hero__more a { color: #038C40; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }

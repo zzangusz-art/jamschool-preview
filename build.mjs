@@ -131,7 +131,7 @@ const ORG = {
   logo: SITE + 'assets/img/brand/logo.png', email: 'jamsale33@gmail.com',
   contactPoint: { '@type': 'ContactPoint', telephone: '+82-10-9610-8868', contactType: 'customer service', areaServed: 'KR', availableLanguage: 'ko', hoursAvailable: { '@type': 'OpeningHoursSpecification', dayOfWeek: WEEKDAYS, opens: '09:00', closes: '17:00' } },
   address: { '@type': 'PostalAddress', streetAddress: '강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트)', addressLocality: '강서구', addressRegion: '서울특별시', addressCountry: 'KR' },
-  sameAs: ['https://jamschool.co.kr/', 'https://smartstore.naver.com/healingq'],
+  sameAs: ['https://jamschool.co.kr/', 'https://smartstore.naver.com/healingq', 'https://blog.naver.com/jamschoolzone'],
   hasMerchantReturnPolicy: returnPolicy(0),
 };
 
@@ -629,6 +629,9 @@ ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).jo
 
 ## 판매처
 공식 홈페이지 ${SITE}, 공식몰 https://jamschool.co.kr/ (회원·구매평), 네이버 스마트스토어 https://smartstore.naver.com/healingq, 11번가, 오늘의집, GS샵, 현대Hmall
+
+## 공식 채널
+네이버 공식 블로그 「잠스쿨이 들려주는 잠 이야기」 https://blog.naver.com/jamschoolzone
 
 ## 회사
 상호 잠스쿨 · 대표 노치영 · 사업자등록번호 841-45-00474 · 통신판매업신고 제2019-서울강서-2200호 · 서울특별시 강서구 강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트) · 고객센터 010-9610-8868(평일 09:00~17:00) · jamsale33@gmail.com
