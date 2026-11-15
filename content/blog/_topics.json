@@ -421,7 +421,9 @@
     "angle": "KATRI 진드기 차단 시험: 커버 최대 기공 0.02mm(20㎛), 진드기 크기 0.2~10mm. 커버 세탁 관리. 알레르기 개선 효과는 쓰지 않음.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-dust-mite",
+    "date": "2026-11-15"
   },
   {
     "id": "queen-size-mattress",
@@ -434,7 +436,9 @@
     "angle": "퀸 150×200cm: 2인 또는 성인 1인이 넓게, 접어도 폭 150cm라 보관 자리를 미리 재기, 바닥형 무게, 두 사람이 함께 써도 꺼지지 않는 탄탄함, 아이와 함께 자는 집.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "queen-size-mattress",
+    "date": "2026-11-15"
   },
   {
     "id": "topper-pick",
@@ -447,7 +451,9 @@
     "angle": "쿠션감(탄탄·폭신·메모리폼)·두께·쓰는 자리(침대 위/바닥)로 잠스쿨 토퍼 고르기: 엄마품 메모리폼 토퍼(60kg 고밀도 메모리폼, 텐셀 겉커버), 3단 접이식 침대형 7cm를 토퍼로, 떡실신 매트리스 침대형. 「토퍼 매트리스 차이」 글과 겹치지 않게 제품 고르기 중심, 타사 추천 목록 아님.",
     "category": "구매 가이드",
     "product": 40,
-    "status": "todo"
+    "status": "done",
+    "slug": "topper-pick",
+    "date": "2026-11-15"
   },
   {
     "id": "mattress-feel-compare",
