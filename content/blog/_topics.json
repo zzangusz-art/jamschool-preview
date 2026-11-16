@@ -466,7 +466,9 @@
     "angle": "잠스쿨 제품 3종(3단 접이식·떡실신·양면) 비교표: 쿠션감, 두께, 사이즈, 할인가, 구매평 수. 타사명 없이.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-feel-compare",
+    "date": "2026-11-16"
   },
   {
     "id": "korea-made-mattress",
@@ -479,7 +481,9 @@
     "angle": "폼부터 겉커버까지 국내 생산(상세의 Made in Korea), 상품정보 제공고시의 원산지 확인법, 시험 성적서(KATRI·SGS·한일원자력) 확인, 교환·A/S 응대. 확인된 범위만 쓰고 과장하지 않기.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "korea-made-mattress",
+    "date": "2026-11-16"
   },
   {
     "id": "tri-fold-seam",
@@ -492,7 +496,9 @@
     "angle": "세 칸 구조, 구매평 속 접히는 부분 반응, 예민하면 얇은 패드. 과장 금지.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-seam",
+    "date": "2026-11-16"
   },
   {
     "id": "tri-fold-price",
