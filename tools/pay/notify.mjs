@@ -4,7 +4,7 @@
 //     NOTIFY_TELEGRAM_CHAT_ID  알림 받을 대화방 ID(여러 곳이면 쉼표로). 모르면 비워 두고 봇에게 말을 건 뒤
 //                              어드민 '결제 주문' → '대화방 ID 찾기'를 누르면 알려 준다
 //   둘 중 하나라도 없으면 보내지 않는다. 결제 처리는 알림을 기다리지 않고(비동기), 실패는 로그만 남긴다.
-//   알림 내용: 주문번호·상품·수량·금액·받는 분 이름·어드민 링크. 전화번호·주소·이메일·카드번호는 넣지 않는다.
+//   알림 내용: 주문번호·상품·수량·금액·어드민 링크. 이름·전화번호·주소·이메일·카드번호 같은 개인정보는 넣지 않는다(어드민에서 확인).
 const API = 'https://api.telegram.org';
 const TIMEOUT = 10000;
 const TOKEN = () => (process.env.NOTIFY_TELEGRAM_TOKEN || '').trim();
@@ -32,7 +32,6 @@ export function orderText(o, kind = 'paid', reason = '') {
     `주문번호 ${esc(o.moid)}`,
     ...(o.items || []).map(x => `· ${esc(x.name)}${x.opt ? ` (${esc(x.opt)})` : ''} × ${esc(x.qty)}`),
     `금액 <b>${won(o.amount)}</b>${o.payLabel ? ` (${esc(o.payLabel)})` : ''}`,
-    `받는 분 ${esc((o.receiver && o.receiver.name) || '-')}`,
     ...(kind === 'check' && reason ? [`사유 ${esc(String(reason).slice(0, 200))}`] : []),
     `<a href="${esc(adminLink(o.moid))}">관리자 화면에서 보기</a>`,
   ];

@@ -76,8 +76,6 @@
           $('.pd-price__now .from')?.remove();
           $('.pd-price__list').innerHTML = `<span class="sr-only">정가</span>${won(L)}`;
           $('.pd-price__now .rate').textContent = `${RENDER.rateOf(L, v)}%`;
-          const cp = $('.pd-price__cp');
-          if (cp) { $('b', cp).textContent = won(v - 10000); cp.firstChild.textContent = '선택 옵션 회원 쿠폰 적용 시 '; cp.childNodes[2].textContent = ''; }
           // 사이즈·색상은 다음 선택을 위해 비운다(두께는 유지)
           st.s = st.c = null;
           ['po-s-g', 'po-c-g'].forEach(id => $$(`#${id} [role="radio"]`).forEach(x => x.setAttribute('aria-checked', 'false')));

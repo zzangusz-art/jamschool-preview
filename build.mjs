@@ -31,9 +31,24 @@ document.addEventListener('click',function(e){var a=e.target.closest&&e.target.c
 if(/smartstore\\.naver\\.com/.test(h))send('store_click',{link_url:h,label:t});else if(/^tel:/.test(h))send('call_click',{link_url:h});
 else if(/kakao/.test(h))send('kakao_click',{link_url:h});else if(/jamschool\\.co\\.kr/.test(h))send('mall_click',{link_url:h,label:t});
 else if(/^(pd-buy|bb-buy|sh-buy)$/.test(id))send('buy_click',{label:t});else if(id==='sh-cart')send('cart_click',{label:t});},true);})();</script>`;
+// 광고 픽셀(메타·카카오·구글 광고 전환·네이버 전환): 운영 주소(jamschool.kr)에서만 켠다. 페이지 보기는 자동, 상품 보기·장바구니·주문서·구매는 window.jamAd(종류, 값)로
+//   종류: view(상품 상세) · cart(장바구니 담기, ui.js) · checkout(주문서 제출, checkout.js) · purchase(결제 완료, complete.js — 주문번호당 한 번)
+const AD = { meta: tag('metaPixel'), kakao: tag('kakaoPixel'), ads: tag('googleAds'), label: tag('googleAdsPurchaseLabel') };
+const AD_JS = (AD.meta || AD.kakao || AD.ads || tag('naverAnalytics')) ? `<script>(function(){var w=window,d=document;if(!/(^|\\.)jamschool\\.kr$/.test(location.hostname))return;
+var M='${AD.meta}',K='${AD.kakao}',A='${AD.ads}',AL='${AD.label}',kq=[];
+if(M){!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(w,d,'script','https://connect.facebook.net/en_US/fbevents.js');w.fbq('init',M);w.fbq('track','PageView');}
+if(K){var ks=d.createElement('script');ks.async=true;ks.src='https://t1.daumcdn.net/kas/static/kp.js';ks.onload=function(){try{w.kakaoPixel(K).pageView();kq.splice(0).forEach(function(f){f()})}catch(e){}};d.head.appendChild(ks);}
+if(A&&typeof w.gtag==='function')w.gtag('config',A);
+w.jamAd=function(ev,o){o=o||{};var v=Math.round(Number(o.value)||0),id=o.id!=null?String(o.id):'';
+try{if(w.fbq){if(ev==='view')w.fbq('track','ViewContent',{content_ids:[id],content_type:'product'});else if(ev==='cart')w.fbq('track','AddToCart',{content_ids:[id],content_type:'product',value:v,currency:'KRW'});else if(ev==='checkout')w.fbq('track','InitiateCheckout',{value:v,currency:'KRW'});else if(ev==='purchase')w.fbq('track','Purchase',{value:v,currency:'KRW'},{eventID:String(o.order||'')});}}catch(e){}
+if(K){var kf=function(){var p=w.kakaoPixel(K);if(ev==='view')p.viewContent({id:id});else if(ev==='cart')p.addToCart({id:id});else if(ev==='checkout')p.viewCart();else if(ev==='purchase')p.purchase({total_price:String(v),currency:'KRW'});};try{w.kakaoPixel?kf():kq.push(kf)}catch(e){}}
+if(ev==='purchase'){try{if(typeof w.gtag==='function'){if(A&&AL)w.gtag('event','conversion',{send_to:A+'/'+AL,value:v,currency:'KRW',transaction_id:String(o.order||'')});w.gtag('event','purchase',{transaction_id:String(o.order||''),value:v,currency:'KRW'});}}catch(e){}
+try{if(w.wcs&&w.wcs_do){var _nasa={};_nasa['cnv']=w.wcs.cnv('1',String(v));w.wcs_do(_nasa);}}catch(e){}}};
+var pid=(location.pathname.match(/product-(\\d+)/)||[])[1];if(pid)w.jamAd('view',{id:pid});})();</script>` : '';
 const BODY_END = [
   TRACK_JS,
   tag('naverAnalytics') && `<script src="https://wcs.naver.net/wcslog.js"></script>\n<script>if(!wcs_add) var wcs_add = {};wcs_add["wa"] = "${tag('naverAnalytics')}";if(window.wcs) { wcs_do(); }</script>`,
+  AD_JS,
 ].filter(Boolean).join('\n');
 // 어드민 값이 있으면 data.js 바로 앞에 넣는다(OVERRIDES 는 아래에서 읽고, 이 함수는 페이지를 쓸 때 불린다)
 const ovTag = () => Object.values(OVERRIDES).some(v => v && typeof v === 'object' && Object.keys(v).length)
@@ -42,6 +57,9 @@ const withTags = s => {
   const ov = ovTag();
   if (ov) s = s.replace(/<script src="[^"]*assets\/js\/data\.js"><\/script>/, m => ov + m);
   if (HEAD_TAGS) s = s.replace('<meta charset="utf-8">', `<meta charset="utf-8">\n${HEAD_TAGS}`);
+  // 공유 미리보기 주소(og:url)는 정식 주소(canonical)와 같게
+  const canon = (s.match(/<link rel="canonical" href="([^"]+)"/) || [])[1];
+  if (canon && !/property="og:url"/.test(s)) s = s.replace(/(<meta property="og:type"[^>]*>)/, `$1\n<meta property="og:url" content="${canon}">`);
   if (BODY_OPEN) s = s.replace(/<body[^>]*>/, m => `${m}\n${BODY_OPEN}`);
   if (BODY_END) s = s.replace(/<\/body>(?![\s\S]*<\/body>)/, `${BODY_END}\n</body>`);
   // CSS·JS 주소에 파일 내용 버전(?v=)을 붙인다 → 배포하면 바뀐 파일만 브라우저·Cloudflare 캐시와 상관없이 바로 새로 받음
@@ -125,19 +143,20 @@ const SHIPPING = {
 // 근거가 확인된 '국내 생산' 상품: 제공고시 제조국 대한민국(30·36) 또는 상세 이미지 'Made in Korea·100% 국내 생산'(29·37·38·39·40·44). 41(하픽)·43 은 미확인
 const MADE_KR = new Set([29, 30, 36, 37, 38, 39, 40, 44]);
 
-// OnlineStore = 온라인 판매처인 Organization(구글 권장 하위 유형). 공식몰(jamschool.co.kr)·스마트스토어는 같은 브랜드의 판매 채널
+// OnlineStore = 온라인 판매처인 Organization(구글 권장 하위 유형). 공식몰(jamschool.co.kr)은 판매 사업자가 달라((주)씨와이컴퍼니) sameAs 에 넣지 않는다
 const ORG = {
   '@type': 'OnlineStore', '@id': SITE + '#org', name: '잠스쿨', legalName: '잠스쿨', alternateName: ['JAMSCHOOL'], url: SITE, taxID: '841-45-00474',
   logo: SITE + 'assets/img/brand/logo.png', email: 'jamsale33@gmail.com',
   contactPoint: { '@type': 'ContactPoint', telephone: '+82-10-9610-8868', contactType: 'customer service', areaServed: 'KR', availableLanguage: 'ko', hoursAvailable: { '@type': 'OpeningHoursSpecification', dayOfWeek: WEEKDAYS, opens: '09:00', closes: '17:00' } },
   address: { '@type': 'PostalAddress', streetAddress: '강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트)', addressLocality: '강서구', addressRegion: '서울특별시', addressCountry: 'KR' },
-  sameAs: ['https://jamschool.co.kr/', 'https://smartstore.naver.com/healingq', 'https://blog.naver.com/jamschoolzone'],
+  sameAs: ['https://smartstore.naver.com/healingq', 'https://blog.naver.com/jamschoolzone'],
   hasMerchantReturnPolicy: returnPolicy(0),
 };
 
 // ───────── index
+const P29H = PRODUCTS.find(p => p.id === 29);
 const TRUST = [
-  ['i-star', '<b>4.87</b> 3단 접이식 구매평 6,661건'], ['i-flag', '폼부터 커버까지 <b>100% 국내 생산</b>'], ['i-cal', '<b>14일</b> 무료체험'],
+  ['i-star', `<b>${P29H.rating.toFixed(2)}</b> 3단 접이식 구매평 ${P29H.reviews.toLocaleString('ko-KR')}건`], ['i-flag', '폼부터 커버까지 <b>100% 국내 생산</b>'], ['i-cal', '<b>14일</b> 무료체험'],
   ['i-shield', '<b>2년</b> 폼 무상 교체'], ['i-truck', '오후 1시 이전 결제 시 <b>당일 출고</b>'], ['i-layers', 'KATRI · SGS · 한일원자력 <b>시험 완료</b>'],
 ];
 const trustHTML = [0, 1].map(k => TRUST.map(([ic, t]) => `<p class="trust__item"${k ? ' aria-hidden="true"' : ''}><svg aria-hidden="true"><use href="#${ic}"/></svg><span>${t}</span></p>`).join('')).join('');
@@ -156,7 +175,7 @@ idx = fill(idx, 'products', PRODUCTS.filter(p => !p.brand).slice(0, 9).map(p => 
     const price = p ? `<p class="hs__price"><span class="rate">${R.rate(p)}%</span><b>${won(p.price)}</b>${p.full ? '부터' : ''}</p>` : '';
     const cta = p
       ? `<a class="btn btn--primary" href="${R.href(p)}">제품 보기</a>${d.cta2 ? `<a class="btn btn--line" href="${esc(d.cta2[1])}">${esc(d.cta2[0])}</a>` : `<button class="btn btn--line" type="button" data-quick="${p.id}">빠른 보기</button>`}`
-      : `<button class="btn btn--primary" type="button" data-open="coupon">쿠폰 받기</button><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`;
+      : `<button class="btn btn--primary" type="button" data-open="coupon">회원 혜택 보기</button><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`;
     return `<article class="hs${d.dark ? ' hs--dark' : ''}${d.render ? ' hs--render' : ''}${i === 0 ? ' is-on' : ''}" id="hs-${i}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${SL.length}: ${esc(label)}" style="--hs-bg:${d.bg}${d.render ? `;--hs-img-bg:${d.render}` : ''}"${i ? ' aria-hidden="true" inert' : ''}>
       <div class="hs__img">${R.pic(d.img, `alt="" width="${d.size || 1000}" height="${d.size || 1000}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async"`)}</div>
       <div class="hs__copy"><p class="hs__eyebrow">${esc(d.eyebrow.replace('{rv}', p ? p.reviews.toLocaleString('ko-KR') : ''))}</p><${T} class="hs__title"${i === 0 ? ' id="hero-t"' : ''}>${esc(d.title[0])}<em>${esc(d.title[1])}</em></${T}><p class="hs__sub">${esc(d.sub)}</p><ul class="hs__chips">${d.chips.map(c => `<li>${esc(c)}</li>`).join('')}</ul>${price}<div class="hs__cta">${cta}</div></div>
@@ -180,7 +199,7 @@ idx = fill(idx, 'price-panels', price.panels);
 idx = fill(idx, 'market', R.marketHTML(MARKET));
 idx = fill(idx, 'perday', R.perDay(MARKET.ours.v).toLocaleString('ko-KR'));
 idx = fill(idx, 'ourswon', won(MARKET.ours.v));
-idx = fill(idx, 'couponwon', won(Math.min(...Object.values(O.price)) - 10000));
+idx = fill(idx, 'rv-n', P29H.reviews.toLocaleString('ko-KR')); idx = fill(idx, 'rv-basis', esc(JAM.REVIEW_BASIS));
 idx = fill(idx, 'checks', R.checksHTML(CHECKS));
 idx = fill(idx, 'bento', R.bentoHTML({ T: TESTS, M: MARKET, P: PRODUCTS.find(p => p.id === 29) }));
 idx = fill(idx, 'checks-acc', R.accItem('why-chk', '다른 제품과 비교할 때 확인할 7가지', R.checksHTML(CHECKS)));
@@ -239,7 +258,7 @@ function infoHTML(p) {
     <div class="pd-price">
       <p class="pd-price__list"><span class="sr-only">정가</span>${won(p.list)}</p>
       <p class="pd-price__now"><b class="rate">${r}%</b><b id="pd-price">${won(p.price)}</b>${p.full ? '<span class="from">부터</span>' : ''}</p>
-      ${p.id === 29 ? `<p class="pd-price__cp">회원 쿠폰 적용 시 <b>${won(p.price - 10000)}</b>부터<button class="pd-cp-btn" type="button" data-open="coupon">쿠폰 받기</button></p>` : ''}
+      ${p.id === 29 ? `<p class="pd-price__cp">공식몰 회원 가입축하 쿠폰 <b>10,000원</b><button class="pd-cp-btn" type="button" data-open="coupon">혜택 보기</button></p>` : ''}
     </div>
     ${trustHTML29(p)}
     ${eventsHTML(p)}
@@ -312,7 +331,7 @@ function specBase(p) {
   return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
 }
 function reviewsHTMLp(p) {
-  const sum = `<div class="rv-sum"><p class="rv-sum__score">${p.rating.toFixed(2)}</p><div class="rv-sum__meta"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><p>구매평 <b>${p.reviews.toLocaleString('ko-KR')}</b>건${p.photoReviews ? ` · 포토 ${p.photoReviews.toLocaleString('ko-KR')}건` : ''}</p><p class="note">2026년 10월 공식몰 기준</p></div><a class="btn btn--line btn--sm" href="${esc(p.mall)}#prod_detail_review">공식몰 구매평 보기</a></div>`;
+  const sum = `<div class="rv-sum"><p class="rv-sum__score">${p.rating.toFixed(2)}</p><div class="rv-sum__meta"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><p>구매평 <b>${p.reviews.toLocaleString('ko-KR')}</b>건</p><p class="note">${esc(JAM.REVIEW_BASIS)}</p></div><a class="btn btn--line btn--sm" href="${esc(p.mall)}#prod_detail_review">공식몰 구매평 보기</a></div>`;
   if (p.id !== 29) return sum;
   return sum + `<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div><div class="rv-list rv-list--pd">${R.reviewsHTML(REVIEWS)}</div>`;
 }
@@ -322,7 +341,7 @@ function qnaHTML(p) {
 }
 const SHIP = `<div class="ship">
   <div><h3>배송</h3><ul><li>오후 1시 이전 결제(입금) 확인 건은 당일 출고합니다(주말·공휴일 휴무).</li><li>평균 1~3일 걸리며 도서산간 지역은 다소 늦어질 수 있습니다.</li><li>로젠택배·대신택배로 보내며 제주·도서산간은 추가 배송비가 발생합니다.</li></ul></div>
-  <div><h3>교환·반품</h3><ul><li>교환·반품 전 반드시 고객센터(010-9610-8868)로 수거 요청을 해 주세요. 연락 없이 보내시면 반송될 수 있습니다.</li><li>단순 변심에 따른 교환·반품은 왕복 배송비를 고객이 부담합니다. 매트리스 36,000원 · 커버류 6,000원(편도 18,000원 · 3,000원).</li><li>제품 하자는 배송비를 받지 않습니다. 제주·도서산간은 7,000원이 추가됩니다.</li><li>요청 기간은 수령 후 7일 이내입니다. 제품을 먼저 회수해 검수한 뒤 진행합니다.</li></ul></div>
+  <div><h3>교환·반품</h3><ul><li>교환·반품 전 반드시 고객센터(010-9610-8868)로 수거 요청을 해 주세요. 연락 없이 보내시면 반송될 수 있습니다.</li><li>단순 변심에 따른 교환·반품은 왕복 배송비를 고객이 부담합니다. 매트리스 36,000원 · 커버류 6,000원(편도 18,000원 · 3,000원).</li><li>제품 하자는 배송비를 받지 않습니다. 제주·도서산간은 7,000원이 추가됩니다.</li><li>요청 기간은 수령 후 7일 이내입니다. 3단 접이식 매트리스 14일 무료체험은 받은 날부터 14일 안에 신청하면 됩니다. 제품을 먼저 회수해 검수한 뒤 진행합니다.</li></ul></div>
   <div><h3>반품이 어려운 경우</h3><ul><li>압축 포장을 연 경우(사이즈를 먼저 확인해 주세요)</li><li>시간이 지나 재판매가 곤란할 정도로 가치가 떨어진 경우(전자상거래법 제17조)</li><li>고객 부주의로 오염·훼손되었거나 사용·세탁한 경우</li><li>탈취제(섬유 유연제 등)를 사용한 경우</li></ul></div>
 </div>`;
 function mainHTML(p) {
@@ -466,7 +485,7 @@ function shopMain() {
     <section class="shop-cmp" aria-labelledby="cmp-t">
       <div class="sec-head" style="margin-bottom:18px"><p class="eyebrow">COMPARE</p><h2 class="shop-cmp__t" id="cmp-t">매트리스 ${mat.length}종 한눈에 보기</h2><p class="shop-cmp__d">쿠션감과 두께를 먼저 보고 고르세요. 3단 접이식은 두께와 사이즈에 따라 가격이 달라집니다.</p></div>
       <div class="cmp-wrap"><table class="cmp-tbl"><thead><tr><th scope="col">상품</th><th scope="col">특징</th><th scope="col">판매가</th><th scope="col">구매평</th></tr></thead><tbody>${cmp}</tbody></table></div>
-      <p class="note" style="margin-top:10px">판매가는 할인가 기준, 구매평 수는 2026년 10월 공식몰 기준입니다.</p>
+      <p class="note" style="margin-top:10px">판매가는 할인가 기준, 구매평 수는 ${esc(JAM.REVIEW_BASIS)}입니다.</p>
     </section>
     <section class="cp-more" id="shop-recent" aria-labelledby="recent-t" hidden><h2 class="cp-more__t" id="recent-t">최근 본 상품</h2><div class="mini-row" id="recent-row"></div></section>
   </div>
@@ -500,7 +519,7 @@ page('shop.html', {
       ['이용 목적', '주문 확인, 상품 배송, 결제·환불, 교환·반품과 고객 상담'],
       ['보유 기간', '전자상거래법에 따라 계약·청약철회·대금결제·재화 공급 기록은 5년, 소비자 불만·분쟁 처리 기록은 3년 보관한 뒤 파기합니다.'],
       ['처리 위탁', `상품 배송을 위해 ${CHECKOUT.couriers}에 받는 분 정보를, 홈페이지에서 카드로 결제할 때는 결제 처리를 위해 결제대행사(씨드페이먼츠)에 주문하는 분 정보와 결제 정보를 맡깁니다.`],
-    ]) + '<p>동의하지 않을 수 있으며, 동의하지 않으면 비회원으로 주문할 수 없습니다.</p>' },
+    ]) + '<p>동의하지 않을 수 있으며, 동의하지 않으면 비회원으로 주문할 수 없습니다. 자세한 내용은 <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>을 확인해 주세요.</p>' },
     { id: 'ag-mat', mat: true, t: '매트리스는 압축 포장으로 배송되며, 포장을 연 뒤에는 단순 변심 반품이 어려울 수 있음을 확인했습니다', body: '<p>14일 무료체험 대상 상품은 체험 조건을 따릅니다(반품 시 왕복 배송비 매트리스 36,000원 고객 부담). 교환·반품은 받은 날부터 7일 이내에 고객센터(010-9610-8868)로 먼저 요청해 주세요. 제품 하자는 배송비를 받지 않습니다.</p>' },
   ];
   const agree = AGREE.map(a => `<div class="agree__item"${a.mat ? ' data-mat hidden' : ''}><label class="ck"><input type="checkbox" class="ag" id="${a.id}"${a.mat ? ' disabled' : ''}><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>${esc(a.t)}</span></label>${a.body ? `<button class="agree__more" type="button" aria-expanded="false" aria-controls="${a.id}-d">내용 보기</button><div class="agree__d" id="${a.id}-d" hidden>${a.body}</div>` : ''}</div>`).join('');
@@ -515,7 +534,12 @@ page('shop.html', {
   main = fill(main, 'steps', steps(3));
   page('order-complete.html', { title: '주문 완료 | 잠스쿨', desc: '잠스쿨 주문 완료', noindex: true, bodyclass: 'page-done', main, js: ['complete.js'] });
 }
-console.log('shop pages: shop.html, cart.html, checkout.html, order-complete.html');
+// 이용약관·개인정보처리방침: 이 홈페이지(jamschool.kr) 운영자 기준. 본문은 src/pages/terms.html · privacy.html
+for (const [file, title, desc] of [
+  ['terms.html', '이용약관 | 잠스쿨 공식 홈페이지', '잠스쿨 공식 홈페이지(jamschool.kr) 이용약관'],
+  ['privacy.html', '개인정보처리방침 | 잠스쿨 공식 홈페이지', '잠스쿨 공식 홈페이지(jamschool.kr) 개인정보처리방침'],
+]) page(file, { title, desc, bodyclass: 'page-legal', main: rd(`src/pages/${file}`), js: [] });
+console.log('shop pages: shop.html, cart.html, checkout.html, order-complete.html, terms.html, privacy.html');
 
 // ───────── sitemap / robots / llms.txt
 

@@ -35,7 +35,7 @@ function factSheet(J) {
   const O = J.OPTIONS_29, P = J.PRODUCTS.find(p => p.id === 29);
   const L = [];
   L.push('[브랜드] 잠스쿨(JAMSCHOOL). 상호 잠스쿨, 대표 노치영. 국내 생산 매트리스 브랜드. 고객센터 010-9610-8868(평일 09:00~17:00, 토·일·공휴일 휴무).');
-  L.push(`[대표 제품] ${P.name}. 공식몰 주소 product-29.html. 구매평 ${P.reviews.toLocaleString('ko-KR')}건, 평점 ${P.rating.toFixed(2)}(2026년 10월 공식몰 기준).`);
+  L.push(`[대표 제품] ${P.name}. 공식몰 주소 product-29.html. 구매평 ${P.reviews.toLocaleString('ko-KR')}건, 평점 ${P.rating.toFixed(2)}(${J.REVIEW_BASIS || '2026년 11월 공식몰 기준'}).`);
   L.push('[두께] 침대형 7cm(침대 프레임 위), 바닥형 12cm(바닥에 바로, 침대 위에서도 가능). 고객의 70% 이상이 바닥형 선택. 성인 1인에게는 바닥형 슈퍼싱글 권장.');
   L.push('[사이즈] 길이 200cm. 폭 멀티싱글 75cm, 슈퍼싱글 110cm, 퀸 150cm. 멀티싱글=체구 작은 분·아이·차박·캠핑·간이침대, 슈퍼싱글=성인 1인, 퀸=2인 또는 성인 1인이 넓게.');
   L.push(`[접은 크기] 폭 × 깊이 ${O.depthFolded}cm × 높이(7cm형 ${O.folded['7']}cm, 12cm형 ${O.folded['12']}cm).`);
@@ -53,7 +53,7 @@ function factSheet(J) {
   L.push(`[시세] ${M.source} 등록 상품 ${M.basis}, ${M.date} 조회: ${M.bands.map(b => `${b.k}(${b.sub}) ${won(b.lo)}~${won(b.hi)}`).join(', ')}. 잠스쿨 바닥형 12cm 슈퍼싱글 ${won(M.ours.v)} — 폼 매트리스 중 높은 가격대, 스프링 내장·천연라텍스와 비슷한 가격대. 같은 조사에서 다나와 사양란에 밀도를 적은 일반 폼 3단 접이식은 ${M.density.total}개 중 ${M.density.listed}개, 얇은 폼은 5~6cm가 흔했다. 경쟁사 상품명은 쓰지 않는다.`);
   // 다른 상품(상품명 키워드 글용): 이름·요약·특징·가격·구매평 + 공식몰 상품정보 제공고시
   for (const p of J.PRODUCTS.filter(x => x.id !== 29)) {
-    L.push(`[상품 ${p.id}] ${p.name}(줄여서 "${p.short}", 상세 product-${p.id}.html). ${p.summary}.${p.points.length ? ` 특징: ${p.points.join(', ')}.` : ''} 할인가 ${won(p.price)}(정가 ${won(p.list)}), 구매평 ${p.reviews.toLocaleString('ko-KR')}건 평점 ${p.rating.toFixed(2)}(2026년 10월 공식몰 기준).`);
+    L.push(`[상품 ${p.id}] ${p.name}(줄여서 "${p.short}", 상세 product-${p.id}.html). ${p.summary}.${p.points.length ? ` 특징: ${p.points.join(', ')}.` : ''} 할인가 ${won(p.price)}(정가 ${won(p.list)}), 구매평 ${p.reviews.toLocaleString('ko-KR')}건 평점 ${p.rating.toFixed(2)}(${J.REVIEW_BASIS || '2026년 11월 공식몰 기준'}).`);
     const N = (J.NOTICE || {})[p.id];
     if (N) L.push(`[상품 ${p.id} 제공고시] ${N.map(([k, v]) => `${k}: ${v.join(' / ')}`).join(' | ')}`);
   }

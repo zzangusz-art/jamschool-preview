@@ -230,6 +230,7 @@
   const storeOf = id => SHOP.P(id).store || CHECKOUT.storeHome;
   // 어드민 '주문' 집계용(이름·연락처·주소는 보내지 않는다)
   function beaconSubmit() {
+    if (window.jamAd) try { window.jamAd('checkout', { value: total }); } catch (e) { /* 광고 이벤트 실패는 무시 */ }
     try { navigator.sendBeacon && navigator.sendBeacon('/api/t', new Blob([JSON.stringify({ e: 'checkout_submit', total, pay, items: items.map(x => ({ id: x.id, qty: x.qty })) })], { type: 'application/json' })); } catch (e) { /* 집계 실패는 무시 */ }
   }
   function toStore(opener) {

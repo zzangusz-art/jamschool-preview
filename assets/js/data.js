@@ -3,7 +3,7 @@
 (function () {
   const IMG = 'assets/img/products/';
   const gallery = (id, n, ext = {}) => Array.from({ length: n }, (_, i) => `${IMG}${id}/${String(i + 1).padStart(2, '0')}.${ext[i + 1] || 'jpg'}`);
-  // 스마트스토어 상품 썸네일(대표 → 추가 순, motion/tools/apply_smartstore.py, 2026-10-28 수집). 공식몰 사진 01~ 은 홈·스토리·블로그에서 계속 쓴다.
+  // 스마트스토어 상품 썸네일(대표 → 추가 순). 공식몰 사진 01~ 은 홈·스토리·블로그에서 계속 쓴다.
   const ssGallery = (id, n) => Array.from({ length: n }, (_, i) => `${IMG}${id}/ss-${String(i + 1).padStart(2, '0')}.jpg`);
 
   const MALL = 'https://jamschool.co.kr/shop_view/?idx=';
@@ -17,7 +17,7 @@
       short: '3단 접이식 매트리스',
       summary: '31kg/m³ 고밀도 국내산 폼 · 침대형 7cm / 바닥형 12cm',
       list: 269000, price: 139000, badges: ['BEST', 'SALE'],
-      rating: 4.87, reviews: 6661, photoReviews: 4387, qna: 52,
+      rating: 4.87, reviews: 6832, qna: 52,
       imgs: ssGallery(29, 9),
       points: ['14일 무료체험', '2년 폼 무상 교체', '100% 국내 생산', '밀도 31kg/m³'],
       mall: MALL + 29, store: STORE_29, full: true,
@@ -27,7 +27,7 @@
       name: '잠스쿨 푹신한 떡실신 매트리스', short: '떡실신 매트리스',
       summary: '몸을 감싸는 폭신한 쿠션감 · 8cm',
       list: 105000, price: 64000, badges: ['BEST', '오늘출발'],
-      rating: 4.83, reviews: 32105, imgs: ssGallery(30, 10),
+      rating: 4.83, reviews: 32194, imgs: ssGallery(30, 10),
       points: ['몸을 감싸주는 폭신한 쿠션감', '미끌림 방지 기능', '편리한 보관을 위한 스트랩 부착', '부드러운 커버 촉감'],
       mall: MALL + 30, store: STORE + '/products/4673873956',
     },
@@ -36,7 +36,7 @@
       name: '잠스쿨 폭신탄탄 양면 매트리스', short: '폭신탄탄 양면 매트리스',
       summary: '한 면은 폭신하게, 한 면은 탄탄하게 · 8cm',
       list: 189000, price: 109000, badges: ['MD'],
-      rating: 4.83, reviews: 1844, imgs: ssGallery(39, 9),
+      rating: 4.83, reviews: 1855, imgs: ssGallery(39, 9),
       points: ['폭신한 쿠션감과 탄탄한 쿠션감 선택', '미끌림 방지 기능', '고정 벨트 증정'],
       mall: MALL + 39, store: STORE + '/products/5649123568',
     },
@@ -45,7 +45,7 @@
       name: '잠스쿨 엄마품 메모리폼 토퍼 매트리스', short: '엄마품 메모리폼 토퍼',
       summary: '60kg 고밀도 메모리폼 · 천연 텐셀 겉커버',
       list: 297000, price: 209000, badges: ['MD'],
-      rating: 4.84, reviews: 852, imgs: gallery(40, 9),
+      rating: 4.84, reviews: 856, imgs: gallery(40, 9),
       points: ['체압을 받쳐주는 60kg 고밀도 메모리폼', '천연 텐셀 겉커버', '보관용 고리 부착'],
       mall: MALL + 40,
     },
@@ -54,7 +54,7 @@
       name: '잠스쿨 정착베개 기능성 목디스크 거북목 경추 베개', short: '정착베개',
       summary: '경추 라인을 따라 받쳐 주는 베개',
       list: 89200, price: 39900, badges: ['SALE'],
-      rating: 4.80, reviews: 191, imgs: gallery(43, 10, { 1: 'png' }),
+      rating: 4.80, reviews: 194, imgs: gallery(43, 10, { 1: 'png' }),
       points: [], mall: MALL + 43,
     },
     {
@@ -62,7 +62,7 @@
       name: '잠스쿨 다리베개', short: '다리베개',
       summary: '다리를 올리고 쉬는 20cm 높이 쿠션',
       list: 80000, price: 42600, badges: ['MD'],
-      rating: 4.86, reviews: 4527, imgs: gallery(36, 12, { 3: 'png', 4: 'png', 5: 'png', 10: 'png' }),
+      rating: 4.86, reviews: 4575, imgs: gallery(36, 12, { 3: 'png', 4: 'png', 5: 'png', 10: 'png' }),
       points: ['폭신한 쿠션감'], mall: MALL + 36,
     },
     {
@@ -70,7 +70,7 @@
       name: '잠스쿨 거북목 경추 베개', short: '거북목 경추 베개',
       summary: '순면 겉커버 · 비즈 양으로 높이 조절',
       list: 19900, price: 12900, badges: ['오늘출발'],
-      rating: 4.79, reviews: 512, imgs: gallery(37, 12),
+      rating: 4.79, reviews: 522, imgs: gallery(37, 12),
       points: ['순면 100% 겉커버', '메쉬커버로 숨쉬는 속통', '비즈 충전제 양 조절로 높이 조절'],
       mall: MALL + 37,
     },
@@ -87,7 +87,7 @@
       name: '잠스쿨 듀라론 쿨매트', short: '듀라론 쿨매트',
       summary: '여름용 냉감 매트',
       list: 79000, price: 44900, badges: ['SALE'],
-      rating: 4.66, reviews: 558, imgs: gallery(44, 8),
+      rating: 4.66, reviews: 559, imgs: gallery(44, 8),
       points: [], mall: MALL + 44,
     },
     {
@@ -322,8 +322,8 @@
       { id: 'npay', label: '네이버페이', note: '네이버페이 결제 창에서 결제합니다. 네이버페이 포인트를 쓸 수 있습니다.' },
       { id: 'kakaopay', label: '카카오페이', note: '카카오페이 결제 창에서 카카오페이 머니나 등록한 카드로 결제합니다.' },
     ],
-    // 홈페이지 결제(씨드페이먼츠 결제창, tools/pay/seedpay.mjs)를 켰을 때 주문서에 보이는 결제 수단.
-    // 켜기/끄기는 관리자 어드민 '결제 주문'. 네이버페이·카카오페이는 제휴사 창을 바로 연다(씨드페이먼츠 계약, 2026-11-10 사용자 확인).
+    // 홈페이지 결제(씨드페이먼츠 결제창)를 켰을 때 주문서에 보이는 결제 수단.
+    // 켜기/끄기는 관리자 어드민 '결제 주문'. 네이버페이·카카오페이는 제휴사 창을 바로 연다(씨드페이먼츠 계약).
     // 계좌이체(id 'bank' → BANK)·가상계좌('vbank')는 계약 확인 뒤 여기에 추가한다.
     pgPay: [
       { id: 'card', label: '신용·체크카드', note: '결제 창에서 카드사와 할부 개월을 고릅니다.' },
@@ -343,5 +343,8 @@
     if (p29) { p29.price = OPTIONS_29.price[cheap]; p29.list = OPTIONS_29.list[cheap]; }
   }
 
-  window.JAM = { PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES };
+  // 구매평 수·평점의 기준(공식몰 상품 페이지 값. 공식몰 구매평에는 스마트스토어에서 연동된 구매평이 함께 들어 있다)
+  const REVIEW_BASIS = '2026년 11월 16일 공식몰 기준(스마트스토어 연동 구매평 포함)';
+
+  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES };
 })();

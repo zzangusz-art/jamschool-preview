@@ -160,6 +160,7 @@
       const f = this.items.find(x => x.key === it.key);
       if (f) f.qty = Math.min(99, f.qty + (it.qty || 1)); else this.items.push({ ...it, qty: it.qty || 1 });
       this.save();
+      if (window.jamAd) window.jamAd('cart', { id: it.id, value: (it.price || 0) * (it.qty || 1) });
       const b = $('.cart-count'); if (b) { b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
     },
     setQty(key, q) { const f = this.items.find(x => x.key === key); if (f) { f.qty = Math.max(1, Math.min(99, q)); this.save(); } },
@@ -289,13 +290,6 @@
       $('#search')?.addEventListener('layer:open', () => { input.value = ''; run(); });
       $$('#search [data-kw]').forEach(b => b.addEventListener('click', () => { input.value = b.dataset.kw; run(); input.focus(); }));
     }
-    // 쿠폰
-    $$('[data-coupon]').forEach(b => b.addEventListener('click', () => {
-      if (store.sget('jam_coupon')) { toast('이미 받은 쿠폰입니다. 회원가입 후 마이페이지에서 확인하세요.'); return; }
-      store.sset('jam_coupon', '1');
-      closeLayer($('#coupon'));
-      toast('가입축하 쿠폰 10,000원을 받았습니다.', { action: '회원가입', onAction: () => { location.href = 'https://jamschool.co.kr/'; } });
-    }));
     // 주문: 장바구니 전체를 주문서로 (shop-core.js 가 없는 페이지는 주문서로 바로 이동)
     $('#cart-order')?.addEventListener('click', e => {
       const opener = e.currentTarget; closeLayer($('#cart'));

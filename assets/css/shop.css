@@ -274,3 +274,22 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .done-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px; }
 .done-wait { margin: 24px 0; padding: 18px 16px; border-radius: 12px; background: var(--soft); text-align: center; font-size: 15px; color: var(--sub); }
 .done-wait[hidden] { display: none; }
+
+/* 이용약관·개인정보처리방침 */
+.legal { padding-bottom: 64px; }
+.legal__lead { font-size: 16px; line-height: 1.75; color: var(--ink); }
+.legal__note { margin-top: 12px; padding: 14px 16px; border-radius: 12px; background: var(--soft); font-size: 14px; line-height: 1.7; color: var(--sub); }
+.legal__toc { margin: 22px 0 6px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 12px; }
+.legal__toc ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 14px; margin: 0; padding-left: 18px; font-size: 14px; }
+.legal__toc a { color: var(--sub); }
+.legal__sec { margin-top: 30px; scroll-margin-top: calc(var(--header-h, 64px) + 16px); }
+.legal__sec h2 { margin-bottom: 10px; font-size: 18px; color: var(--ink); }
+.legal__sec p, .legal__sec li { font-size: 15px; line-height: 1.75; color: var(--body, var(--ink)); }
+.legal__sec ul, .legal__sec ol { margin: 8px 0 0; padding-left: 20px; display: grid; gap: 4px; }
+.legal__sec p + p { margin-top: 8px; }
+.legal__tbl { margin-top: 10px; overflow-x: auto; }
+.legal__tbl table { width: 100%; min-width: 520px; border-collapse: collapse; font-size: 14px; line-height: 1.6; }
+.legal__tbl th, .legal__tbl td { padding: 10px 12px; border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.legal__tbl thead th { background: var(--soft); font-weight: 700; }
+.legal__tbl tbody th { width: 30%; font-weight: 600; color: var(--ink); }
+.legal__biz { margin-top: 18px; font-size: 13px !important; color: var(--sub) !important; }

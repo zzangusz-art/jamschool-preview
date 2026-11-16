@@ -167,7 +167,7 @@
       </article>
       <article class="bt bt--cta bt--j" data-reveal="2">
         <p class="bt__rv"><span class="stars" style="--v:${P.rating}" aria-hidden="true"></span><b>${P.rating.toFixed(2)}</b> · 구매평 ${P.reviews.toLocaleString('ko-KR')}건</p>
-        <div><p class="bt__price"><span>${rate(P)}%</span><b>${won(P.price)}</b>부터</p><p class="bt__d">2026년 10월 할인가 · 공식몰 구매평 기준</p></div>
+        <div><p class="bt__price"><span>${rate(P)}%</span><b>${won(P.price)}</b>부터</p><p class="bt__d">할인가 · 구매평 공식몰 기준</p></div>
         <div class="bt__ctas"><a class="btn btn--primary" href="${href(P)}">제품 보기</a><a class="btn btn--line" href="#price">가격표</a></div>
       </article>
     </div>`;

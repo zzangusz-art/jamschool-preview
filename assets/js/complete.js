@@ -63,7 +63,10 @@
           if (!pend.buyNow) { cart.items = cart.items.filter(x => !(pend.keys || []).includes(x.key)); cart.save(); }
           try { sessionStorage.removeItem('jam_pg_pending'); } catch (e) { /* 무시 */ }
         }
-        render(o); return;
+        render(o);
+        // 광고 매체 구매 전환(주문번호당 한 번)
+        if (window.jamAd && !store.get('jam_ad_' + o.no, null)) { store.set('jam_ad_' + o.no, 1); try { window.jamAd('purchase', { value: o.total, order: o.no }); } catch (e) { /* 무시 */ } }
+        return;
       }
       if (o.status === 'cancelled') { failView(`취소된 주문입니다(주문번호 ${o.no}).`, 'shop.html'); return; }
       if (o.status === 'check' || o.status === 'approving') { failView(`결제 결과를 확인하고 있습니다. 카드 승인 문자를 받으셨다면 고객센터로 주문번호 ${o.no}를 알려 주세요.`, retry); return; }
