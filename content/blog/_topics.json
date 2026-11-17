@@ -511,7 +511,9 @@
     "angle": "옵션별 정가·할인가 표(상세 이벤트 가격표 기준), 쿠폰가, 2년 보증 기준 하루 비용, 다나와 유형별 시세 범위. 타사명 금지.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-price",
+    "date": "2026-11-17"
   },
   {
     "id": "ddeoksilsin-washing",
@@ -524,7 +526,9 @@
     "angle": "상품정보 제공고시 세탁법: 겉커버 찬물 단독, 중성세제·세탁망, 뜨거운 물 수축, 방수 속커버는 세탁 시 기능 저하 → 물티슈로 닦기, 세탁 부주의 교환·반품 불가.",
     "category": "사용 팁",
     "product": 30,
-    "status": "todo"
+    "status": "done",
+    "slug": "ddeoksilsin-washing",
+    "date": "2026-11-17"
   },
   {
     "id": "folding-mattress-weight",
@@ -537,7 +541,9 @@
     "angle": "옵션별 무게 3.5~11.5kg 표, 매일 접고 펴는 경우 사이즈·두께 선택, 구매평 속 혼자 접고 펴기.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-weight",
+    "date": "2026-11-17"
   },
   {
     "id": "mattress-warranty",
