@@ -121,17 +121,17 @@ ok('준비 거절: 없는 옵션·수량 0·없는 상품·3단 옵션 누락·�
   assert.equal(p.goodsAmt, f.goodsAmt); assert.equal(p.mid, MID); assert.ok(p.nonce && p.payData && p.tid); assert.equal(p.mbsReserved, o.moid);
   assert.equal(p.hashString, sha(MID + p.ediDate + p.goodsAmt + KEY)); assert.ok(!calls[0].raw.includes(KEY));
   ok('승인: signData 확인 → 승인 요청(nonce·tid·payData·hashString) → 응답 거래번호·금액 확인 → 결제 완료');
-  // 결제 완료 알림: 주문번호·상품·수량·금액·받는 분·어드민 링크만, 전화번호·주소·이메일·카드번호·키 없음
+  // 결제 완료 알림: 주문번호·상품·수량·금액·어드민 링크만(받는 분 이름은 11-16부터 뺌), 전화번호·주소·이메일·카드번호·키 없음
   await NOTIFY.settled();
   assert.equal(tgSent.length, 1, '결제 완료 알림 1건');
   const m = tgSent[0], t = m.body.text;
   assert.equal(m.url, `https://api.telegram.org/bot${TG}/sendMessage`); assert.equal(m.body.chat_id, CHAT); assert.equal(m.body.parse_mode, 'HTML');
   assert.match(t, /새 결제 주문/); assert.ok(t.includes(`주문번호 ${o.moid}`));
   for (const x of o.items) assert.ok(t.includes(x.name) && t.includes(`× ${x.qty}`), x.name);
-  assert.ok(t.includes(won(o.amount)), won(o.amount)); assert.ok(t.includes('받는 분 김시험'));
+  assert.ok(t.includes(won(o.amount)), won(o.amount)); assert.ok(!t.includes('김시험'), '받는 분 이름 없음(11-16 개인정보 국외 전송 방지)');
   assert.ok(t.includes(`<a href="https://jamschool.kr/admin#/payments/${o.moid}">`), '어드민 상세 링크');
   for (const bad of ['01012345678', '010-1234-5678', '1234-5678', '06236', '테헤란로', '101호', '문 앞에', 'test@example.com', '4518****', o.token, KEY, TG]) assert.ok(!t.includes(bad), `알림에 들어가면 안 되는 값: ${bad}`);
-  ok(`결제 완료 알림: 텔레그램 1건 · ${won(o.amount)} · 어드민 링크 · 전화번호·주소·이메일·카드번호 없음`);
+  ok(`결제 완료 알림: 텔레그램 1건 · ${won(o.amount)} · 어드민 링크 · 이름·전화번호·주소·이메일·카드번호 없음`);
   // 같은 인증 결과를 다시 보내도 두 번 승인하지 않음
   calls = []; const r2 = await ret(auth(f)); assert.equal(r2.code, 303); assert.equal(calls.length, 0); assert.equal(order(f.ordNo).status, 'paid');
   await NOTIFY.settled(); assert.equal(tgSent.length, 1, '중복 전송에 알림 또 보냄');

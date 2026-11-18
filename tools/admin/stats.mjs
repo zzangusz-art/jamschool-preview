@@ -39,6 +39,9 @@ function flush() {
 }
 const touch = () => { dirty = true; if (!timer) timer = setTimeout(() => { timer = null; flush(); }, 30000); };
 process.on('SIGTERM', () => { flush(); process.exit(0); });
+// 데이터 가져오기(backup.mjs) 앞뒤: 메모리 집계를 파일로 쓰고, 가져온 뒤에는 메모리를 비워 파일에서 다시 읽게 한다
+export const flushNow = () => { dirty = true; flush(); };
+export const forgetCache = () => days.clear();
 const inc = (o, k, n = 1) => { if (!k) return; o[k] = (o[k] || 0) + n; };
 
 // 유입 경로 묶음

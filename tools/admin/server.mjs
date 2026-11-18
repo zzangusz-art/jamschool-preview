@@ -8,7 +8,8 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { ROLES, canWriteUsers, cookieHeader, hashPassword, loadUsers, login, newPassword, ready, saveUsers, sessionUser } from './auth.mjs';
 import { makeStore } from './store.mjs';
-import { summary as statsSummary } from './stats.mjs';
+import { summary as statsSummary, flushNow as statsFlush, forgetCache as statsForget } from './stats.mjs';
+import * as BACKUP from './backup.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
 import * as PAY from '../pay/seedpay.mjs';
@@ -19,6 +20,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const PUB = path.join(HERE, 'public');
 const store = makeStore(ROOT);
+BACKUP.ensureMarker();   // 볼륨이 처음 쓰인 시각(재배포 뒤에도 같으면 볼륨이 붙어 있음)
 const MAX_BODY = 40 * 1024 * 1024, MAX_FILE = 10 * 1024 * 1024;
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
@@ -281,6 +283,16 @@ route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => 
 route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data.status, user) }));
 route('POST', '/api/admin/payments/:moid/cancel', 'owner', async ({ params, data, user }) => ({ order: await PAY.cancelOrder(params.moid, data.reason, user) }));
 route('POST', '/api/admin/payments-settings', 'owner', async ({ data, user }) => PAY.setSettings({ enabled: !!data.enabled }, user));
+// ── 데이터 옮기기(Railway 볼륨 DATA_DIR ↔ 파일 한 개) — tools/admin/backup.mjs
+const reqHost = req => String(req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0].toLowerCase();
+route('GET', '/api/admin/data', 'owner', async ({ req }) => BACKUP.volumeInfo(reqHost(req)));
+route('POST', '/api/admin/data-export', 'owner', async ({ req }) => { statsFlush(); return BACKUP.exportBundle(reqHost(req)); });
+route('POST', '/api/admin/data-import', 'owner', async ({ data, user }) => {
+  const r = BACKUP.importBundle(data.bundle, { before: statsFlush });
+  statsForget();
+  console.log(`[admin] 데이터 가져오기 ${user.id}: 파일 ${r.written}개(덮어씀 ${r.replaced})`);
+  return r;
+});
 route('GET', '/api/admin/log', 'owner',async () => ({ commits: await store.recent(30) }));
 route('GET', '/api/admin/users', 'owner', async () => ({ users: loadUsers().map(u => ({ id: u.id, name: u.name, role: u.role, roleName: ROLES[u.role] })), canWrite: canWriteUsers() }));
 route('POST', '/api/admin/users', 'owner', async ({ data, user }) => {
@@ -326,9 +338,9 @@ export async function handleAdmin(req, res) {
         need(r.role === 'client' || user.role === 'owner', 403, '관리자만 쓸 수 있는 메뉴입니다');
       }
       if (req.method !== 'GET') need(req.headers['x-jam-admin'] === '1', 403, '잘못된 요청');
-      if (r.role && req.method !== 'GET' && !p.startsWith('/api/admin/me') && p !== '/api/admin/preview' && p !== '/api/admin/users' && !p.startsWith('/api/admin/payments')) need(store.ready(), 503, '저장소(GitHub) 연결이 안 되어 있습니다 — Railway 변수 GITHUB_TOKEN');
+      if (r.role && req.method !== 'GET' && !p.startsWith('/api/admin/me') && p !== '/api/admin/preview' && p !== '/api/admin/users' && !p.startsWith('/api/admin/payments') && !p.startsWith('/api/admin/data')) need(store.ready(), 503, '저장소(GitHub) 연결이 안 되어 있습니다 — Railway 변수 GITHUB_TOKEN');
       const data = req.method === 'GET' ? {} : await body(req);
-      send(res, 200, await r.fn({ user, data, params: m.groups || {}, query: url.searchParams }) || { ok: true }); return true;
+      send(res, 200, await r.fn({ req, user, data, params: m.groups || {}, query: url.searchParams }) || { ok: true }); return true;
     }
     send(res, 404, { error: '없는 요청' }); return true;
   } catch (e) {

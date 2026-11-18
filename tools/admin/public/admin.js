@@ -66,6 +66,7 @@
     topics: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     check: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     log: '<path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+    data: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20a6.5 6.5 0 0 0-3.8-5.9"/>',
     me: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
     out: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
@@ -74,7 +75,7 @@
   };
   const ico = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
   const NAV = [['현황', [['', '홈', 'home'], ['traffic', '방문·유입', 'traffic'], ['payments', '결제 주문', 'orders'], ['orders', '주문 흐름', 'traffic']]], ['콘텐츠', [['blog', '블로그', 'blog'], ['products', '상품·상세페이지', 'products']]]];
-  const OWNER_NAV = [['settings', '소유확인·추적 코드', 'settings'], ['topics', '블로그 자동 발행', 'topics'], ['check', '키워드 점검', 'check'], ['log', '작업 기록', 'log'], ['users', '계정 관리', 'users']];
+  const OWNER_NAV = [['settings', '소유확인·추적 코드', 'settings'], ['topics', '블로그 자동 발행', 'topics'], ['check', '키워드 점검', 'check'], ['log', '작업 기록', 'log'], ['users', '계정 관리', 'users'], ['data', '서버·데이터 옮기기', 'data']];
   const route = () => location.hash.replace(/^#\/?/, '').split('/');
   // shell(제목, { desc: 제목 아래 한 줄, tool: 오른쪽 버튼, back: [주소, 글자] })
   function shell(title, o = {}) {
@@ -492,6 +493,60 @@
     v.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (!confirm(`${b.dataset.del} 계정을 삭제할까요?`)) return; try { await api('POST', '/api/admin/users', { action: 'delete', id: b.dataset.del }); users(); } catch (e) { fail(e); } });
     const add = $('#u-add'); if (add) add.onclick = async () => { try { const id = $('#u-id').value.trim(); const r = await api('POST', '/api/admin/users', { action: 'create', id, name: $('#u-name').value, role: $('#u-role').value }); await users(); showPw(id, r.password); } catch (e) { fail(e); } };
   }
+  // 서버·데이터 옮기기: Railway 볼륨(DATA_DIR) 내용을 파일 한 개로 내보내고, 새 서버에서 가져온다
+  async function dataMove() {
+    const v = shell('서버·데이터 옮기기', { desc: 'Railway 볼륨에 있는 어드민 계정·결제 주문·결제 설정·방문 집계를 파일 한 개로 내보내고, 다른 Railway 서버에서 가져옵니다.' });
+    const d = await api('GET', '/api/admin/data');
+    const kb = n => n > 1048576 ? `${(n / 1048576).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
+    const when = s => s ? new Date(s).toLocaleString('ko-KR') : '-';
+    const rw = d.railway, where = [rw.project && `프로젝트 ${rw.project}`, rw.service && `서비스 ${rw.service}`, rw.environment].filter(Boolean).join(' · ');
+    const persist = !d.dataDir ? '<span class="tag bad">볼륨 없음</span>' : d.volumeCreated && d.volumeCreated < d.serverStarted ? '<span class="tag live">재배포 뒤에도 유지됨</span>' : '<span class="tag">아직 확인 전(한 번 재배포 뒤 다시 보기)</span>';
+    const C = d.counts;
+    v.innerHTML = `<div class="card"><h2>지금 접속한 서버</h2>
+        <table class="list"><tbody>
+          <tr><th>주소</th><td><b>${h(d.host)}</b>${rw.domain && rw.domain !== d.host ? ` <small>(Railway 주소 ${h(rw.domain)})</small>` : ''}</td></tr>
+          <tr><th>Railway</th><td>${h(where || '알 수 없음')}</td></tr>
+          <tr><th>볼륨</th><td>${d.dataDir ? `${h(d.dataDir)} · 처음 쓴 시각 ${h(when(d.volumeCreated))} · 서버 시작 ${h(when(d.serverStarted))} ${persist}` : '<span class="tag bad">DATA_DIR 없음 — 주문·계정·집계가 재배포 때 사라집니다</span>'}</td></tr>
+          <tr><th class="nw">들어 있는 것</th><td>파일 ${d.files}개(${kb(d.bytes)}) — 어드민 계정 ${C.users ? '있음' : '없음'}, 결제 주문 ${C.orders}건, 결제 켜기 설정 ${C.settings ? '있음' : '없음'}, 방문 집계 ${C.analytics}일${C.other ? `, 기타 ${C.other}개` : ''}</td></tr>
+        </tbody></table></div>
+      <div class="card"><h2>Railway 변수 확인</h2><p class="help">값은 보이지 않고 넣었는지만 표시합니다. 새 서버에서도 같은 항목이 '있음'이어야 합니다.</p>
+        <table class="list"><tbody>${d.env.map(e => `<tr><td class="nw"><code>${h(e.name)}</code></td><td>${e.set ? '<span class="tag live">있음</span>' : '<span class="tag">없음</span>'}</td><td>${h(e.what)}</td></tr>`).join('')}</tbody></table></div>
+      <div class="card"><h2>1. 내보내기 (옮기기 전 서버에서)</h2>
+        <p>볼륨 파일 전체를 <b>jamschool-data-날짜.json</b> 한 개로 내려받습니다. 결제 주문에는 손님 이름·연락처·배송지가 들어 있으니, 새 서버에 가져온 뒤 PC 에서 지워 주세요.</p>
+        <p class="help">내보낸 뒤 들어온 주문은 파일에 없습니다. 도메인을 옮기기 직전에 내보내거나, 잠시 '결제 주문'에서 홈페이지 결제를 꺼 두세요.</p>
+        <div class="actions static"><button class="btn pri" id="d-export" ${d.dataDir ? '' : 'disabled'}>데이터 내보내기</button></div></div>
+      <div class="card"><h2>2. 가져오기 (새 서버에서)</h2>
+        <p>내보낸 파일을 고르면 같은 이름의 파일은 파일 내용으로 바뀝니다. 바뀌기 전 파일은 볼륨의 <code>_before-import</code> 폴더에 남겨 둡니다.</p>
+        <p class="help">어드민 계정도 옛 서버 것으로 바뀌므로, 가져온 뒤에는 옛 서버의 아이디·비밀번호로 다시 로그인합니다.</p>
+        ${d.backups.length ? `<p class="help">이전 가져오기 보관본: ${d.backups.map(h).join(', ')}</p>` : ''}
+        <div class="actions static"><button class="btn" id="d-import" ${d.dataDir ? '' : 'disabled'}>파일 골라 가져오기</button></div><div id="d-result"></div></div>`;
+    $('#d-export').onclick = async () => {
+      try {
+        const b = await api('POST', '/api/admin/data-export');
+        const blob = new Blob([JSON.stringify(b)], { type: 'application/json' });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = `jamschool-data-${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace(/\D/g, '')}.json`;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        toast(`내보냈습니다: 파일 ${b.files.length}개(주문 ${b.counts.orders}건 · 집계 ${b.counts.analytics}일)`);
+      } catch (e) { fail(e); }
+    };
+    $('#d-import').onclick = () => {
+      const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json';
+      i.onchange = async () => {
+        const f = i.files[0]; if (!f) return;
+        let b; try { b = JSON.parse(await f.text()); } catch { fail(new Error('파일을 읽지 못했습니다(JSON 아님)')); return; }
+        if (!b || b.format !== 'jamschool-data' || !Array.isArray(b.files)) { fail(new Error('잠스쿨 데이터 파일이 아닙니다')); return; }
+        const c = b.counts || {};
+        if (!confirm(`${b.from || '알 수 없는 서버'}에서 ${new Date(b.exportedAt).toLocaleString('ko-KR')}에 내보낸 파일입니다.\n파일 ${b.files.length}개(계정 ${c.users ? '있음' : '없음'} · 주문 ${c.orders || 0}건 · 집계 ${c.analytics || 0}일)를\n지금 서버(${d.host})에 가져올까요?`)) return;
+        try {
+          const r = await api('POST', '/api/admin/data-import', { bundle: b });
+          $('#d-result').innerHTML = `<div class="box ok">가져왔습니다: 파일 ${r.written}개(계정 ${r.counts.users ? '있음' : '없음'} · 주문 ${r.counts.orders}건 · 결제 설정 ${r.counts.settings ? '있음' : '없음'} · 집계 ${r.counts.analytics}일)${r.replaced ? ` · 바뀐 파일 ${r.replaced}개의 원래 내용은 ${h(r.keptIn)} 에 보관` : ''}. 계정이 바뀌었으면 다시 로그인해 주세요.</div>`;
+          setTimeout(() => api('GET', '/api/admin/me').then(m => { ME = m; if (!ME.user) render(); else dataMove(); }).catch(() => {}), 2500);
+        } catch (e) { fail(e); }
+      };
+      i.click();
+    };
+  }
   async function me() {
     const v = shell('내 계정');
     v.innerHTML = `<div class="card"><p>${h(ME.user.name)} (${h(ME.user.id)}) · ${h(ME.user.roleName)}</p>${ME.canWriteUsers ? `<h2>비밀번호 바꾸기</h2>
@@ -523,6 +578,7 @@
       else if (owner && a === 'check') await check();
       else if (owner && a === 'log') await log();
       else if (owner && a === 'users') await users();
+      else if (owner && a === 'data') await dataMove();
       else await dashboard();
     } catch (e) { if (ME.user) { const v = $('#view'); if (v) v.innerHTML = `<div class="box bad">${h(e.message)}</div>`; } }
   }
