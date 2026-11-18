@@ -56,8 +56,10 @@ const relayOn = () => !!(RELAY() && RELAY_KEY());
 // 중계 서버 요청: 인증서는 SEEDPAY_RELAY_CA 로 고정(그 인증서로 서명된 서버만 믿는다)
 function relayCall(method, pathname, body, timeout = TIMEOUT) {
   return new Promise((resolve, reject) => {
-    let u; try { u = new URL(RELAY() + pathname); } catch { reject(Object.assign(new Error('중계 주소 형식 오류'), { kind: 'network' })); return; }
+    // 주소 뒤 ?쿼리는 유지(Supabase: ?forceFunctionRegion=ap-northeast-2 → 같은 값을 x-region 헤더로도)
+    let u; try { const b = new URL(RELAY()); u = new URL(b.origin + b.pathname.replace(/\/+$/, '') + pathname + b.search); } catch { reject(Object.assign(new Error('중계 주소 형식 오류'), { kind: 'network' })); return; }
     const headers = { 'X-Relay-Key': RELAY_KEY(), 'User-Agent': 'jamschool-pay' };
+    const region = u.searchParams.get('forceFunctionRegion'); if (region) headers['x-region'] = region;
     if (body != null) Object.assign(headers, { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
     const rq = https.request(u, { method, headers, ca: RELAY_CA(), timeout }, res => {
       const chunks = []; res.on('data', c => chunks.push(c));
