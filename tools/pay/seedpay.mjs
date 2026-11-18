@@ -357,6 +357,24 @@ export async function handlePay(req, res) {
 
 // ───────── 관리자 어드민(tools/admin/server.mjs) — 로그인·권한은 어드민이 확인한다
 const LABEL = { ready: '결제 전', approving: '승인 중', paid: '결제 완료', failed: '결제 안 됨', check: '확인 필요', cancelled: '결제 취소' };
+// 결제 서버 연결 점검(관리자 어드민) — 이 서버가 밖으로 나가는 IP·나라와, 씨드 승인 주소가 이 서버의 요청을 받는지.
+//   승인 주소에는 씨드 공개 예시 상점(demotest0m)·가짜 값만 보낸다(실제 상점·거래와 무관). 정상이면 200 + resultCd 9999(FAIL), 막히면 403
+export async function pgProbe() {
+  const get = async (url, opt = {}) => {
+    try { const r = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(10000), ...opt }); const t = await r.text().catch(() => ''); return { status: r.status, server: r.headers.get('server') || '', text: t, body: t.replace(/\s+/g, ' ').slice(0, 160) }; }
+    catch (e) { return { status: 0, error: e.name === 'TimeoutError' ? '응답 시간 초과' : e.message }; }
+  };
+  const ipr = await get('https://api.ipify.org?format=json');
+  let ip = ''; try { ip = JSON.parse(ipr.text).ip || ''; } catch { /* 없음 */ }
+  let geo = {}; if (ip) { const g = await get(`https://ipinfo.io/${ip}/json`); try { const j = JSON.parse(g.text); geo = { country: j.country || '', city: j.city || '', org: j.org || '' }; } catch { /* 없음 */ } }
+  const u = URLS();
+  const body = new URLSearchParams({ nonce: 'probe', tid: 'demotest0m01012611180000000000', ediDate: kstStamp(), mid: 'demotest0m', goodsAmt: '1000', mbsReserved: '', hashString: '0'.repeat(64), payData: 'probe' }).toString();
+  const approval = await get(u.approval, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' }, body });
+  const script = await get(u.script);
+  const blocked = approval.status === 403;
+  return { at: new Date().toISOString(), ip, ...geo, region: process.env.RAILWAY_REPLICA_REGION || '', approvalUrl: u.approval, approval: { status: approval.status, server: approval.server || '', body: approval.body || '', error: approval.error || '' }, script: { status: script.status, error: script.error || '' },
+    verdict: approval.status === 200 ? 'ok' : blocked ? 'blocked' : 'error' };
+}
 export function adminStatus() {
   const k = KEY(), host = (process.env.CANONICAL_HOST || 'jamschool.kr').trim();
   return { keySet: !!k, mid: MID(), enabled: settings().enabled, dataDir: !!process.env.DATA_DIR, methods: k ? pgMethods() : [], test: TEST(), notiUrl: `https://${host}/api/pay/noti` };

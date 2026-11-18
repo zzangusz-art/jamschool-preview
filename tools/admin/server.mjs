@@ -52,17 +52,18 @@ const oneLine = s => String(s ?? '').replace(/[\r\n]+/g, ' ').trim();
 const msg = (u, what) => `어드민: ${what}\n\n${ROLES[u.role] || u.role} ${u.name} (${u.id}) · ${new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ')} KST`;
 
 // ── 사이트 데이터 읽기(항상 저장소 최신본 기준)
-async function readText(p) { const f = await store.read(p); return f ? f.text : null; }
-async function readJson(p, def) { const t = await readText(p); return t ? JSON.parse(t) : def; }
+// fresh: 저장 직전 읽고-고쳐-쓰는 파일은 GitHub 최신본으로(store.mjs 참고)
+async function readText(p, fresh) { const f = await store.read(p, { fresh: !!fresh }); return f ? f.text : null; }
+async function readJson(p, def, fresh) { const t = await readText(p, fresh); return t ? JSON.parse(t) : def; }
 function evalData(src, overrides) {
   const ctx = { window: { WEBP: new Set(), JAM_OVERRIDES: overrides || {} }, console };
   ctx.globalThis = ctx.window; vm.createContext(ctx);
   vm.runInContext(src.replace(/typeof window !== 'undefined' \? window : globalThis/, 'window'), ctx);
   return ctx.window.JAM;
 }
-async function products() {
+async function products(fresh) {
   const src = await readText('assets/js/data.js');
-  const site = await readJson('content/site.json', { products: {}, options29: {} });
+  const site = await readJson('content/site.json', { products: {}, options29: {} }, fresh);
   const base = evalData(src, {}), cur = evalData(src, site);
   return { base, cur, site };
 }
@@ -183,7 +184,7 @@ route('GET', '/api/admin/products/:id', 'client', async ({ params }) => {
   return { product: Object.fromEntries(['id', 'cat', ...EDITABLE, 'full'].map(k => [k, p[k] ?? ''])), options29: p.id === 29 ? { price: cur.OPTIONS_29.price, list: cur.OPTIONS_29.list, size: cur.OPTIONS_29.size, thickness: cur.OPTIONS_29.thickness } : null };
 });
 route('POST', '/api/admin/products/:id', 'client', async ({ params, data, user }) => {
-  const { base, site } = await products();
+  const { base, site } = await products(true);
   const b = base.PRODUCTS.find(x => String(x.id) === params.id); need(b, 404, '상품을 찾지 못했습니다');
   const f = data.product || {}, files = [];
   const imgs = [];
@@ -220,7 +221,7 @@ route('GET', '/api/admin/detail/:id', 'client', async ({ params }) => {
 route('POST', '/api/admin/detail/:id', 'client', async ({ params, data, user }) => {
   need(/^\d+$/.test(params.id), 400, '상품 번호 오류');
   const { cur } = await products(); const p = cur.PRODUCTS.find(x => String(x.id) === params.id); need(p, 404, '상품을 찾지 못했습니다');
-  const t = await readText(detailPath(params.id));
+  const t = await readText(detailPath(params.id), true);
   const prev = t ? parseDetail(t) : { head: `/* 상품 ${params.id} 상세 — 어드민에서 만든 상세. 빌드 전용 데이터(build.mjs detailHTML). */\n`, items: [] };
   const okSrc = s => typeof s === 'string' && /^assets\/(img|video)\/[\w\-./가-힣]+\.(jpe?g|png|webp|gif|mp4)$/i.test(s);
   const files = [], items = [];
@@ -245,7 +246,7 @@ route('POST', '/api/admin/detail/:id', 'client', async ({ params, data, user }) 
 // ── 관리자 전용
 route('GET', '/api/admin/settings', 'owner', async () => ({ tags: await readJson('src/site-tags.json', {}) }));
 route('POST', '/api/admin/settings', 'owner', async ({ data, user }) => {
-  const cur = await readJson('src/site-tags.json', {}), next = { ...cur };
+  const cur = await readJson('src/site-tags.json', {}, true), next = { ...cur };
   for (const k of ['naverSiteVerification', 'googleSiteVerification', 'bingSiteVerification', 'gtm', 'ga4', 'naverAnalytics']) {
     const v = oneLine((data.tags || {})[k]); need(!v || /^[\w-]+$/.test(v), 400, `${k}: 영문·숫자·-·_ 만`); next[k] = v;
   }
@@ -279,6 +280,8 @@ route('GET', '/api/admin/check', 'owner', async () => {
 route('GET', '/api/admin/payments', 'client', async ({ query, user }) => ({ ...PAY.adminStatus(), notify: NOTIFY.notifyStatus(), canCancel: user.role === 'owner', orders: PAY.listOrders({ all: query.get('all') === '1' }) }));
 // 주문 알림(텔레그램) 시험 — 대화방 ID 가 없으면 봇에게 말을 건 대화방을 찾아 준다(tools/pay/notify.mjs)
 route('POST', '/api/admin/payments-notify-test', 'owner', async ({ user }) => NOTIFY.notifyTest(user));
+// 결제 서버 연결 점검 — 이 서버의 나가는 IP·나라, 씨드 승인 주소가 받아 주는지(403 이면 씨드가 이 서버 IP 를 막음)
+route('GET', '/api/admin/payments-probe', 'owner', async () => PAY.pgProbe());
 route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => ({ order: PAY.getOrderAdmin(params.moid), canCancel: user.role === 'owner' }));
 route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data.status, user) }));
 route('POST', '/api/admin/payments/:moid/cancel', 'owner', async ({ params, data, user }) => ({ order: await PAY.cancelOrder(params.moid, data.reason, user) }));

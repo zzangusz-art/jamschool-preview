@@ -213,7 +213,7 @@
       : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
         · 상점 ID ${h(d.mid)}${d.test ? ' · <b>씨드페이먼츠 테스트 서버(devpay)</b>' : ''}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
         <br><small>결제통보 URL <code>${h(d.notiUrl)}</code> — 씨드페이먼츠 가맹점 관리자(mms.seedpayments.co.kr) → 가맹점정보 → 결제환경 설정 → 결제결과 통보관리에 신용카드용으로 등록하면, 가맹점 관리자에서 한 취소도 여기 반영됩니다.</small>
-        ${owner ? `<div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button></div>` : ''}</div>`;
+        ${owner ? `<div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button> <button class="btn sm" id="pay-probe">결제 서버 연결 점검</button></div><div id="probe-out"></div>` : ''}</div>`;
     const nt = d.notify || {}, on = nt.token && nt.chats;
     const notify = `<div class="box ${on ? 'ok' : 'info'}"><b>주문 알림(텔레그램) ${on ? `켜짐 · 대화방 ${nt.chats}곳` : nt.token ? '대화방 ID 필요' : '꺼짐'}</b>
         ${on ? '결제 완료·확인 필요 주문이 들어오면 텔레그램으로 바로 알려 줍니다.' : nt.token ? '텔레그램에서 봇에게 아무 말이나 보낸 뒤 \'대화방 ID 찾기\'를 누르고, 찾은 ID 를 Railway 변수 NOTIFY_TELEGRAM_CHAT_ID 에 넣어 주세요.'
@@ -237,6 +237,17 @@
         else toast(r.msg, 6000);
       } catch (e) { toast(e.message); }
       nb.disabled = false;
+    };
+    const pb = $('#pay-probe');
+    if (pb) pb.onclick = async () => {
+      pb.disabled = true; $('#probe-out').innerHTML = '<p class="help">점검 중…(10초 안팎)</p>';
+      try {
+        const r = await api('GET', '/api/admin/payments-probe');
+        const a = r.approval || {}, where = [r.country, r.city, r.org].filter(Boolean).join(' · ');
+        const head = r.verdict === 'ok' ? '<b>씨드 승인 서버가 이 서버의 요청을 받습니다.</b>' : r.verdict === 'blocked' ? '<b>씨드 승인 서버가 이 서버를 막고 있습니다(HTTP 403).</b> 이 상태로는 카드 인증 뒤 승인이 되지 않아 주문이 \'확인 필요\'로 남습니다. 씨드페이먼츠에 아래 IP 등록(또는 해외 IP 허용)을 요청해야 합니다.' : `<b>씨드 승인 서버 응답 이상</b>(${h(a.status || a.error || '?')})`;
+        $('#probe-out').innerHTML = `<div class="box ${r.verdict === 'ok' ? 'ok' : 'bad'}" style="margin-top:10px">${head}<br><small>이 서버가 나가는 IP <code>${h(r.ip || '확인 못 함')}</code>${where ? ` (${h(where)})` : ''}${r.region ? ` · Railway 지역 ${h(r.region)}` : ''} · 승인 주소 응답 ${h(a.status || a.error || '-')}${a.server ? ` (${h(a.server)})` : ''} · 결제창 스크립트 ${h(r.script.status || r.script.error)} · ${h(new Date(r.at).toLocaleString('ko-KR'))}</small></div>`;
+      } catch (e) { $('#probe-out').innerHTML = ''; fail(e); }
+      pb.disabled = false;
     };
     const tg = $('#pay-toggle');
     if (tg) tg.onclick = async () => {
