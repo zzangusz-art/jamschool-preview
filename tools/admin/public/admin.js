@@ -152,7 +152,7 @@
     v.innerHTML = `${s ? `<div class="kpis"><div class="kpi"><span>오늘 방문자</span><b>${num(today.uv)}</b><small>페이지 ${num(today.pv)}번 열림</small></div>
         <div class="kpi"><span>7일 방문자</span><b>${num(s.total.uv)}</b><small>하루 평균 ${num(Math.round(s.total.uv / 7))}명</small></div>
         <div class="kpi"><span>7일 구매 버튼 클릭</span><b>${num((s.total.events.buy_click || 0) + (s.total.events.cart_click || 0) + (s.total.events.store_click || 0))}</b><small>구매·장바구니·스마트스토어</small></div>
-        <div class="kpi"><span>7일 AI 답변에서 온 방문</span><b>${num(sum(s.total.ai))}</b><small>ChatGPT·Perplexity 등</small></div></div>` : ''}
+        <div class="kpi"><span>7일 페이지 열림</span><b>${num(s.total.pv)}</b><small>방문자 1명당 ${s.total.uv ? (s.total.pv / s.total.uv).toFixed(1) : '-'}쪽</small></div></div>` : ''}
       <div class="cols"><div class="card"><h2>바로 가기</h2><p class="h-sub">자주 하는 일</p><div class="actions static"><a class="btn pri" href="#/blog/new">새 블로그 글 쓰기</a><a class="btn" href="#/products">상품·상세페이지</a><a class="btn" href="#/traffic">방문·유입 보기</a><a class="btn" href="#/orders">주문 보기</a></div></div>
         <div class="card"><h2>사이트 반영 상태</h2><p class="h-sub">마지막으로 저장한 내용이 사이트에 올라갔는지</p><p>${st === 'success' ? '<span class="tag live">최근 변경까지 반영 완료</span>' : st === 'pending' ? '<span class="tag draft">반영 중</span>' : st === 'failure' || st === 'error' ? '<span class="tag bad">반영 실패 — 관리자 확인 필요</span>' : st === 'local' ? '<span class="tag">로컬 저장 모드</span>' : '<span class="tag">확인 중</span>'}</p></div></div>
       <div class="card"><h2>최근 변경</h2><p class="h-sub">누가 무엇을 고쳤는지(최근 순)</p><table class="list"><thead><tr><th>시간</th><th>내용</th><th>누가</th></tr></thead><tbody>${d.recent.length ? '' : '<tr><td colspan="3" class="empty">아직 기록이 없습니다.</td></tr>'}${d.recent.map(c => `<tr><td class="nw">${h(new Date(c.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td><td>${h(c.message.split('\n')[0].replace(/^어드민: /, ''))}</td><td class="nw">${h(c.author)}</td></tr>`).join('')}</tbody></table></div>`;
@@ -162,18 +162,16 @@
   async function traffic() {
     const { n, seg } = period('traffic');
     const v = shell('방문·유입', { desc: '사이트에 몇 명이 어디서 들어왔는지. 같은 사람은 하루 한 번만 셉니다(쿠키·개인정보 없이).', tool: seg });
-    const s = await api('GET', `/api/admin/stats?days=${n}`), t = s.total, ai = sum(t.ai);
-    v.innerHTML = `${persistNote(s)}<div class="kpis"><div class="kpi"><span>방문자</span><b>${num(t.uv)}</b><small>${n === '1' ? '오늘' : `하루 평균 ${num(Math.round(t.uv / +n))}명`}</small></div>
+    const s = await api('GET', `/api/admin/stats?days=${n}`), t = s.total;
+    v.innerHTML = `${persistNote(s)}<div class="kpis k3"><div class="kpi"><span>방문자</span><b>${num(t.uv)}</b><small>${n === '1' ? '오늘' : `하루 평균 ${num(Math.round(t.uv / +n))}명`}</small></div>
         <div class="kpi"><span>페이지 열림</span><b>${num(t.pv)}</b><small>방문자 1명당 ${t.uv ? (t.pv / t.uv).toFixed(1) : '-'}쪽</small></div>
-        <div class="kpi"><span>다른 곳에서 들어옴</span><b>${num(t.entries)}</b><small>검색·블로그·SNS 등(직접 입력 포함)</small></div>
-        <div class="kpi"><span>AI 답변에서 들어옴</span><b>${num(ai)}</b><small>${ai ? top(t.ai, 2).map(([k]) => h(k)).join('·') : 'ChatGPT·Perplexity·Gemini 등'}</small></div></div>
+        <div class="kpi"><span>다른 곳에서 들어옴</span><b>${num(t.entries)}</b><small>검색·블로그·SNS 등(직접 입력 포함)</small></div></div>
       ${n !== '1' ? `<div class="card"><h2>날짜별</h2><p class="h-sub">막대를 누르거나 마우스를 올리면 숫자가 보입니다</p>${chart(s.days, [['pv', '#D9DFE6', '페이지 열림'], ['uv', '#15181C', '방문자']])}</div>` : ''}
       <div class="cols"><div class="card"><h2>어디서 왔나</h2><p class="h-sub">들어온 경로별(사이트 안 이동은 빼고)</p>${bars(top(t.sources, 12), t.entries)}</div>
         <div class="card"><h2>많이 본 페이지</h2><p class="h-sub">페이지 열림 순</p>${bars(top(t.pages, 12), t.pv, p => pageName(p, s))}</div></div>
-      <div class="cols"><div class="card"><h2>AI 답변 유입</h2><p class="h-sub">AI 답변 속 링크를 눌러 들어온 방문</p>${bars(top(t.ai, 8), ai)}</div>
-        <div class="card"><h2>들어온 사이트</h2><p class="h-sub">검색·블로그·카페 등 주소별</p>${bars(top(t.refs, 10), sum(t.refs))}</div></div>
-      <div class="cols"><div class="card"><h2>기기</h2><p class="h-sub">방문자 기준</p>${bars(top(t.devices), t.uv)}</div>
-        <div class="card"><h2>검색엔진·AI 로봇 방문</h2><p class="h-sub">사람이 아닌 수집 로봇이 읽어간 횟수(방문자 숫자에는 안 들어감)</p>${bars(top(t.bots, 10), sum(t.bots))}</div></div>
+      <div class="cols"><div class="card"><h2>들어온 사이트</h2><p class="h-sub">검색·블로그·카페 등 주소별</p>${bars(top(t.refs, 10), sum(t.refs))}</div>
+        <div class="card"><h2>기기</h2><p class="h-sub">방문자 기준</p>${bars(top(t.devices), t.uv)}</div></div>
+      <div class="card"><h2>검색엔진·AI 로봇 방문</h2><p class="h-sub">사람이 아닌 수집 로봇이 읽어간 횟수(방문자 숫자에는 안 들어감)</p>${bars(top(t.bots, 10), sum(t.bots))}</div>
       <p class="help">GA4·네이버 애널리틱스를 연결하면 거기서도 더 자세히 볼 수 있습니다. 이 화면 숫자는 사이트 서버가 직접 센 것이라 조금 다를 수 있습니다.</p>`;
   }
 
