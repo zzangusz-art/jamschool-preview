@@ -148,7 +148,7 @@ const ORG = {
   '@type': 'OnlineStore', '@id': SITE + '#org', name: '잠스쿨', legalName: '잠스쿨', alternateName: ['JAMSCHOOL'], url: SITE, taxID: '841-45-00474',
   logo: SITE + 'assets/img/brand/logo.png', email: 'jamsale33@gmail.com',
   contactPoint: { '@type': 'ContactPoint', telephone: '+82-10-9610-8868', contactType: 'customer service', areaServed: 'KR', availableLanguage: 'ko', hoursAvailable: { '@type': 'OpeningHoursSpecification', dayOfWeek: WEEKDAYS, opens: '09:00', closes: '17:00' } },
-  address: { '@type': 'PostalAddress', streetAddress: '강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트)', addressLocality: '강서구', addressRegion: '서울특별시', addressCountry: 'KR' },
+  address: { '@type': 'PostalAddress', streetAddress: '가산디지털2로 95 9층 904호', addressLocality: '금천구', addressRegion: '서울특별시', addressCountry: 'KR' },
   sameAs: ['https://smartstore.naver.com/healingq', 'https://blog.naver.com/jamschoolzone'],
   hasMerchantReturnPolicy: returnPolicy(0),
 };
@@ -658,7 +658,7 @@ ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).jo
 네이버 공식 블로그 「잠스쿨이 들려주는 잠 이야기」 https://blog.naver.com/jamschoolzone
 
 ## 회사
-상호 잠스쿨 · 대표 노치영 · 사업자등록번호 841-45-00474 · 통신판매업신고 제2019-서울강서-2200호 · 서울특별시 강서구 강서로45길 104, 101동 305호 (내발산동, 대성유니드아파트) · 고객센터 010-9610-8868(평일 09:00~17:00) · jamsale33@gmail.com
+상호 잠스쿨 · 대표 노치영 · 사업자등록번호 841-45-00474 · 통신판매업신고 제2019-서울강서-2200호 · 서울 금천구 가산디지털2로 95 9층 904호 · 고객센터 010-9610-8868(평일 09:00~17:00) · jamsale33@gmail.com
 
 최종 업데이트: ${[...Object.values(LM).map(x => x.d), ...POSTS.map(p => p.updated || p.date)].sort().pop()}
 `);
