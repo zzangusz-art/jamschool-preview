@@ -50,7 +50,10 @@ const TIMEOUT = 30000;
 //   SEEDPAY_RELAY_URL · SEEDPAY_RELAY_KEY(중계 쪽 키 원문)
 //   · SEEDPAY_RELAY_CA(자체 서명 서버일 때만 — 그 인증서 base64 또는 PEM. AWS Lambda 함수 URL(tools/pay/relay/lambda)은 정식 인증서라 비움)
 const RELAY = () => (process.env.SEEDPAY_RELAY_URL || '').trim().replace(/\/+$/, '');
-const RELAY_KEY = () => (process.env.SEEDPAY_RELAY_KEY || '').trim();
+// 키: SEEDPAY_RELAY_KEY 가 있으면 그 값, 없으면 상점키에서 한 방향으로 만든 값(HMAC — 상점키는 드러나지 않음).
+//   중계 쪽에는 이 키의 SHA-256(관리자 결제 화면 '중계 키 해시')만 RELAY_KEY_SHA256 으로 넣는다 → 비밀값을 옮겨 적을 일이 없다.
+const RELAY_KEY = () => { const v = (process.env.SEEDPAY_RELAY_KEY || '').trim(); if (v) return v; const mk = KEY(); return mk ? crypto.createHmac('sha256', mk).update('jamschool-seed-relay/v1').digest('hex') : ''; };
+export const relayKeyHash = () => { const k = RELAY_KEY(); return k ? crypto.createHash('sha256').update(k, 'utf8').digest('hex') : ''; };
 const RELAY_CA = () => { const v = (process.env.SEEDPAY_RELAY_CA || '').trim(); if (!v) return undefined; return v.includes('BEGIN CERTIFICATE') ? v.replace(/\\n/g, '\n') : Buffer.from(v, 'base64').toString('utf8'); };
 const relayOn = () => !!(RELAY() && RELAY_KEY());
 // 중계 서버 요청: 인증서는 SEEDPAY_RELAY_CA 로 고정(그 인증서로 서명된 서버만 믿는다)
@@ -429,7 +432,7 @@ export async function pgProbe() {
   const relay = await relayHealth(true);
   if (relay.on) {   // 중계 서버를 쓰는 중이면 판정은 중계 서버 기준(이 서버의 직접 요청은 막혀도 상관없음)
     const v = relay.ok ? 'ok' : relay.seed && relay.seed.status === 403 ? 'blocked' : 'error';
-    return { at: new Date().toISOString(), ip, ...geo, region: process.env.RAILWAY_REPLICA_REGION || '', via: 'relay', relayUrl: RELAY().replace(/^(https:\/\/[^/:]+).*/, '$1'), relay,
+    return { at: new Date().toISOString(), ip, ...geo, region: process.env.RAILWAY_REPLICA_REGION || '', via: 'relay', relayUrl: RELAY().replace(/^(https:\/\/[^/:]+).*/, '$1'), relayKeyHash: relayKeyHash(), relay,
       direct: { status: approval.status }, approval: relay.seed ? { status: relay.seed.status || 0, server: '', body: relay.seed.body || '', error: relay.seed.error || relay.error || '' } : { status: 0, error: relay.error || '' },
       script: { status: script.status, error: script.error || '' }, verdict: v };
   }
@@ -438,7 +441,7 @@ export async function pgProbe() {
 }
 export function adminStatus() {
   const k = KEY(), host = (process.env.CANONICAL_HOST || 'jamschool.kr').trim();
-  return { keySet: !!k, mid: MID(), enabled: settings().enabled, dataDir: !!process.env.DATA_DIR, methods: k ? pgMethods() : [], test: TEST(), notiUrl: `https://${host}/api/pay/noti` };
+  return { keySet: !!k, mid: MID(), enabled: settings().enabled, dataDir: !!process.env.DATA_DIR, methods: k ? pgMethods() : [], test: TEST(), notiUrl: `https://${host}/api/pay/noti`, relay: { on: relayOn(), url: RELAY().replace(/^(https:\/\/[^/:]+).*/, '$1'), keyHash: relayKeyHash() } };
 }
 export function listOrders({ all = false } = {}) {
   let names = []; try { names = fs.readdirSync(DIR()).filter(f => /^JS\w+\.json$/.test(f)); } catch { names = []; }

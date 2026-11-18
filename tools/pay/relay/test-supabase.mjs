@@ -90,6 +90,14 @@ try {
   assert.equal((await call('POST', '/seed-relay/seed/approval', 'a=1')).status, 403);
   process.env.RELAY_KEY_SHA256 = saved; ok('해시 설정이 없으면 모두 거절');
 
+  delete process.env.SEEDPAY_RELAY_KEY;
+  const hh = PAY.relayKeyHash(); assert.match(hh, /^[0-9a-f]{64}$/);
+  assert.notEqual(hh, crypto.createHash('sha256').update('test-merchant-key').digest('hex'));
+  process.env.RELAY_KEY_SHA256 = hh;
+  assert.equal((await postPg(URLS().cancel, { tid: 'T9' })).resultCd, '0000');
+  process.env.SEEDPAY_RELAY_KEY = KEY; process.env.RELAY_KEY_SHA256 = saved;
+  ok('SEEDPAY_RELAY_KEY 없이 상점키에서 만든 키로도 동작(중계 쪽엔 해시만, 상점키 해시와 다름)');
+
   seed.close(); seed.closeAllConnections(); F._test.reset(); await new Promise(r => setTimeout(r, 200));
   await assert.rejects(postPg(URLS().approval, { tid: 'x' }), e => e.kind === 'network');
   assert.equal((await PAY.relayHealth(true)).ok, false); ok('씨드에 닿지 못하면 502 → 통신 실패, 상태 확인 실패');

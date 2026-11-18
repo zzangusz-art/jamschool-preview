@@ -289,7 +289,7 @@ route('GET', '/api/admin/check', 'owner', async () => {
   return { warn, posts: posts.length, todo: todo.length, last };
 });
 // ── 결제 주문(홈페이지 결제, tools/pay/seedpay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
-route('GET', '/api/admin/payments', 'client', async ({ query, user }) => ({ ...PAY.adminStatus(), notify: NOTIFY.notifyStatus(), canCancel: user.role === 'owner', orders: PAY.listOrders({ all: query.get('all') === '1' }) }));
+route('GET', '/api/admin/payments', 'client', async ({ query, user }) => ({ ...PAY.adminStatus(), ...(user.role === 'owner' ? {} : { relay: undefined }), notify: NOTIFY.notifyStatus(), canCancel: user.role === 'owner', orders: PAY.listOrders({ all: query.get('all') === '1' }) }));
 // 주문 알림(텔레그램) 시험 — 대화방 ID 가 없으면 봇에게 말을 건 대화방을 찾아 준다(tools/pay/notify.mjs)
 route('POST', '/api/admin/payments-notify-test', 'owner', async ({ user }) => NOTIFY.notifyTest(user));
 // 결제 서버 연결 점검 — 이 서버의 나가는 IP·나라, 씨드 승인 주소가 받아 주는지(403 이면 씨드가 이 서버 IP 를 막음)
