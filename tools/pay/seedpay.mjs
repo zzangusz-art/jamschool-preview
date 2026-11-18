@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
+import https from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { clientIp } from '../client-ip.mjs';
 import { notifyOrder } from './notify.mjs';   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
@@ -44,6 +45,44 @@ function isMobileUA(ua) {
   return ['android', 'bb', 'blackberry', 'ipad', 'iphone', 'ipod', 'kindle', 'playbook', 'silk', 'windows phone'].includes(m);
 }
 const TIMEOUT = 30000;
+// 한국 중계 서버(tools/pay/relay/seed-relay.py): 씨드 승인 서버가 해외 IP(Railway 미국)를 403 으로 막아서
+// 승인·망취소·취소 요청만 한국 IP 서버를 거쳐 보낸다. 셋 다 있으면 켜짐:
+//   SEEDPAY_RELAY_URL(https://IP:8443) · SEEDPAY_RELAY_KEY(중계 서버 RELAY_KEY) · SEEDPAY_RELAY_CA(중계 서버 자체 서명 인증서, base64 또는 PEM)
+const RELAY = () => (process.env.SEEDPAY_RELAY_URL || '').trim().replace(/\/+$/, '');
+const RELAY_KEY = () => (process.env.SEEDPAY_RELAY_KEY || '').trim();
+const RELAY_CA = () => { const v = (process.env.SEEDPAY_RELAY_CA || '').trim(); if (!v) return undefined; return v.includes('BEGIN CERTIFICATE') ? v.replace(/\\n/g, '\n') : Buffer.from(v, 'base64').toString('utf8'); };
+const relayOn = () => !!(RELAY() && RELAY_KEY());
+// 중계 서버 요청: 인증서는 SEEDPAY_RELAY_CA 로 고정(그 인증서로 서명된 서버만 믿는다)
+function relayCall(method, pathname, body, timeout = TIMEOUT) {
+  return new Promise((resolve, reject) => {
+    let u; try { u = new URL(RELAY() + pathname); } catch { reject(Object.assign(new Error('중계 주소 형식 오류'), { kind: 'network' })); return; }
+    const headers = { 'X-Relay-Key': RELAY_KEY(), 'User-Agent': 'jamschool-pay' };
+    if (body != null) Object.assign(headers, { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8', 'Content-Length': Buffer.byteLength(body) });
+    const rq = https.request(u, { method, headers, ca: RELAY_CA(), timeout }, res => {
+      const chunks = []; res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, upstream: res.headers['x-upstream-status'] ? +res.headers['x-upstream-status'] : null, text: Buffer.concat(chunks).toString('utf8') }));
+    });
+    rq.on('timeout', () => rq.destroy(Object.assign(new Error('응답 시간 초과'), { name: 'TimeoutError' })));
+    rq.on('error', e => reject(Object.assign(new Error(`중계 서버 통신 실패: ${e.name === 'TimeoutError' ? '응답 시간 초과' : e.code || e.message}`), { kind: 'network' })));
+    if (body != null) rq.write(body);
+    rq.end();
+  });
+}
+// 중계 서버 상태(결제창 열기 전에 확인, 정상 60초·실패 20초 기억)
+let relayHealthCache = { at: 0, ok: false, data: null };
+export async function relayHealth(force) {
+  if (!relayOn()) return { on: false };
+  const c = relayHealthCache;
+  if (!force && c.data && Date.now() - c.at < (c.ok ? 60e3 : 20e3)) return c.data;
+  let data;
+  try {
+    const r = await relayCall('GET', '/health', null, 8000);
+    let j = {}; try { j = JSON.parse(r.text); } catch { /* 아래 */ }
+    data = { on: true, ok: r.status === 200 && !!j.ok, status: r.status, seed: j.seed || null, uptime: j.uptime ?? null, stats: j.stats || null, error: r.status === 403 ? '중계 키(SEEDPAY_RELAY_KEY)가 맞지 않음' : r.status !== 200 ? `HTTP ${r.status}` : !j.ok ? `씨드 응답 ${j.seed && (j.seed.status || j.seed.error)}` : '' };
+  } catch (e) { data = { on: true, ok: false, error: e.message }; }
+  relayHealthCache = { at: Date.now(), ok: data.ok, data };
+  return data;
+}
 
 // ───────── 공통
 class PayError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
@@ -136,6 +175,16 @@ const newId = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return 'JS' 
 
 // ───────── 씨드페이먼츠 서버 요청(UTF-8 form, 응답 JSON)
 async function postPg(url, params) {
+  if (relayOn()) {   // 한국 중계 서버 경유 — 주소는 우리가 아는 세 가지(approval·netCancel·cancel)만
+    const op = (String(url).match(/\/payment\/v1\/(approval|netCancel|cancel)$/) || [])[1];
+    if (!op) throw Object.assign(new Error('알 수 없는 결제 요청'), { kind: 'http' });
+    const r = await relayCall('POST', `/seed/${TEST() ? 'test/' : ''}${op}`, new URLSearchParams(params).toString());
+    if (r.status === 502) throw Object.assign(new Error('중계 서버 → 씨드 통신 실패'), { kind: 'network' });
+    if (r.upstream == null) throw Object.assign(new Error(`중계 서버 HTTP ${r.status}`), { kind: r.status === 403 ? 'http' : 'network' });
+    if (r.status !== 200) throw Object.assign(new Error(`HTTP ${r.status}(중계)`), { kind: 'http' });
+    try { const j = JSON.parse(r.text.trim()); if (j && typeof j === 'object') return j; } catch { /* 아래 */ }
+    throw Object.assign(new Error('응답 형식 오류'), { kind: 'parse' });
+  }
   let r;
   try {
     r = await fetch(url, { method: 'POST', redirect: 'manual', signal: AbortSignal.timeout(TIMEOUT), headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' }, body: new URLSearchParams(params).toString() });
@@ -175,6 +224,8 @@ async function ready(req) {
   if (!KEY()) throw new PayError(503, '결제 설정이 아직 끝나지 않았습니다. 고객센터로 문의해 주세요.');
   const ip = clientIp(req);
   if (limited(ip)) throw new PayError(429, '잠시 뒤 다시 시도해 주세요.');
+  // 중계 서버가 꺼졌거나 씨드가 막고 있으면 결제창을 열지 않는다(카드 인증 뒤 승인 실패로 손님이 기다리게 되는 일 방지)
+  if (relayOn() && !(await relayHealth()).ok) { log('ready', '중계 서버 이상 — 결제창 열지 않음'); throw new PayError(503, '지금은 홈페이지 결제를 쓸 수 없습니다. 잠시 뒤 다시 시도하거나 스마트스토어에서 결제해 주세요.'); }
   let d; try { d = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8')); } catch (e) { throw e instanceof PayError ? e : new PayError(400, '요청 형식 오류'); }
   const J = siteData();
   const m = pgMethods().find(x => x.id === d.method);
@@ -372,7 +423,14 @@ export async function pgProbe() {
   const approval = await get(u.approval, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' }, body });
   const script = await get(u.script);
   const blocked = approval.status === 403;
-  return { at: new Date().toISOString(), ip, ...geo, region: process.env.RAILWAY_REPLICA_REGION || '', approvalUrl: u.approval, approval: { status: approval.status, server: approval.server || '', body: approval.body || '', error: approval.error || '' }, script: { status: script.status, error: script.error || '' },
+  const relay = await relayHealth(true);
+  if (relay.on) {   // 중계 서버를 쓰는 중이면 판정은 중계 서버 기준(이 서버의 직접 요청은 막혀도 상관없음)
+    const v = relay.ok ? 'ok' : relay.seed && relay.seed.status === 403 ? 'blocked' : 'error';
+    return { at: new Date().toISOString(), ip, ...geo, region: process.env.RAILWAY_REPLICA_REGION || '', via: 'relay', relayUrl: RELAY().replace(/^(https:\/\/[^/:]+).*/, '$1'), relay,
+      direct: { status: approval.status }, approval: relay.seed ? { status: relay.seed.status || 0, server: '', body: relay.seed.body || '', error: relay.seed.error || relay.error || '' } : { status: 0, error: relay.error || '' },
+      script: { status: script.status, error: script.error || '' }, verdict: v };
+  }
+  return { at: new Date().toISOString(), ip, ...geo, region: process.env.RAILWAY_REPLICA_REGION || '', via: 'direct', approvalUrl: u.approval, approval: { status: approval.status, server: approval.server || '', body: approval.body || '', error: approval.error || '' }, script: { status: script.status, error: script.error || '' },
     verdict: approval.status === 200 ? 'ok' : blocked ? 'blocked' : 'error' };
 }
 export function adminStatus() {
@@ -434,4 +492,4 @@ export function setSettings({ enabled }, user) {
   return adminStatus();
 }
 // 시험용(tools/pay/test-pay.mjs)
-export const _test = { sha256, parseForm, lineFor, siteData, load, URLS };
+export const _test = { sha256, parseForm, lineFor, siteData, load, URLS, postPg };

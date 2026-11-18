@@ -297,7 +297,11 @@ route('GET', '/api/admin/payments-probe', 'owner', async () => PAY.pgProbe());
 route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => ({ order: PAY.getOrderAdmin(params.moid), canCancel: user.role === 'owner' }));
 route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data.status, user) }));
 route('POST', '/api/admin/payments/:moid/cancel', 'owner', async ({ params, data, user }) => ({ order: await PAY.cancelOrder(params.moid, data.reason, user) }));
-route('POST', '/api/admin/payments-settings', 'owner', async ({ data, user }) => PAY.setSettings({ enabled: !!data.enabled }, user));
+route('POST', '/api/admin/payments-settings', 'owner', async ({ data, user }) => {
+  // 켜기 전에 씨드 승인 서버에 닿는지 확인 — 막혀 있으면 켜지 않는다(카드 인증 뒤 승인 실패 주문 방지)
+  if (data.enabled) { const p = await PAY.pgProbe(); need(p.verdict === 'ok', 400, p.via === 'relay' ? `중계 서버 이상(${(p.relay && p.relay.error) || '응답 없음'})이라 켤 수 없습니다. '결제 서버 연결 점검'을 확인해 주세요.` : '씨드 승인 서버가 이 서버를 막고 있어(HTTP 403) 켤 수 없습니다. 한국 중계 서버(SEEDPAY_RELAY_*)를 먼저 연결해 주세요.'); }
+  return PAY.setSettings({ enabled: !!data.enabled }, user);
+});
 // ── 데이터 옮기기(Railway 볼륨 DATA_DIR ↔ 파일 한 개) — tools/admin/backup.mjs
 const reqHost = req => String(req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0].toLowerCase();
 route('GET', '/api/admin/data', 'owner', async ({ req }) => BACKUP.volumeInfo(reqHost(req)));
