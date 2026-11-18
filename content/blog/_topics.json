@@ -556,7 +556,9 @@
     "angle": "2년 안에 폼이 꺼지면 무상 교체, 고객센터 연락처·운영 시간, 절차는 고객센터 확인 안내. 판정 기준 수치는 만들지 않음.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-warranty",
+    "date": "2026-11-18"
   },
   {
     "id": "tri-fold-waterproof-cover",
@@ -569,7 +571,9 @@
     "angle": "땀 약 250ml 안내(상세페이지 문구), 아이·반려동물, 이벤트 기간 방수 속커버 씌워 발송, 방수 속커버는 세탁 시 기능 저하.",
     "category": "사용 팁",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-waterproof-cover",
+    "date": "2026-11-18"
   },
   {
     "id": "folding-mattress-storage",
@@ -582,7 +586,9 @@
     "angle": "옵션별 접은 크기(폭×67×21/36cm), 세워 보관해 통풍, 원룸 보관 자리 재는 법.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-storage",
+    "date": "2026-11-18"
   },
   {
     "id": "topper-on-bed",

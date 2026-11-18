@@ -10,7 +10,7 @@ product: 29
 image: assets/img/blog/firm-mattress.jpg
 author: 잠스쿨 편집팀
 topic: firm-mattress
-photo: assets/img/products/29/10.jpg
+photo: assets/img/scenes/floor-lie-right.jpg
 ---
 탄탄한 매트리스를 고를 때는 "단단하다"는 말보다 숫자를 먼저 보는 편이 정확합니다. 폼이 얼마나 촘촘한지(밀도), 눌렀을 때 얼마나 버티는지(경도), 오래 눌린 뒤 얼마나 줄어드는지(반복 압축 결과)를 확인하면 제품끼리 같은 기준으로 비교할 수 있습니다.
 
