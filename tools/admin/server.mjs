@@ -2,6 +2,7 @@
 //   화면: tools/admin/public/ (로그인 → 블로그·상품·상세페이지, 관리자 전용 메뉴)
 //   API : /api/admin/* (쿠키 로그인, 쓰기 요청은 X-Jam-Admin 헤더 필수 — 다른 사이트에서 몰래 보내는 요청 차단)
 //   저장: store.mjs (운영 = GitHub 커밋 → 자동 재배포, 로컬 = 파일 직접 + 빌드)
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
@@ -89,11 +90,22 @@ function parseDetail(src) {
 }
 
 // ── 화면 파일
+let shellCache = null;
+function adminShell() {
+  if (shellCache) return shellCache;
+  const ver = f => crypto.createHash('sha256').update(fs.readFileSync(path.join(PUB, f))).digest('hex').slice(0, 10);
+  shellCache = fs.readFileSync(path.join(PUB, 'index.html'), 'utf8')
+    .replace('/admin/admin.css"', `/admin/admin.css?v=${ver('admin.css')}"`).replace('/admin/admin.js"', `/admin/admin.js?v=${ver('admin.js')}"`);
+  return shellCache;
+}
 function serveStatic(req, res, p) {
   const rel = p.replace(/^\/admin\/?/, '') || 'index.html';
   const file = path.join(PUB, path.normalize(rel));
   const target = file.startsWith(PUB + path.sep) && fs.existsSync(file) && fs.statSync(file).isFile() ? file : path.join(PUB, 'index.html');
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(target)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Robots-Tag': 'noindex, nofollow', 'Content-Security-Policy': CSP, 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'same-origin' });
+  // 화면 틀(index.html)의 admin.js·admin.css 주소에 파일 내용 해시를 붙인다 — Cloudflare 가 js·css 를 브라우저에 4시간 붙잡아 두어
+  // 배포 뒤에도 옛 화면이 보이던 문제(주소가 바뀌면 새 파일을 받는다)
+  if (path.basename(target) === 'index.html') { res.end(adminShell()); return; }
   res.end(fs.readFileSync(target));
 }
 
