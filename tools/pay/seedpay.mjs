@@ -46,8 +46,9 @@ function isMobileUA(ua) {
 }
 const TIMEOUT = 30000;
 // 한국 중계 서버(tools/pay/relay/seed-relay.py): 씨드 승인 서버가 해외 IP(Railway 미국)를 403 으로 막아서
-// 승인·망취소·취소 요청만 한국 IP 서버를 거쳐 보낸다. 셋 다 있으면 켜짐:
-//   SEEDPAY_RELAY_URL(https://IP:8443) · SEEDPAY_RELAY_KEY(중계 서버 RELAY_KEY) · SEEDPAY_RELAY_CA(중계 서버 자체 서명 인증서, base64 또는 PEM)
+// 승인·망취소·취소 요청만 한국 IP 서버를 거쳐 보낸다. URL·KEY 둘이 있으면 켜짐:
+//   SEEDPAY_RELAY_URL · SEEDPAY_RELAY_KEY(중계 쪽 키 원문)
+//   · SEEDPAY_RELAY_CA(자체 서명 서버일 때만 — 그 인증서 base64 또는 PEM. AWS Lambda 함수 URL(tools/pay/relay/lambda)은 정식 인증서라 비움)
 const RELAY = () => (process.env.SEEDPAY_RELAY_URL || '').trim().replace(/\/+$/, '');
 const RELAY_KEY = () => (process.env.SEEDPAY_RELAY_KEY || '').trim();
 const RELAY_CA = () => { const v = (process.env.SEEDPAY_RELAY_CA || '').trim(); if (!v) return undefined; return v.includes('BEGIN CERTIFICATE') ? v.replace(/\\n/g, '\n') : Buffer.from(v, 'base64').toString('utf8'); };
@@ -78,7 +79,7 @@ export async function relayHealth(force) {
   try {
     const r = await relayCall('GET', '/health', null, 8000);
     let j = {}; try { j = JSON.parse(r.text); } catch { /* 아래 */ }
-    data = { on: true, ok: r.status === 200 && !!j.ok, status: r.status, seed: j.seed || null, uptime: j.uptime ?? null, stats: j.stats || null, error: r.status === 403 ? '중계 키(SEEDPAY_RELAY_KEY)가 맞지 않음' : r.status !== 200 ? `HTTP ${r.status}` : !j.ok ? `씨드 응답 ${j.seed && (j.seed.status || j.seed.error)}` : '' };
+    data = { on: true, ok: r.status === 200 && !!j.ok, status: r.status, seed: j.seed || null, region: j.region || '', uptime: j.uptime ?? null, stats: j.stats || null, error: r.status === 403 ? '중계 키(SEEDPAY_RELAY_KEY)가 맞지 않음' : r.status !== 200 ? `HTTP ${r.status}` : !j.ok ? `씨드 응답 ${j.seed && (j.seed.status || j.seed.error)}` : '' };
   } catch (e) { data = { on: true, ok: false, error: e.message }; }
   relayHealthCache = { at: Date.now(), ok: data.ok, data };
   return data;
