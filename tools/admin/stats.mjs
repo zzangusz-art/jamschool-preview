@@ -46,8 +46,10 @@ const inc = (o, k, n = 1) => { if (!k) return; o[k] = (o[k] || 0) + n; };
 
 // 유입 경로 묶음
 const AI_HOSTS = [[/chatgpt\.com|chat\.openai\.com/, 'ChatGPT'], [/perplexity\.ai/, 'Perplexity'], [/gemini\.google\.com|bard\.google\.com/, 'Gemini'], [/copilot\.microsoft\.com|bing\.com\/chat/, 'Copilot'], [/claude\.ai/, 'Claude'], [/wrtn\.ai/, '뤼튼'], [/clova|cue\.search\.naver/, '네이버 AI'], [/you\.com|phind\.com|poe\.com|deepseek/, '기타 AI']];
+// ChatGPT 등은 답변 속 링크에 utm_source=chatgpt.com 을 붙인다 → 캠페인이 아니라 'AI 답변'으로
+const aiOfUtm = utm => (AI_HOSTS.find(([re]) => re.test(String(utm || '').toLowerCase())) || [])[1] || '';
 function source(ref, selfHost, utm) {
-  if (utm) return { group: `캠페인(${utm.slice(0, 30)})`, host: '' };
+  if (utm) { const ai = aiOfUtm(utm); return ai ? { group: 'AI 답변', host: ai } : { group: `캠페인(${utm.slice(0, 30)})`, host: '' }; }
   if (!ref) return { group: '직접 방문', host: '' };
   let u; try { u = new URL(ref); } catch { return { group: '기타', host: '' }; }
   const h = u.hostname.replace(/^www\.|^m\./, '');
@@ -122,6 +124,14 @@ export function resetOrderStats(by) {
 
 // 어드민 조회: 최근 n일 합계 + 날짜별(유입 경로·기기도 날짜별로 — 그래프에서 날짜를 누르면 그날 것만 본다)
 //   offset: 며칠 앞으로 밀어서(지난 기간 비교: summary(7, 7) = 그 전 7일)
+// 예전 기록의 '캠페인(chatgpt.com)' 같은 것은 읽을 때 'AI 답변'으로 묶는다(파일은 그대로)
+function aiFix(d) {
+  const keys = Object.keys(d.sources || {}).filter(k => /^캠페인\(/.test(k) && aiOfUtm(k.slice(4, -1)));
+  if (!keys.length) return d;
+  const sources = { ...d.sources }, ai = { ...(d.ai || {}) };
+  for (const k of keys) { const n = sources[k], name = aiOfUtm(k.slice(4, -1)); delete sources[k]; sources['AI 답변'] = (sources['AI 답변'] || 0) + n; ai[name] = (ai[name] || 0) + n; }
+  return { ...d, sources, ai };
+}
 export function summary(n = 7, offset = 0) {
   const list = [];
   for (let i = n - 1 + offset; i >= offset; i--) {
@@ -129,6 +139,7 @@ export function summary(n = 7, offset = 0) {
     let d = days.get(date);
     if (!d && DIR) { const f = path.join(DIR, `${date}.json`); if (fs.existsSync(f)) try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* 무시 */ } }
     if (d && since && date < since) d = { ...d, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} } };   // 주문 흐름 시작 전(시험 기록)
+    if (d) d = aiFix(d);
     list.push(d || { date, pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} } });
   }
   const add = (a, b) => { for (const [k, v] of Object.entries(b || {})) a[k] = (a[k] || 0) + v; return a; };
