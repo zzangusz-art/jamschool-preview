@@ -10,6 +10,7 @@ const put = (p, t) => { fs.mkdirSync(path.dirname(path.join(root, p)), { recursi
 put('content/blog/a.md', 'A-local'); put('content/blog/b.md', 'B-local'); put('content/site.json', '{"v":"local"}');
 
 const calls = [];
+let fail = null, patch422 = 0;   // fail: 저장(블롭 만들기) 때 GitHub 오류 흉내, patch422: 그사이 다른 커밋이 올라온 횟수
 globalThis.fetch = async (url, opt = {}) => {
   const u = String(url).replace('https://api.github.com/repos/zzangusz-art/jamschool-preview', ''), m = opt.method || 'GET';
   calls.push(`${m} ${u.split('?')[0]}`);
@@ -18,6 +19,8 @@ globalThis.fetch = async (url, opt = {}) => {
   if (m === 'GET' && u.startsWith('/contents/')) return json({}, 404);
   if (m === 'GET' && u.startsWith('/git/ref/')) return json({ object: { sha: 'head' } });
   if (m === 'GET' && u.startsWith('/git/commits/')) return json({ tree: { sha: 'tree0' } });
+  if (fail && m === 'POST' && u === '/git/blobs') return json({ message: fail.msg }, fail.status);
+  if (m === 'PATCH' && patch422 > 0) { patch422--; return json({ message: 'Update is not a fast forward' }, 422); }
   if (m === 'POST' && u === '/git/blobs') return json({ sha: 'blob' + calls.length });
   if (m === 'POST' && u === '/git/trees') return json({ sha: 'tree1' });
   if (m === 'POST' && u === '/git/commits') return json({ sha: 'c1' });
@@ -49,6 +52,21 @@ ok('저장한 내용은 다음 배포 전에도 바로 보임(수정·새 글·�
 
 calls.length = 0; await s.recent(8); await s.recent(8);
 assert.equal(calls.filter(c => c.startsWith('GET /commits')).length, 1); ok('최근 변경 15초 캐시');
+
+const site = [{ path: 'content/site.json', text: '{}' }];
+fail = { status: 403, msg: 'Resource not accessible by personal access token' };
+await assert.rejects(s.commit(site, 'opt'), e => e.status === 502 && /쓰기 권한/.test(e.message) && /Contents 를 Read and write/.test(e.message) && /jamschool-preview/.test(e.message));
+ok('토큰에 쓰기 권한 없음(403) → 502 + 권한 고치는 법 안내(어드민이 로그아웃하지 않음)');
+fail = { status: 401, msg: 'Bad credentials' };
+await assert.rejects(s.commit(site, 'opt'), e => e.status === 502 && /만료/.test(e.message) && /GITHUB_TOKEN/.test(e.message));
+ok('토큰 만료·삭제(401) → 502 + 새 토큰 안내(401 그대로 넘기면 화면이 로그아웃)');
+fail = { status: 403, msg: 'API rate limit exceeded for user' };
+await assert.rejects(s.commit(site, 'opt'), e => e.status === 502 && /한도/.test(e.message)); ok('요청 한도 초과 403 은 따로 안내');
+fail = null; patch422 = 1; calls.length = 0;
+assert.equal((await s.commit(site, 'opt')).sha, 'c1');
+assert.equal(calls.filter(c => c.startsWith('PATCH')).length, 2); ok('그사이 다른 커밋(422) → 최신 위에 다시 저장');
+patch422 = 3;
+await assert.rejects(s.commit(site, 'opt'), e => e.status === 422); patch422 = 0; ok('세 번 겹치면 422 로 알림');
 
 fs.rmSync(root, { recursive: true, force: true });
 console.log(`\n저장소 읽기 시험 ${n}개 통과`);

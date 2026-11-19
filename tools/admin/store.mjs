@@ -24,8 +24,17 @@ function githubStore(root) {
       body: body ? JSON.stringify(body) : undefined });
     if (res.status === 404) return null;
     const j = await res.json().catch(() => ({}));
-    if (!res.ok) { const e = new Error(`GitHub ${res.status}: ${j.message || ''}`); e.status = res.status; throw e; }
+    if (!res.ok) {   // GitHub 의 401·403 을 그대로 넘기면 어드민 화면이 '로그인 풀림'으로 알고 고치던 내용을 버린다 → 502 + 한국어 안내
+      const e = new Error(ghError(res.status, j.message || '')); e.ghStatus = res.status; e.status = res.status === 422 ? 422 : 502; throw e;
+    }
     return j;
+  }
+  function ghError(status, m) {
+    const tag = `(GitHub ${status}: ${m})`;
+    if (status === 401) return `저장하지 못했습니다 — GitHub 토큰이 만료됐거나 지워졌습니다. 새 토큰을 만들어 Railway 변수 GITHUB_TOKEN 을 바꿔 주세요 ${tag}`;
+    if (status === 403 && /rate limit/i.test(m)) return `GitHub 요청 한도를 넘었습니다. 잠시 뒤 다시 저장해 주세요 ${tag}`;
+    if (status === 403) return `저장하지 못했습니다 — GitHub 토큰에 저장소 ${REPO} 쓰기 권한이 없습니다. GitHub › Settings › Developer settings › Fine-grained tokens › 이 토큰에서 Repository access 에 ${REPO.split('/')[1]} 를 넣고 Permissions › Contents 를 Read and write 로 바꿔 주세요(토큰 값은 그대로) ${tag}`;
+    return `GitHub 오류 ${tag}`;
   }
   const enc = p => p.split('/').map(encodeURIComponent).join('/');
   const ROOT = path.resolve(root || '.');
@@ -81,7 +90,7 @@ function githubStore(root) {
           recentCache = null;
           return { sha: c.sha };
         }
-        catch (e) { if (e.status !== 422 || attempt === 2) throw e; }   // 그사이 다른 커밋(AI 글 발행 등)이 올라옴 → 최신 위에 다시
+        catch (e) { if (e.ghStatus !== 422 || attempt === 2) throw e; }   // 그사이 다른 커밋(AI 글 발행 등)이 올라옴 → 최신 위에 다시
       }
     },
     async recent(n = 20, p) {
