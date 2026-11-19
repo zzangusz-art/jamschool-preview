@@ -163,7 +163,7 @@
           "id": "gom4jg",
           "name": "색상",
           "note": "",
-          "price": true,
+          "price": false,
           "values": [
             {
               "id": "v8xkff",
@@ -184,101 +184,37 @@
         }
       ],
       "prices": {
-        "vz6t9f-vj15sm-v8xkff": {
+        "vz6t9f-vj15sm": {
           "price": 48000,
           "list": 105000
         },
-        "vz6t9f-vj15sm-vmk5qc": {
-          "price": 48000,
-          "list": 105000
-        },
-        "vz6t9f-vj15sm-v5pea2": {
-          "price": 48000,
-          "list": 105000
-        },
-        "vz6t9f-vbsgtg-v8xkff": {
-          "price": 84000,
-          "list": 141000
-        },
-        "vz6t9f-vbsgtg-vmk5qc": {
-          "price": 84000,
-          "list": 141000
-        },
-        "vz6t9f-vbsgtg-v5pea2": {
-          "price": 84000,
-          "list": 141000
-        },
-        "vz6t9f-vig0sj-v8xkff": {
-          "price": 87000,
-          "list": 144000
-        },
-        "vz6t9f-vig0sj-vmk5qc": {
-          "price": 87000,
-          "list": 144000
-        },
-        "vz6t9f-vig0sj-v5pea2": {
-          "price": 87000,
-          "list": 144000
-        },
-        "vz6t9f-v69hvw-v8xkff": {
-          "price": 97000,
-          "list": 154000
-        },
-        "vz6t9f-v69hvw-vmk5qc": {
-          "price": 97000,
-          "list": 154000
-        },
-        "vz6t9f-v69hvw-v5pea2": {
-          "price": 97000,
-          "list": 154000
-        },
-        "vd0gvv-vj15sm-v8xkff": {
-          "price": 77000,
-          "list": 125000
-        },
-        "vd0gvv-vj15sm-vmk5qc": {
-          "price": 77000,
-          "list": 125000
-        },
-        "vd0gvv-vj15sm-v5pea2": {
-          "price": 77000,
-          "list": 125000
-        },
-        "vd0gvv-vbsgtg-v8xkff": {
-          "price": 94000,
+        "vz6t9f-vbsgtg": {
+          "price": 75000,
           "list": 132000
         },
-        "vd0gvv-vbsgtg-vmk5qc": {
-          "price": 94000,
-          "list": 132000
+        "vz6t9f-vig0sj": {
+          "price": 78000,
+          "list": 135000
         },
-        "vd0gvv-vbsgtg-v5pea2": {
-          "price": 94000,
-          "list": 132000
+        "vz6t9f-v69hvw": {
+          "price": 88000,
+          "list": 145000
         },
-        "vd0gvv-vig0sj-v8xkff": {
-          "price": 97000,
-          "list": 154000
+        "vd0gvv-vj15sm": {
+          "price": 68000,
+          "list": 125000
         },
-        "vd0gvv-vig0sj-vmk5qc": {
-          "price": 97000,
-          "list": 154000
+        "vd0gvv-vbsgtg": {
+          "price": 85000,
+          "list": 142000
         },
-        "vd0gvv-vig0sj-v5pea2": {
-          "price": 97000,
-          "list": 154000
+        "vd0gvv-vig0sj": {
+          "price": 88000,
+          "list": 145000
         },
-        "vd0gvv-v69hvw-v8xkff": {
-          "price": 107000,
-          "list": 164000
-        },
-        "vd0gvv-v69hvw-vmk5qc": {
-          "price": 107000,
-          "list": 164000
-        },
-        "vd0gvv-v69hvw-v5pea2": {
-          "price": 107000,
-          "list": 164000
+        "vd0gvv-v69hvw": {
+          "price": 98000,
+          "list": 155000
         }
       }
     },
