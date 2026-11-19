@@ -182,6 +182,74 @@
           "list": 164000
         }
       }
+    },
+    "36": {
+      "groups": [
+        {
+          "id": "gg2gq7",
+          "name": "★다리베개(높이)★",
+          "note": "",
+          "price": true,
+          "values": [
+            {
+              "id": "vcr5rq",
+              "label": "잠스쿨 다리베개(편안한 20cm)"
+            },
+            {
+              "id": "vxf9yj",
+              "label": "잠스쿨 다리베개(시원한 26cm)"
+            },
+            {
+              "id": "vrlg5v",
+              "label": "잠스쿨 다리베개(강력한 33cm)"
+            }
+          ]
+        },
+        {
+          "id": "gnt4xf",
+          "name": "★다리베개(색상)★",
+          "note": "",
+          "price": true,
+          "values": [
+            {
+              "id": "v62ued",
+              "label": "그레이",
+              "hex": "#D5DCE3"
+            },
+            {
+              "id": "vv84nt",
+              "label": "아이보리",
+              "hex": "#FDFFEB"
+            }
+          ]
+        }
+      ],
+      "prices": {
+        "vcr5rq-v62ued": {
+          "price": 42600,
+          "list": 70000
+        },
+        "vcr5rq-vv84nt": {
+          "price": 42600,
+          "list": 70000
+        },
+        "vxf9yj-v62ued": {
+          "price": 50600,
+          "list": 78000
+        },
+        "vxf9yj-vv84nt": {
+          "price": 50600,
+          "list": 78000
+        },
+        "vrlg5v-v62ued": {
+          "price": 63600,
+          "list": 91000
+        },
+        "vrlg5v-vv84nt": {
+          "price": 63600,
+          "list": 91000
+        }
+      }
     }
   }
 }
