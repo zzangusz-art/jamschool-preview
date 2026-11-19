@@ -166,7 +166,6 @@
   const FAQ = [
     { c: 'price', q: '다른 접이식 매트리스보다 비싼 이유가 있나요?', a: ['밀도 31kg/m³(시험성적서 측정값 31.30kg/m³) 국내산 폼을 쓰고, 10만 회 반복 압축 시험과 유해물질·라돈 시험을 거쳤습니다. 2년 폼 교체 보증과 14일 무료체험도 가격에 들어 있습니다.', '다나와 가격비교(슈퍼싱글, 2026년 10월 19일 조회) 기준으로 폼 매트리스 중에서는 높은 가격대이고, 스프링 내장·천연라텍스 3단 매트리스와는 비슷한 가격대입니다.'] },
     { c: 'price', q: '색상에 따라 가격이 다른가요?', a: ['그레이와 아이보리는 가격이 같습니다. 가격은 두께(침대형 7cm·바닥형 12cm)와 사이즈(멀티싱글·슈퍼싱글·퀸)로만 달라집니다.'] },
-    { c: 'price', q: '쿠폰을 쓰면 얼마인가요?', a: ['공식몰(jamschool.co.kr) 신규 회원 가입축하 쿠폰은 10,000원이며, 공식몰에서 회원으로 결제할 때 적용됩니다. 이 홈페이지의 주문서는 비회원 주문이라 쿠폰이 적용되지 않습니다. 쿠폰 조건은 공식몰 마이페이지에서 확인해 주세요.'] },
     { c: 'product', q: '침대형(7cm)과 바닥형(12cm) 중 어떤 걸 골라야 하나요?', a: ['침대 위에서만 쓰신다면 침대형, 침대와 바닥 모두에서 쓰신다면 바닥형을 고르세요.', '바닥형은 쿠션감이 더 좋고 침대 위에서도 쓸 수 있어 고객의 70% 이상이 바닥형을 선택합니다.'] },
     { c: 'size', q: '멀티싱글·슈퍼싱글·퀸 중 어떤 사이즈가 맞나요?', a: ['멀티싱글(75cm)은 체구가 작은 분이나 아이, 차박·캠핑·간이침대용으로 알맞습니다. 슈퍼싱글(110cm)은 성인 1인, 퀸(150cm)은 2인이 쓰거나 성인 1인이 넓게 쓰고 싶을 때 고르세요.', '성인 1인이라면 바닥형 슈퍼싱글을 권합니다.'] },
     { c: 'size', q: '접으면 크기와 무게가 어떻게 되나요?', a: ['접으면 깊이 67cm, 높이는 침대형 21cm · 바닥형 36cm가 됩니다. 폭은 사이즈와 같습니다(75 · 110 · 150cm).', '무게는 침대형 3.5 · 5 · 6.5kg, 바닥형 5.5 · 8 · 11.5kg입니다(멀티싱글 · 슈퍼싱글 · 퀸 순).'] },
@@ -304,9 +303,12 @@
       chips: ['60kg 고밀도 메모리폼', '천연 텐셀 겉커버'] },
     { id: 36, img: 'assets/img/hero/slide-36.jpg', size: 1000, bg: '#F5F0EA', eyebrow: '구매평 {rv}건', title: ['다리를 올리고 ', '쉬는 시간'], sub: '잠스쿨 다리베개',
       chips: ['20 · 26 · 33cm 높이', '폭신한 쿠션감'] },
-    { event: 'coupon', img: 'assets/img/hero/slide-29-b.jpg', size: 1000, bg: '#0E2440', dark: true, eyebrow: '신규 회원 혜택', title: ['가입 즉시 ', '1만원 쿠폰'], sub: '공식몰 회원가입만 하면 바로 적용됩니다',
-      chips: ['전 상품 무료배송', '결제 금액 1% 적립'] },
   ];
+
+  // 팝업·상단 띠 배너(이벤트) — 어드민 '팝업·이벤트'에서 넣고 고친다(기본은 없음). 기간은 ui.js 가 손님 브라우저에서 한국 날짜로 확인
+  //   POPUPS: { on, title, text, img, btn: [글자, 주소], where: home|all, start, end }  EVENTS: { on, em, text, link, start, end }
+  const POPUPS = [];
+  const EVENTS = [];
 
   // 진열 페이지(shop.html) 분류 — PRODUCTS 의 cat 과 같은 id
   const CATEGORIES = [
@@ -318,7 +320,7 @@
   //  mode 'preview' : 장바구니 → 주문서까지 진행하고, 결제 버튼은 "미리보기라 결제되지 않음"을 알린 뒤 공식몰·네이버페이로 안내 (지금 미리보기)
   //       'handoff' : 자체 결제 없이 운영할 때. 구매하기·주문하기 → 공식몰/네이버페이 선택 창(예전 방식)
   //       'pg'      : PG 계약 후. assets/js/checkout.js 의 requestPayment() 에 결제창 호출을 넣는다
-  // 배송비·적립률·쿠폰은 공식몰 안내 기준(2026-10). 제주·도서산간 추가 배송비 금액은 공식몰에 적혀 있지 않아 금액을 표시하지 않는다.
+  // 배송비·적립률은 공식몰 안내 기준(2026-10). 제주·도서산간 추가 배송비 금액은 공식몰에 적혀 있지 않아 금액을 표시하지 않는다.
   const CHECKOUT = {
     mode: 'preview',
     shipFee: 0,
@@ -411,7 +413,7 @@
       for (const k of Object.keys(OPTIONS_29.price)) { const r = (o.prices || {})[k]; if (r && r.price > 0) { OPTIONS_29.price[k] = r.price; OPTIONS_29.list[k] = r.list >= r.price ? r.list : r.price; } } }
   // 어드민 '홈 화면'·'구매평'·'자주 묻는 질문'·'기본 정보' 에서 고친 목록(blocks: 목록은 통째로, 묶음은 바뀐 칸만)·상품정보 제공고시(notice)
   const B = OV.blocks || {};
-  const LISTS = { HERO_SLIDES, TRUST, FEATURES, USES, TESTS, REVIEWS, SHORT_REVIEWS, PHOTOS, FAQ, CHECKS };
+  const LISTS = { HERO_SLIDES, TRUST, FEATURES, USES, TESTS, REVIEWS, SHORT_REVIEWS, PHOTOS, FAQ, CHECKS, POPUPS, EVENTS };
   for (const [k, arr] of Object.entries(LISTS)) if (Array.isArray(B[k])) arr.splice(0, arr.length, ...B[k]);
   if (B.CS) { Object.assign(CS, B.CS); CS.telHref = 'tel:' + String(CS.tel).replace(/\D/g, ''); }
   if (B.MARKET) Object.assign(MARKET, B.MARKET);
@@ -424,5 +426,5 @@
   // 구매평 수·평점의 기준(공식몰 상품 페이지 값. 공식몰 구매평에는 스마트스토어에서 연동된 구매평이 함께 들어 있다)
   const REVIEW_BASIS = B.REVIEW_BASIS || '2026년 11월 16일 공식몰 기준(스마트스토어 연동 구매평 포함)';
 
-  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, OPT, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES, TRUST };
+  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, OPT, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES, TRUST, POPUPS, EVENTS };
 })();

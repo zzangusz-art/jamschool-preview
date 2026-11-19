@@ -55,7 +55,7 @@ const BODY_END = [
 ].filter(Boolean).join('\n');
 // 어드민 값이 있으면 data.js 바로 앞에 넣는다(OVERRIDES 는 아래에서 읽고, 이 함수는 페이지를 쓸 때 불린다)
 //   페이지 스크립트가 쓰는 것만 넣는다(상품·3단 옵션 가격, 브라우저가 쓰는 목록). 페이지 문구(text)·사진(img)·제공고시(notice)는 빌드에서 이미 반영됨
-const CLIENT_BLOCKS = ['TESTS', 'USES', 'REVIEWS', 'PHOTOS', 'CS'];
+const CLIENT_BLOCKS = ['TESTS', 'USES', 'REVIEWS', 'PHOTOS', 'CS', 'POPUPS', 'EVENTS'];
 const clientOv = () => {
   const b = Object.fromEntries(CLIENT_BLOCKS.filter(k => (OVERRIDES.blocks || {})[k] != null).map(k => [k, OVERRIDES.blocks[k]]));
   return { products: OVERRIDES.products || {}, options29: OVERRIDES.options29 || {}, ...(OVERRIDES.opts ? { opts: OVERRIDES.opts } : {}), ...(Object.keys(b).length ? { blocks: b } : {}) };
@@ -123,8 +123,23 @@ const POSTS = loadPosts(path.join(ROOT, 'content/blog'));
 for (const p of POSTS) p.thumb = p.image && fs.existsSync(path.join(ROOT, p.image)) ? p.image : null;
 const { esc, won } = R;
 
+// 상단 띠 배너(어드민 '팝업·이벤트 › 상단 띠 배너'): 「보이기」 켠 것만 넣는다. 기간은 손님 브라우저(ui.js)가 한국 날짜로 다시 확인하고,
+//   빌드한 날(한국) 기간 안의 첫 번째만 처음부터 보이게 해서 화면이 덜 흔들리게 한다. 켠 것이 없으면 띠 자체가 없다
+const kstToday = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date());
+const inPeriod = (e, d) => (!e.start || e.start <= d) && (!e.end || d <= e.end);
+function topbarHTML() {
+  const evs = (JAM.EVENTS || []).filter(e => e && e.on !== false && e.text);
+  if (!evs.length) return '';
+  const d = kstToday(), first = evs.findIndex(e => inPeriod(e, d));
+  const one = (e, i) => {
+    const inner = `${e.em ? `<span class="topbar__pt">${esc(e.em)}</span>` : ''}<span>${esc(e.text)}</span>`;
+    const at = `class="topbar__ev"${e.start ? ` data-s="${esc(e.start)}"` : ''}${e.end ? ` data-e="${esc(e.end)}"` : ''}${i === first ? '' : ' hidden'}`;
+    return e.link ? `<a ${at} href="${esc(e.link)}"${/^https:/.test(e.link) ? ' target="_blank" rel="noopener"' : ''}>${inner}</a>` : `<p ${at}>${inner}</p>`;
+  };
+  return `<div class="topbar"${first < 0 ? ' hidden' : ''}>\n  ${evs.map(one).join('\n  ')}\n  <button class="topbar__close" type="button" aria-label="상단 배너 닫기"><svg><use href="#i-x"/></svg></button>\n</div>`;
+}
 const partial = n => rd(`src/partials/${n}.html`);
-const includes = s => s.replace(/<!--@include:(\w+)-->/g, (_, n) => partial(n));
+const includes = s => s.replace(/<!--@include:(\w+)-->/g, (_, n) => partial(n)).replace('<!--@topbar-->', topbarHTML);
 const fill = (s, key, html) => {
   const pair = new RegExp(`<!--@${key}-->[\\s\\S]*?<!--/@${key}-->`);
   if (pair.test(s)) return s.replace(pair, `<!--@${key}-->${html}<!--/@${key}-->`);
@@ -185,7 +200,8 @@ idx = fill(idx, 'products', PRODUCTS.filter(p => !p.brand).slice(0, 9).map(p => 
     const price = p ? `<p class="hs__price"><span class="rate">${R.rate(p)}%</span><b>${won(p.price)}</b>${p.from ? '부터' : ''}</p>` : '';
     const cta = p
       ? `<a class="btn btn--primary" href="${R.href(p)}">제품 보기</a>${d.cta2 ? `<a class="btn btn--line" href="${esc(d.cta2[1])}">${esc(d.cta2[0])}</a>` : `<button class="btn btn--line" type="button" data-quick="${p.id}">빠른 보기</button>`}`
-      : `<button class="btn btn--primary" type="button" data-open="coupon">회원 혜택 보기</button><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`;
+      : d.cta2 ? `<a class="btn btn--primary" href="${esc(d.cta2[1])}">${esc(d.cta2[0])}</a><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`   // 상품 없는 이벤트 배너
+        : `<a class="btn btn--primary" href="shop.html">전체 상품 보기</a>`;
     return `<article class="hs${d.dark ? ' hs--dark' : ''}${d.render ? ' hs--render' : ''}${i === 0 ? ' is-on' : ''}" id="hs-${i}" role="group" aria-roledescription="slide" aria-label="${i + 1} / ${SL.length}: ${esc(label)}" style="--hs-bg:${d.bg}${d.render ? `;--hs-img-bg:${d.render}` : ''}"${i ? ' aria-hidden="true" inert' : ''}>
       <div class="hs__img">${R.pic(d.img, `alt="" width="${d.size || 1000}" height="${d.size || 1000}" ${i ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async"`)}</div>
       <div class="hs__copy"><p class="hs__eyebrow">${esc(d.eyebrow.replace('{rv}', p ? p.reviews.toLocaleString('ko-KR') : ''))}</p><${T} class="hs__title"${i === 0 ? ' id="hero-t"' : ''}>${esc(d.title[0])}<em>${esc(d.title[1])}</em></${T}><p class="hs__sub">${esc(d.sub)}</p><ul class="hs__chips">${d.chips.map(c => `<li>${esc(c)}</li>`).join('')}</ul>${price}<div class="hs__cta">${cta}</div></div>
@@ -272,7 +288,6 @@ function infoHTML(p) {
     <div class="pd-price">
       <p class="pd-price__list"><span class="sr-only">정가</span>${won(p.list)}</p>
       <p class="pd-price__now"><b class="rate">${r}%</b><b id="pd-price">${won(p.price)}</b>${p.from ? '<span class="from">부터</span>' : ''}</p>
-      ${p.id === 29 ? `<p class="pd-price__cp">공식몰 회원 가입축하 쿠폰 <b>10,000원</b><button class="pd-cp-btn" type="button" data-open="coupon">혜택 보기</button></p>` : ''}
     </div>
     ${trustHTML29(p)}
     ${eventsHTML(p)}
@@ -337,7 +352,7 @@ function specBase(p) {
       ['배송 형태', '압축 포장 (원래 크기로 복원까지 약 2일)'], ['세탁', '커버 찬물 단독 세탁 · 중성세제와 세탁망 권장 · 뜨거운 물과 건조기는 수축 원인'],
       ['보증', '2년 안에 폼이 꺼지면 폼 무상 교체'], ['판매원', '잠스쿨'],
     ];
-    return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table><h3 class="pd-h3">옵션별 크기 · 무게 · 판매가</h3>${R.specTable(O)}<p class="note" style="margin-top:10px">접은 크기는 폭 × 깊이 × 높이입니다. 정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준이며 쿠폰 적용 전 금액입니다.</p>`;
+    return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table><h3 class="pd-h3">옵션별 크기 · 무게 · 판매가</h3>${R.specTable(O)}<p class="note" style="margin-top:10px">접은 크기는 폭 × 깊이 × 높이입니다. 정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준입니다.</p>`;
   }
   // 원산지는 근거가 확인된 상품만 '대한민국'(MADE_KR), 나머지는 제공고시·상세 원문을 따른다
   const rows = [['제품명', p.name], ['브랜드', p.brand || '잠스쿨'], ['특징', p.points.length ? p.points.join(' · ') : p.summary],

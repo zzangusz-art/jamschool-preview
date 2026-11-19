@@ -38,9 +38,6 @@
 .pd-price__now { display: flex; align-items: baseline; gap: 8px; font-size: clamp(26px, 7vw, 32px); font-weight: 900; color: var(--ink); letter-spacing: -0.03em; }
 .pd-price__now .rate { color: var(--red); }
 .pd-price__now .from { font-size: 16px; font-weight: 600; color: var(--sub); }
-.pd-price__cp { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 14px; color: var(--sub); }
-.pd-price__cp b { color: var(--sky-ink); font-weight: 800; }
-.pd-cp-btn { margin-left: auto; min-height: 34px; padding: 0 12px; border-radius: 9px; background: var(--sky-50); color: var(--sky-ink); font-size: 13px; font-weight: 800; }
 .pd-events { margin-top: 16px; padding: 16px; border-radius: 16px; background: var(--soft); }
 .pd-events__t { font-size: 14px; font-weight: 800; color: var(--ink); }
 .pd-events ul { margin-top: 8px; display: grid; gap: 6px; }

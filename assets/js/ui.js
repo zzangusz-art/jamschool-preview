@@ -256,11 +256,56 @@
     }
   });
 
+  // ── 팝업·상단 띠 배너(어드민 '팝업·이벤트') — 기간은 한국 날짜(YYYY-MM-DD)로 확인한다
+  const kstDay = () => { try { return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date()); } catch (e) { return new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 10); } };
+  const inPeriod = (x, d) => (!x.start || x.start <= d) && (!x.end || d <= x.end);
+  const popKey = p => { let h = 5381; for (const c of [p.title, p.text, typeof p.img === 'string' ? p.img : '', p.start].join('|')) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0; return 'jam_pop_' + h.toString(36); };
+  const safeHref = u => /^(#[\w-]+|\/[^\s"'<>]*|https:\/\/[^\s"'<>]+|[\w-]+(\/[\w-]*)*(\.html)?(#[\w-]+)?)$/.test(u || '') ? u : '';
+  // 켠 것 중 기간 안·보여 줄 곳이 맞고, 오늘 하루 보지 않기·이번 방문에 닫은 것이 아닌 팝업을 위에서부터 하나씩.
+  // 장바구니·주문서·주문 완료 화면에는 띄우지 않는다(주문 흐름을 막지 않게)
+  function popups() {
+    const all = (window.JAM && JAM.POPUPS) || [];
+    if (!all.length || /page-(cart|checkout|done)/.test(document.body.className)) return;
+    const d = kstDay(), home = !!$('.hs');
+    const queue = all.filter(p => p && p.on !== false && (p.title || p.img) && inPeriod(p, d) && (p.where === 'all' || home)
+      && store.get(popKey(p), '') !== d && !store.sget(popKey(p)));
+    if (!queue.length) return;
+    let lb = $('#pop');
+    if (!lb) {
+      lb = document.createElement('div');
+      lb.className = 'layer modal pop'; lb.id = 'pop'; lb.setAttribute('role', 'dialog'); lb.setAttribute('aria-modal', 'true'); lb.setAttribute('aria-labelledby', 'pop-t'); lb.setAttribute('aria-hidden', 'true'); lb.hidden = true;
+      lb.innerHTML = `<div class="layer__dim"></div><div class="modal__box pop__box"><button class="icon-btn pop__x" type="button" data-close aria-label="닫기">${I.x}</button><div class="pop__c"></div><div class="pop__foot"><button type="button" class="pop__today">오늘 하루 보지 않기</button><button type="button" class="pop__close" data-close>닫기</button></div></div>`;
+      document.body.appendChild(lb);
+    }
+    let cur = null, today = false;
+    const show = () => {
+      cur = queue.shift(); today = false;
+      const href = cur.btn && safeHref(cur.btn[1]), ext = /^https:/.test(href || '') ? ' target="_blank" rel="noopener"' : '';
+      const img = cur.img ? `<img class="pop__img" src="${esc(cur.img)}" alt="${esc(cur.title || '')}" decoding="async">` : '';
+      $('.pop__c', lb).innerHTML = (img && href ? `<a href="${esc(href)}"${ext}>${img}</a>` : img)
+        + `<div class="pop__body">${cur.title ? `<h2 class="pop__t" id="pop-t">${esc(cur.title)}</h2>` : '<h2 class="sr-only" id="pop-t">알림</h2>'}${cur.text ? `<p class="pop__txt">${esc(cur.text).replace(/\n/g, '<br>')}</p>` : ''}${href && cur.btn[0] ? `<a class="btn btn--primary btn--block" href="${esc(href)}"${ext}>${esc(cur.btn[0])}</a>` : ''}</div>`;
+      $('.pop__c', lb).classList.toggle('is-imgonly', !!img && !cur.title && !cur.text);
+      openLayer(lb);
+    };
+    $('.pop__today', lb).onclick = () => { today = true; closeLayer(lb); };
+    lb.addEventListener('layer:closed', () => {
+      if (cur) { if (today) store.set(popKey(cur), d); else store.sset(popKey(cur), '1'); }   // 오늘 하루 = 날짜, 닫기 = 이번 방문
+      if (queue.length) setTimeout(show, 250);
+    });
+    show();
+  }
+
   // ── 헤더/공통 초기화
   function initChrome() {
+    // 상단 띠 배너: 기간 안의 첫 번째만 보인다(빌드 날짜 기준으로 그려 둔 것을 오늘 날짜로 다시 맞춤). ✕ = 이번 방문 동안 숨김
     const top = $('.topbar');
-    if (top && store.sget('jam_topbar_off')) top.hidden = true;
-    $('.topbar__close')?.addEventListener('click', () => { top.hidden = true; store.sset('jam_topbar_off', '1'); });
+    if (top) {
+      const d = kstDay(), evs = $$('.topbar__ev', top), live = evs.find(e => inPeriod({ start: e.dataset.s, end: e.dataset.e }, d));
+      evs.forEach(e => { e.hidden = e !== live; });
+      top.hidden = !live || !!store.sget('jam_topbar_off');
+      $('.topbar__close', top)?.addEventListener('click', () => { top.hidden = true; store.sset('jam_topbar_off', '1'); });
+    }
+    setTimeout(popups, 700);
     const header = $('.header'), fabTop = $('.fab__top');
     const onScroll = () => {
       const y = scrollY;

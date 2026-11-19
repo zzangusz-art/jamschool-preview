@@ -41,7 +41,6 @@ function factSheet(J) {
   L.push(`[접은 크기] 폭 × 깊이 ${O.depthFolded}cm × 높이(7cm형 ${O.folded['7']}cm, 12cm형 ${O.folded['12']}cm).`);
   for (const t of O.thickness) for (const s of O.size) { const k = `${t.id}-${s.id}`; L.push(`[옵션] ${t.label} ${t.sub} ${s.label}: 펼친 ${s.w}×200×${t.id}cm, 접은 ${s.w}×${O.depthFolded}×${O.folded[t.id]}cm, 무게 ${O.weight[k]}kg, 할인가 ${won(O.price[k])}(정가 ${won(O.list[k])}, 2026년 10월 상세페이지 이벤트 가격표 기준).`); }
   L.push('[색상] 그레이, 아이보리. 색상별 가격 같음.');
-  L.push(`[쿠폰] 공식몰 신규 회원 가입축하 쿠폰 10,000원 → 침대형 멀티싱글 ${(O.price['7-MS'] - 10000).toLocaleString('ko-KR')}원부터.`);
   L.push('[폼] 4세대 고밀도 폼, 100% 국산 폼. 밀도 31kg/m³(KATRI 시험성적서 측정값 31.30kg/m³, KS M 6672, 표기 기준 31±2kg/m³). 반복 압축 영구 줄음률 시험 KS M 6672:2016 100,000회. 잠스쿨 연구소 4세대 제품.');
   L.push('[커버] 에어론 솜을 넣은 누빔 커버. 지퍼 3개로 세 칸 분리. 찬물 단독 세탁, 중성세제·세탁망 권장, 뜨거운 물·건조기는 수축 원인. 바닥면 미끄럼 방지 코팅.');
   L.push('[사용] 열에 강한 소재 — 전기장판·돌침대·온열 제품과 함께 사용 가능. 압축 포장 배송, 원래 크기로 복원까지 약 2일. 출고 전 기본 탈취→자연 건조→자외선 살균 소독 3단계 탈취. 4단계 유해물질 제거 공정. 섬유 탈취제(페브리즈 등) 사용 시 반품 어려움.');

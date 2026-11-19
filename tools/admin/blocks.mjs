@@ -2,7 +2,16 @@
 //   저장: content/site.json 의 blocks[이름] — data.js 가 원래 값 대신 쓴다(목록은 통째로, 묶음(CS·MARKET)은 바뀐 칸만 덮어씀)
 //   화면은 이 정의(BLOCKS)를 그대로 받아 입력 칸을 그린다(admin.js blockEdit). 저장할 때 서버가 같은 정의로 검사한다(cleanBlock)
 //   칸 종류(t): text 한 줄 · area 여러 줄 · lines 한 줄에 하나(배열) · pair 두 칸(배열 2개) · image 사진 · color 색 · check 켜고 끄기
-//              select 고르기(opts) · icon 아이콘 · product 상품 · num 숫자 · table 표(cols, tuple 이면 [a,b] 배열)
+//              select 고르기(opts) · icon 아이콘 · product 상품 · num 숫자 · table 표(cols, tuple 이면 [a,b] 배열) · date 날짜(YYYY-MM-DD)
+//   check(o, where): 칸끼리 맞는지 마지막에 검사(예: 마지막 날 ≥ 시작일)
+// 버튼 이동 주소: #구역 · 사이트 안 페이지(shop.html, blog/, product-29.html#detail) · /로 시작 · https:// (javascript: 같은 것은 막음)
+const SAFE_LINK = /^(#[\w-]+|\/[^\s"'<>]*|https:\/\/[^\s"'<>]+|[\w-]+(?:\/[\w-]*)*(?:\.html)?(?:#[\w-]+)?)$/;
+const LINK_MSG = '이동 주소는 #구역, 페이지 이름(shop.html), /로 시작하는 주소, https:// 주소만';
+const PERIOD = [
+  { k: 'start', t: 'date', label: '시작일', optional: true, help: '비우면 저장하자마자' },
+  { k: 'end', t: 'date', label: '마지막 날', optional: true, help: '비우면 끌 때까지. 이날 밤 12시까지 보입니다' },
+];
+const periodOk = what => (o, where) => { if (o.start && o.end && o.end < o.start) bad(`${where}${what}: 마지막 날이 시작일보다 빠릅니다`); };
 export const ICONS = [['i-star', '별'], ['i-flag', '깃발(국산)'], ['i-cal', '달력'], ['i-shield', '방패(보증)'], ['i-truck', '트럭(배송)'], ['i-layers', '층(폼·시험)'], ['i-drop', '물방울(세탁·방수)'], ['i-check', '체크'], ['i-tel', '전화'], ['i-kakao', '카카오'], ['i-share', '공유']];
 export const FAQ_CATS = [['product', '제품'], ['size', '사이즈'], ['price', '가격'], ['ship', '배송·반품']];
 
@@ -10,7 +19,7 @@ export const BLOCKS = {
   HERO_SLIDES: { menu: 'home', label: '첫 화면 슬라이드', desc: '15초 영상이 끝나면 넘어가는 큰 배너입니다. 위에서부터 순서대로 보입니다. 상품을 고르면 가격·할인율·버튼은 상품 정보에서 자동으로 나옵니다.', list: true, min: 1, max: 10, title: 'sub', anchor: '/#top',
     keep: { size: 'num', render: 'color', event: 'text' },
     fields: [
-      { k: 'id', t: 'product', label: '연결 상품', help: '“상품 없음”이면 회원 혜택(쿠폰) 배너로 보입니다' },
+      { k: 'id', t: 'product', label: '연결 상품', help: '“상품 없음”이면 이벤트 배너로 보입니다(버튼은 「두 번째 버튼」 칸, 비우면 전체 상품 보기)' },
       { k: 'img', t: 'image', label: '사진', ratio: 1, maxW: 1000, sizeKey: 'size', help: '정사각형(1000×1000)으로 맞춰 올립니다' },
       { k: 'bg', t: 'color', label: '배경색' },
       { k: 'dark', t: 'check', label: '어두운 배경(글자를 흰색으로)' },
@@ -91,8 +100,29 @@ export const BLOCKS = {
       { k: 'mail', t: 'text', label: '이메일', max: 60, re: /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i, reMsg: '이메일 주소 형식' },
       { k: 'kakao', t: 'text', label: '카카오톡 상담 주소', max: 120, re: /^https:\/\/[^\s"'<>]+$/, reMsg: 'https:// 로 시작하는 주소' },
     ] },
+  // 팝업·이벤트: 기간(시작일·마지막 날)은 손님 브라우저에서 한국 날짜로 확인한다(assets/js/ui.js) → 날짜가 바뀌면 다시 배포하지 않아도 켜지고 꺼짐
+  POPUPS: { menu: 'event', label: '팝업', desc: '사이트에 들어오면 뜨는 알림 창입니다. 「보이기」를 켠 것 중 기간 안의 것만 뜨고, 여러 개면 위에서부터 하나씩 차례로 뜹니다. 손님이 「오늘 하루 보지 않기」를 누르면 그날은 다시 뜨지 않고, 닫기만 누르면 그 방문 동안 뜨지 않습니다. 장바구니·주문서·주문 완료 화면에는 뜨지 않습니다.', list: true, min: 0, max: 5, title: 'title', anchor: '/',
+    fields: [
+      { k: 'on', t: 'check', label: '보이기(끄면 저장해 둔 채 숨김)', def: true },
+      { k: 'title', t: 'text', label: '제목', max: 40, optional: true, help: '사진만 올릴 때는 비워도 됩니다' },
+      { k: 'text', t: 'area', label: '내용', max: 300, optional: true, rows: 4 },
+      { k: 'img', t: 'image', label: '사진(선택)', maxW: 900, optional: true, help: '가로 900px 이하로 줄여 올립니다' },
+      { k: 'btn', t: 'pair', label: '버튼(선택)', labels: ['버튼 글자', '누르면 갈 곳(예: product-29.html, https://…)'], max: 200, optional: true, link: true },
+      { k: 'where', t: 'select', label: '보여 줄 곳', opts: [['home', '홈 첫 화면에서만'], ['all', '모든 페이지']] },
+      ...PERIOD,
+    ],
+    check: (o, where) => { if (!o.title && !o.img) bad(`${where}팝업: 제목이나 사진 중 하나는 있어야 합니다`); periodOk('팝업')(o, where); } },
+  EVENTS: { menu: 'event', label: '상단 띠 배너', desc: '모든 페이지 맨 위에 한 줄로 보이는 이벤트·공지 배너입니다. 「보이기」를 켠 것 중 기간 안의 것 하나만 보이고(위에 있는 것 먼저), 없으면 띠가 사라집니다. 손님이 ✕를 누르면 그 방문 동안은 숨겨집니다.', list: true, min: 0, max: 10, title: 'text', anchor: '/',
+    fields: [
+      { k: 'on', t: 'check', label: '보이기(끄면 저장해 둔 채 숨김)', def: true },
+      { k: 'em', t: 'text', label: '강조 글자(선택)', max: 12, optional: true, help: '문구 앞 흰 상자 안에 보입니다(예: 무료배송, 최대 50%)' },
+      { k: 'text', t: 'text', label: '문구', max: 40 },
+      { k: 'link', t: 'text', label: '누르면 갈 곳(선택)', max: 200, optional: true, re: SAFE_LINK, reMsg: LINK_MSG },
+      ...PERIOD,
+    ],
+    check: periodOk('상단 띠 배너') },
 };
-export const MENUS = { home: '홈 화면', reviews: '구매평', faq: '자주 묻는 질문', info: '기본 정보' };
+export const MENUS = { home: '홈 화면', reviews: '구매평', faq: '자주 묻는 질문', info: '기본 정보', event: '팝업·이벤트' };
 
 // ── 검사: 정의에 맞게 다듬는다(모르는 칸은 버림). image(v, field) 는 사진(data:) 을 파일로 올리고 경로를 돌려준다
 class BadInput extends Error { constructor(m) { super(m); this.status = 400; } }
@@ -100,8 +130,6 @@ const bad = m => { throw new BadInput(m); };
 const line = s => String(s ?? '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
 const para = s => String(s ?? '').replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/[ \t]+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 const cut = (s, max, label) => { if (max && [...s].length > max) bad(`${label}: ${max}자 이내로 줄여 주세요(지금 ${[...s].length}자)`); return s; };
-// 버튼 이동 주소: #구역 · 사이트 안 페이지(shop.html, blog/, product-29.html#detail) · /로 시작 · https:// (javascript: 같은 것은 막음)
-const SAFE_LINK = /^(#[\w-]+|\/[^\s"'<>]*|https:\/\/[^\s"'<>]+|[\w-]+(?:\/[\w-]*)*(?:\.html)?(?:#[\w-]+)?)$/;
 export const IMG_PATH = /^assets\/img\/[\w\-./가-힣]+\.(jpe?g|png|webp|gif)$/i;
 
 async function field(f, v, ctx, where) {
@@ -117,7 +145,8 @@ async function field(f, v, ctx, where) {
     case 'icon': { const s = line(v); if (!ICONS.some(([k]) => k === s)) bad(`${label}: 고를 수 없는 아이콘`); return s; }
     case 'product': { if (v === '' || v == null) { if (f.need) bad(`${label}: 상품을 골라 주세요`); return undefined; } const id = +v; if (!ctx.products.includes(id)) bad(`${label}: 없는 상품`); return id; }
     case 'num': { const n = Math.round(+v); if (!Number.isFinite(n) || (f.min != null && n < f.min) || (f.max != null && n > f.max)) bad(`${label}: 숫자 범위를 확인해 주세요`); return n; }
-    case 'image': return ctx.image(v, f, label);
+    case 'image': if (f.optional && (v == null || v === '')) return undefined; return ctx.image(v, f, label);
+    case 'date': { const s = line(v); if (!s) { if (!f.optional) bad(`${label}: 날짜를 골라 주세요`); return ''; } if (!/^20[0-9]{2}-[01][0-9]-[0-3][0-9]$/.test(s) || Number.isNaN(Date.parse(s))) bad(`${label}: 날짜 형식(예: 2026-12-01)`); return s; }
     case 'table': {
       const rows = f.one ? [v || {}] : (Array.isArray(v) ? v : []);
       if (f.maxItems && rows.length > f.maxItems) bad(`${label}: 최대 ${f.maxItems}줄`);
@@ -140,6 +169,7 @@ async function item(def, v, ctx, where) {
     if (r !== undefined && !(f.optional && r === '')) o[f.k] = r;
     if (f.t === 'image' && f.sizeKey && ctx.lastSize) { o[f.sizeKey] = ctx.lastSize; ctx.lastSize = 0; }
   }
+  if (def.check) def.check(o, where);
   for (const [k, t] of Object.entries(def.keep || {})) {
     if (o[k] != null || src[k] == null) continue;
     const s = src[k];
@@ -160,7 +190,7 @@ export async function cleanBlock(name, value, ctx) {
   const out = [];
   for (const [i, v] of value.entries()) {
     const r = await item(def, v, ctx, `${i + 1}번 `);
-    if (name === 'HERO_SLIDES') { if (r.id) delete r.event; else r.event = 'coupon'; }
+    if (name === 'HERO_SLIDES') { if (r.id) delete r.event; else r.event = 'banner'; }
     out.push(r);
   }
   return out;

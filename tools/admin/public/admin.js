@@ -61,7 +61,7 @@
   // ── 화면 틀(메뉴는 글자만)
   const NAV = [
     ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['orders', '주문 흐름']]],
-    ['사이트 꾸미기', [['site/home', '홈 화면'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['site/reviews', '구매평'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
+    ['사이트 꾸미기', [['site/home', '홈 화면'], ['site/event', '팝업·이벤트'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['site/reviews', '구매평'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
     ['글', [['blog', '블로그']]],
   ];
   const OWNER_NAV = [['settings', '소유확인·추적 코드'], ['topics', '블로그 자동 발행'], ['check', '키워드 점검'], ['log', '작업 기록'], ['users', '계정 관리'], ['data', '서버·데이터 옮기기']];
@@ -768,12 +768,13 @@
   }
 
   // ── 사이트 꾸미기 ① 목록 편집(홈 화면·구매평·자주 묻는 질문·기본 정보) — 서버 정의(tools/admin/blocks.mjs)대로 칸을 그린다
-  const MENU_FIRST = { home: 'HERO_SLIDES', reviews: 'REVIEWS', faq: 'FAQ', info: 'CS' };
-  const MENU_TITLE = { home: '홈 화면', reviews: '구매평', faq: '자주 묻는 질문', info: '기본 정보' };
+  const MENU_FIRST = { home: 'HERO_SLIDES', reviews: 'REVIEWS', faq: 'FAQ', info: 'CS', event: 'POPUPS' };
+  const MENU_TITLE = { home: '홈 화면', reviews: '구매평', faq: '자주 묻는 질문', info: '기본 정보', event: '팝업·이벤트' };
   const MENU_DESC = {
     home: '홈에 보이는 슬라이드·카드·표를 고칩니다. 섹션 제목·설명 문구는 <a href="#/texts/home">페이지 문구·사진 › 홈</a>에서 고칩니다.',
     reviews: '홈과 상품 페이지에 보이는 구매평입니다. 상품별 구매평 수·평점은 <a href="#/products">상품 정보</a>에서 고칩니다.',
     faq: '홈의 자주 묻는 질문과 상품 페이지 Q&A 에 보입니다.',
+    event: '사이트에 뜨는 팝업과 맨 위 띠 배너(이벤트·공지)를 넣고 기간을 정합니다. 기간은 한국 날짜로 손님 화면에서 확인해, 날짜가 되면 따로 저장하지 않아도 켜지고 꺼집니다. 큰 이벤트 배너는 <a href="#/site/home/HERO_SLIDES">홈 화면 › 첫 화면 슬라이드</a>에서 상품 없이 넣습니다.',
     info: '여러 페이지에 쓰이는 기본 정보입니다. 바닥글(회사 정보)은 <a href="#/texts/footer">페이지 문구·사진 › 바닥글</a>에서 고칩니다.',
   };
   const clone = x => JSON.parse(JSON.stringify(x ?? null));
@@ -795,9 +796,10 @@
       case 'check': return `<label class="chk"><input type="checkbox" ${dp} ${val ? 'checked' : ''}> ${h(f.label)}</label>`;
       case 'select': return `${lab}<select id="${id}" ${dp}>${f.opts.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
       case 'icon': return `${lab}<select id="${id}" ${dp}>${P.icons.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
-      case 'product': return `${lab}<select id="${id}" ${dp} data-num="1">${f.need ? '' : '<option value="">상품 없음(회원 혜택 배너)</option>'}${P.products.map(p => `<option value="${p.id}" ${p.id === +val ? 'selected' : ''}>${h(p.short)}</option>`).join('')}</select>`;
+      case 'product': return `${lab}<select id="${id}" ${dp} data-num="1">${f.need ? '' : '<option value="">상품 없음(이벤트 배너)</option>'}${P.products.map(p => `<option value="${p.id}" ${p.id === +val ? 'selected' : ''}>${h(p.short)}</option>`).join('')}</select>`;
       case 'num': return `${lab}<input type="number" id="${id}" ${dp} data-num="1" value="${h(val ?? '')}">`;
-      case 'image': return `${lab}<div class="imgf">${val ? `<img src="${h(imgSrc(val, f.base))}" alt="">` : '<span class="noimg">사진 없음</span>'}<div><button class="btn sm" type="button" data-act="img" data-p="${path}" data-maxw="${f.maxW || 1600}" data-ratio="${f.ratio || ''}">사진 바꾸기</button>${val && typeof val === 'object' && val.data ? '<p class="help">새 사진(저장하면 올라갑니다)</p>' : ''}</div></div>`;
+      case 'date': return `${lab}<input type="date" id="${id}" ${dp} value="${h(val ?? '')}" style="max-width:220px">`;
+      case 'image': return `${lab}<div class="imgf">${val ? `<img src="${h(imgSrc(val, f.base))}" alt="">` : '<span class="noimg">사진 없음</span>'}<div><button class="btn sm" type="button" data-act="img" data-p="${path}" data-maxw="${f.maxW || 1600}" data-ratio="${f.ratio || ''}">${val ? '사진 바꾸기' : '사진 올리기'}</button>${f.optional && val ? ` <button class="btn sm danger" type="button" data-act="img-del" data-p="${path}">사진 빼기</button>` : ''}${val && typeof val === 'object' && val.data ? '<p class="help">새 사진(저장하면 올라갑니다)</p>' : ''}</div></div>`;
       case 'table': {
         const rows = f.one ? [val || {}] : (val || []);
         return `<p class="flab">${h(f.label)}</p><div class="tbl-wrap"><table class="tbl-ed"><thead><tr>${f.cols.map(c => `<th>${h(c.label)}</th>`).join('')}${f.one ? '' : '<th></th>'}</tr></thead><tbody>${rows.map((r, ri) => `<tr>${f.cols.map(c => `<td><input type="${c.t === 'num' ? 'number' : 'text'}" aria-label="${h(c.label)}" data-p="${path}${f.one ? '' : '.' + ri}.${c.k}" ${c.t === 'num' ? 'data-num="1"' : ''} value="${h((r || {})[c.k] ?? '')}"></td>`).join('')}${f.one ? '' : `<td><button class="btn sm danger" type="button" data-act="row-del" data-p="${path}.${ri}">빼기</button></td>`}</tr>`).join('')}</tbody></table></div>${f.one ? '' : `<button class="btn sm" type="button" data-act="row-add" data-p="${path}" data-tuple="${f.tuple ? 1 : ''}">줄 추가</button>`}`;
@@ -808,7 +810,7 @@
   const blankOf = def => {
     if (def.prim) return '';
     const o = {};
-    for (const f of def.fields) o[f.k] = f.t === 'lines' ? [] : f.t === 'pair' ? (f.optional ? undefined : ['', '']) : f.t === 'color' ? '#F5F0EA' : f.t === 'check' ? false : f.t === 'select' ? f.opts[0][0] : f.t === 'icon' ? 'i-check' : f.t === 'table' ? (f.tuple ? [['', '']] : []) : f.t === 'image' || f.t === 'product' ? '' : f.t === 'num' ? 0 : '';
+    for (const f of def.fields) o[f.k] = f.t === 'lines' ? [] : f.t === 'pair' ? (f.optional ? undefined : ['', '']) : f.t === 'color' ? '#F5F0EA' : f.t === 'check' ? !!f.def : f.t === 'select' ? f.opts[0][0] : f.t === 'icon' ? 'i-check' : f.t === 'table' ? (f.tuple ? [['', '']] : []) : f.t === 'image' || f.t === 'product' ? '' : f.t === 'num' ? 0 : '';
     return o;
   };
   async function siteBlocks(menu, name, pf) {
@@ -823,7 +825,8 @@
     const visIdx = () => S.map((_, i) => i).filter(i => !PF || +(S[i] || {}).pid === PF);
     const open = new Set(def.list && !def.prim && visIdx().length <= 3 ? visIdx() : []);
     const prodName = id => (P.products.find(x => x.id === +id) || {}).short;
-    const sumOf = (it, i) => name === 'HERO_SLIDES' ? `${prodName(it.id) || '회원 혜택 배너'} · ${plainSum(it.title)}` : `${def.byProduct && !PF ? `${prodName(it.pid) || '상품 없음'} · ` : ''}${plainSum(def.title ? it[def.title] : it) || `${i + 1}번`}`;
+    const period = it => it.start || it.end ? `${(it.start || '').slice(5) || '지금'}~${(it.end || '').slice(5) || '계속'}` : '기간 없음';
+    const sumOf = (it, i) => name === 'HERO_SLIDES' ? `${prodName(it.id) || '이벤트 배너'} · ${plainSum(it.title)}` : def.menu === 'event' ? `${it.on === false ? '꺼짐' : '보임'} · ${period(it)} · ${plainSum(it[def.title]) || (it.img ? '사진 팝업' : `${i + 1}번`)}` : `${def.byProduct && !PF ? `${prodName(it.pid) || '상품 없음'} · ` : ''}${plainSum(def.title ? it[def.title] : it) || `${i + 1}번`}`;
     const imgField = !def.prim && def.list ? def.fields.find(f => f.t === 'image') : null;
     // k = 보이는 순서(0부터), n = 보이는 개수 — 위·아래는 보이는 것끼리 바꾼다
     const ctl = (i, n, k = i) => `<span class="bi-ctl"><button class="btn sm" type="button" data-act="up" data-p="${i}" ${k ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${k < n - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${S.length > (def.min || 0) ? '' : 'disabled'}>빼기</button></span>`;
@@ -887,6 +890,7 @@
         else if (act === 'add') { const it = blankOf(def); if (def.byProduct) it.pid = PF || 29; S.push(it); open.add(S.length - 1); }
         else if (act === 'openall') { visIdx().forEach(i => open.add(i)); }
         else if (act === 'img') { const [f] = await pickFiles(false); if (!f) return; const x = await prepImage(f, +b.dataset.maxw || 1600, +b.dataset.ratio || 0); setP(S, p, { data: x.data, w: x.w, h: x.h }); }
+        else if (act === 'img-del') { setP(S, p, ''); }
         else if (act === 'add-img') { for (const f of await pickFiles(true)) { const x = await prepImage(f, +b.dataset.maxw || 1000, +b.dataset.ratio || 0), img = { data: x.data, w: x.w, h: x.h }; S.push(def.grid ? { pid: PF || 29, src: img } : img); } }
         else if (act === 'row-add') { const arr = getP(S, p) || []; arr.push(b.dataset.tuple ? ['', ''] : {}); setP(S, p, arr); }
         else if (act === 'row-del') { const arr = getP(S, p.slice(0, -1)); arr.splice(p[p.length - 1], 1); }
