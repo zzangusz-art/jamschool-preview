@@ -37,7 +37,7 @@
       <div class="hero__bar" aria-hidden="true"><i id="hero-bar"></i></div>
       <div class="hero__rui">
         <button class="hero__ctrl" type="button" aria-label="영상 일시정지" data-state="playing"><svg><use href="#i-pause"/></svg></button>
-        <button class="hero__skip" type="button" id="hero-skip">건너뛰기<svg aria-hidden="true"><use href="#i-right"/></svg></button>
+        <button data-edit="home-001" class="hero__skip" type="button" id="hero-skip">건너뛰기<svg aria-hidden="true"><use href="#i-right"/></svg></button>
       </div>
     </div>
     <div class="hero__slides" id="hero-slides" role="region" aria-roledescription="carousel" aria-label="추천 상품" tabindex="-1">
@@ -48,7 +48,7 @@
         <button class="hs__btn hs__prev" type="button" aria-label="이전 슬라이드"><svg aria-hidden="true" style="transform:rotate(180deg)"><use href="#i-right"/></svg></button>
         <button class="hs__btn hs__next" type="button" aria-label="다음 슬라이드"><svg aria-hidden="true"><use href="#i-right"/></svg></button>
         <button class="hs__btn hs__pause" type="button" aria-label="자동 넘김 멈춤" aria-pressed="false"><svg aria-hidden="true"><use href="#i-pause"/></svg></button>
-        <button class="hs__replay" type="button"><svg aria-hidden="true"><use href="#i-play"/></svg><span>15초 영상</span></button>
+        <button class="hs__replay" type="button"><svg aria-hidden="true"><use href="#i-play"/></svg><span data-edit="home-002">15초 영상</span></button>
       </div>
     </div>
   </section>
@@ -61,58 +61,58 @@
   <section class="section best" id="best" aria-labelledby="best-t">
     <div class="wrap">
       <div class="sec-head sec-head--row">
-        <div><p class="eyebrow">BEST PRODUCT</p><h2 class="h-sec" id="best-t">잠스쿨 베스트</h2><p class="lead">3단 접이식 매트리스부터 함께 쓰기 좋은 베개·쿠션까지, 공식몰 판매가로 바로 보세요.</p></div>
+        <div><p data-edit="home-003" class="eyebrow">BEST PRODUCT</p><h2 data-edit="home-004" class="h-sec" id="best-t">잠스쿨 베스트</h2><p data-edit="home-005" class="lead">3단 접이식 매트리스부터 함께 쓰기 좋은 베개·쿠션까지, 공식몰 판매가로 바로 보세요.</p></div>
         <div class="chips" role="tablist" aria-label="상품 분류" id="best-filter">
-          <button class="chip" type="button" role="tab" aria-selected="true" data-f="all">전체</button>
-          <button class="chip" type="button" role="tab" aria-selected="false" data-f="mattress" tabindex="-1">매트리스</button>
-          <button class="chip" type="button" role="tab" aria-selected="false" data-f="bedding" tabindex="-1">침구·건강용품</button>
+          <button data-edit="home-006" class="chip" type="button" role="tab" aria-selected="true" data-f="all">전체</button>
+          <button data-edit="home-007" class="chip" type="button" role="tab" aria-selected="false" data-f="mattress" tabindex="-1">매트리스</button>
+          <button data-edit="home-008" class="chip" type="button" role="tab" aria-selected="false" data-f="bedding" tabindex="-1">침구·건강용품</button>
         </div>
       </div>
       <div class="pgrid pgrid--lg" id="best-grid">
         <!--@products--><!--/@products-->
       </div>
-      <div class="best-more"><a class="btn btn--line" href="shop.html">전체 상품 보기<svg aria-hidden="true"><use href="#i-right"/></svg></a></div>
+      <div class="best-more"><a data-edit="home-009" class="btn btn--line" href="shop.html">전체 상품 보기<svg aria-hidden="true"><use href="#i-right"/></svg></a></div>
     </div>
   </section>
   <!-- 리뷰: 두 줄 롤링 -->
   <section class="section section--soft" id="review" aria-labelledby="review-t">
     <div class="wrap">
       <div class="sec-head sec-head--row">
-        <div><p class="eyebrow">REAL REVIEW</p><h2 class="h-sec" id="review-t">잠스쿨을 경험하고 이야기하는 리얼 리뷰</h2></div>
+        <div><p data-edit="home-010" class="eyebrow">REAL REVIEW</p><h2 data-edit="home-011" class="h-sec" id="review-t">잠스쿨을 경험하고 이야기하는 리얼 리뷰</h2></div>
         <div class="rv-sum rv-sum--compact" data-reveal>
-          <p class="rv-sum__score"><span data-count="4.87">0</span></p>
-          <div class="rv-sum__meta"><span class="stars" style="--v:4.87" aria-hidden="true"></span><p>구매평 <b><!--@rv-n-->6,832<!--/@rv-n--></b>건</p><p class="note">3단 접이식 매트리스, <!--@rv-basis--><!--/@rv-basis--></p></div>
+          <p class="rv-sum__score"><span data-count="{{rv-score}}">0</span></p>
+          <div class="rv-sum__meta"><span class="stars" style="--v:{{rv-score}}" aria-hidden="true"></span><p>구매평 <b><!--@rv-n-->6,832<!--/@rv-n--></b>건</p><p class="note">3단 접이식 매트리스, <!--@rv-basis--><!--/@rv-basis--></p></div>
         </div>
       </div>
     </div>
     <!--@roll--><!--/@roll-->
     <div class="wrap">
-      <div class="roll-ctl"><button class="btn btn--line btn--sm" type="button" id="roll-toggle" aria-pressed="false">롤링 멈춤</button><a class="link-more" href="product-29.html#reviews">구매평 전체 보기<svg aria-hidden="true"><use href="#i-right"/></svg></a></div>
+      <div class="roll-ctl"><button data-edit="home-012" class="btn btn--line btn--sm" type="button" id="roll-toggle" aria-pressed="false">롤링 멈춤</button><a data-edit="home-013" class="link-more" href="product-29.html#reviews">구매평 전체 보기<svg aria-hidden="true"><use href="#i-right"/></svg></a></div>
       <div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div>
     </div>
   </section>
   <!-- 스크롤 시퀀스: 보관 → 소파 → 침대 -->
   <section class="fold" id="fold" aria-labelledby="fold-t">
     <div class="fold__stage">
-      <div class="fold__head"><p class="eyebrow">HOW IT FOLDS</p><h2 class="h-sec" id="fold-t">접고, 세우고, 펼치고</h2></div>
+      <div class="fold__head"><p data-edit="home-014" class="eyebrow">HOW IT FOLDS</p><h2 data-edit="home-015" class="h-sec" id="fold-t">접고, 세우고, 펼치고</h2></div>
       <div class="fold__canvas-wrap">
         <canvas class="fold__canvas" id="fold-canvas" width="1000" height="1000" role="img" aria-label="3단 매트리스가 겹쳐진 상태에서 소파 모양을 거쳐 펼쳐지는 장면"></canvas>
       </div>
       <div class="fold__steps">
         <article class="fold-step is-on" data-step="0">
-          <p class="fold-step__n">01</p><h3>접어서 보관</h3>
-          <p>세 장이 한 번에 겹쳐집니다. 아침에 접어 두면 방이 넓어집니다.</p>
-          <dl><div><dt>접은 크기(슈퍼싱글)</dt><dd>110 × 67 × 21·36cm</dd></div></dl>
+          <p class="fold-step__n">01</p><h3 data-edit="home-016">접어서 보관</h3>
+          <p data-edit="home-017">세 장이 한 번에 겹쳐집니다. 아침에 접어 두면 방이 넓어집니다.</p>
+          <dl><div><dt data-edit="home-018">접은 크기(슈퍼싱글)</dt><dd data-edit="home-019">110 × 67 × 21·36cm</dd></div></dl>
         </article>
         <article class="fold-step" data-step="1">
-          <p class="fold-step__n">02</p><h3>세우면 소파</h3>
-          <p>두 장은 겹쳐 앉는 자리로, 한 장은 등받이로. 낮에는 거실 소파와 재택근무 자리가 됩니다.</p>
-          <dl><div><dt>활용</dt><dd>거실 휴식 · 재택근무 · 손님 응대</dd></div></dl>
+          <p class="fold-step__n">02</p><h3 data-edit="home-020">세우면 소파</h3>
+          <p data-edit="home-021">두 장은 겹쳐 앉는 자리로, 한 장은 등받이로. 낮에는 거실 소파와 재택근무 자리가 됩니다.</p>
+          <dl><div><dt data-edit="home-022">활용</dt><dd data-edit="home-023">거실 휴식 · 재택근무 · 손님 응대</dd></div></dl>
         </article>
         <article class="fold-step" data-step="2">
-          <p class="fold-step__n">03</p><h3>펼치면 침대</h3>
-          <p>펼친 길이 200cm. 31kg/m³ 고밀도 폼이 누운 몸을 탄탄하게 지탱합니다.</p>
-          <dl><div><dt>폭</dt><dd>멀티싱글 75 · 슈퍼싱글 110 · 퀸 150cm</dd></div></dl>
+          <p class="fold-step__n">03</p><h3 data-edit="home-024">펼치면 침대</h3>
+          <p data-edit="home-025">펼친 길이 200cm. 31kg/m³ 고밀도 폼이 누운 몸을 탄탄하게 지탱합니다.</p>
+          <dl><div><dt data-edit="home-026">폭</dt><dd data-edit="home-027">멀티싱글 75 · 슈퍼싱글 110 · 퀸 150cm</dd></div></dl>
         </article>
       </div>
       <div class="fold__bar" aria-hidden="true"><i><b></b></i><i><b></b></i><i><b></b></i></div>
@@ -122,35 +122,35 @@
   <section class="section" id="features" aria-labelledby="features-t">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">FEATURES</p>
-        <h2 class="h-sec" id="features-t">매일 접고 펴는 매트리스라서<br class="br-md"> 이렇게 만들었습니다</h2>
-        <p class="lead">폼은 쉽게 꺼지지 않게, 커버는 빨기 쉽게, 바닥면은 밀리지 않게. 3단 접이식 매트리스를 살 때 가장 많이 묻는 걱정부터 막았습니다.</p>
+        <p data-edit="home-028" class="eyebrow">FEATURES</p>
+        <h2 data-edit="home-029" class="h-sec" id="features-t">매일 접고 펴는 매트리스라서<br class="br-md"> 이렇게 만들었습니다</h2>
+        <p data-edit="home-030" class="lead">폼은 쉽게 꺼지지 않게, 커버는 빨기 쉽게, 바닥면은 밀리지 않게. 3단 접이식 매트리스를 살 때 가장 많이 묻는 걱정부터 막았습니다.</p>
       </div>
       <!--@features--><!--/@features-->
-      <p class="feat-more"><a class="link-more" href="#safety">시험성적서로 확인하기<svg aria-hidden="true"><use href="#i-right"/></svg></a></p>
+      <p class="feat-more"><a data-edit="home-031" class="link-more" href="#safety">시험성적서로 확인하기<svg aria-hidden="true"><use href="#i-right"/></svg></a></p>
     </div>
   </section>
   <!-- 타사 대비 -->
   <section class="section section--soft" id="why" aria-labelledby="why-t">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">WHY JAMSCHOOL</p>
-        <h2 class="h-sec" id="why-t">더 싼 접이식 매트리스도 많습니다</h2>
-        <p class="lead">그래서 가격표만 놓고 고르지 않으셨으면 합니다. 같은 슈퍼싱글이라도 폼 밀도와 두께, 시험 근거, 보증 조건이 제각각입니다.</p>
+        <p data-edit="home-032" class="eyebrow">WHY JAMSCHOOL</p>
+        <h2 data-edit="home-033" class="h-sec" id="why-t">더 싼 접이식 매트리스도 많습니다</h2>
+        <p data-edit="home-034" class="lead">그래서 가격표만 놓고 고르지 않으셨으면 합니다. 같은 슈퍼싱글이라도 폼 밀도와 두께, 시험 근거, 보증 조건이 제각각입니다.</p>
       </div>
       <div class="why">
         <div class="why__chart" data-reveal><!--@market--><!--/@market--></div>
         <div class="why__sum" data-reveal="2">
           <p class="why__k">잠스쿨 바닥형 12cm · 슈퍼싱글 <!--@ourswon--></p>
-          <p class="why__v">폼 매트리스 중에서는 <em>높은 가격대</em>이고,<br>스프링 내장·천연라텍스와는 <em>비슷한 가격대</em>입니다.</p>
-          <div class="why__day"><p>2년 폼 보증 기간으로 나누면</p><b>하루 약 <!--@perday--><!--/@perday-->원</b><span><!--@ourswon--> ÷ 730일</span></div>
-          <p class="note">보증 기간 기준 단순 계산입니다. 실제 사용 기간은 사용 환경에 따라 다릅니다.</p>
+          <p data-edit="home-035" class="why__v">폼 매트리스 중에서는 <em>높은 가격대</em>이고,<br>스프링 내장·천연라텍스와는 <em>비슷한 가격대</em>입니다.</p>
+          <div class="why__day"><p data-edit="home-036">2년 폼 보증 기간으로 나누면</p><b>하루 약 <!--@perday--><!--/@perday-->원</b><span><!--@ourswon--> ÷ 730일</span></div>
+          <p data-edit="home-037" class="note">보증 기간 기준 단순 계산입니다. 실제 사용 기간은 사용 환경에 따라 다릅니다.</p>
         </div>
       </div>
       <div class="bento-head">
-        <p class="eyebrow">WHY JAMSCHOOL</p>
-        <h3 class="bento-head__t">매일 눕는 매트리스,<br class="br-md"> 이래서 잠스쿨을 고릅니다</h3>
-        <p class="bento-head__d">탄탄함과 안전, 보증까지 시험 결과로 확인하세요.</p>
+        <p data-edit="home-038" class="eyebrow">WHY JAMSCHOOL</p>
+        <h3 data-edit="home-039" class="bento-head__t">매일 눕는 매트리스,<br class="br-md"> 이래서 잠스쿨을 고릅니다</h3>
+        <p data-edit="home-040" class="bento-head__d">탄탄함과 안전, 보증까지 시험 결과로 확인하세요.</p>
       </div>
       <!--@bento--><!--/@bento-->
       <div class="acc bento-more" id="why-more"><!--@checks-acc--><!--/@checks-acc--></div>
@@ -160,103 +160,103 @@
   <section class="section section--warm" id="korea" aria-labelledby="korea-t">
     <div class="wrap">
       <div class="sec-head sec-head--center">
-        <p class="eyebrow">MADE IN KOREA</p>
-        <h2 class="h-sec" id="korea-t">폼부터 겉커버까지 국산 100%<br><em>가격표만 보고 비교하기 어렵습니다</em></h2>
-        <p class="lead">잠스쿨은 매트리스 폼부터 누빔 겉커버까지 국내에서 만듭니다. 어디서 만들고 무엇으로 확인했는지가 다르면, 같은 ‘3단 접이식’이라도 같은 제품이 아닙니다.</p>
+        <p data-edit="home-041" class="eyebrow">MADE IN KOREA</p>
+        <h2 data-edit="home-042" class="h-sec" id="korea-t">폼부터 겉커버까지 국산 100%<br><em>가격표만 보고 비교하기 어렵습니다</em></h2>
+        <p data-edit="home-043" class="lead">잠스쿨은 매트리스 폼부터 누빔 겉커버까지 국내에서 만듭니다. 어디서 만들고 무엇으로 확인했는지가 다르면, 같은 ‘3단 접이식’이라도 같은 제품이 아닙니다.</p>
       </div>
       <ol class="kr-flow">
-        <li data-reveal><span class="kr-flow__n">01</span><h3>폼</h3><p>내장재는 <b>국내에서 생산한 폼</b>입니다. 밀도 31kg/m³, 시험성적서 측정값 31.30kg/m³.</p></li>
-        <li data-reveal="2"><span class="kr-flow__n">02</span><h3>생산</h3><p>내장재 폼부터 누빔 겉커버까지 <b>국내에서 생산</b>합니다. 원산지는 대한민국입니다.</p></li>
-        <li data-reveal="3"><span class="kr-flow__n">03</span><h3>시험</h3><p>KATRI·SGS·한일원자력에서 <b>밀도·내구성·유해물질·라돈</b>을 시험하고 성적서를 공개합니다.</p></li>
-        <li data-reveal="4"><span class="kr-flow__n">04</span><h3>사후 관리</h3><p>국내 고객센터가 직접 응대하고, 2년 안에 폼이 꺼지면 <b>폼을 무상으로 교체</b>합니다.</p></li>
+        <li data-reveal><span class="kr-flow__n">01</span><h3 data-edit="home-044">폼</h3><p data-edit="home-045">내장재는 <b>국내에서 생산한 폼</b>입니다. 밀도 31kg/m³, 시험성적서 측정값 31.30kg/m³.</p></li>
+        <li data-reveal="2"><span class="kr-flow__n">02</span><h3 data-edit="home-046">생산</h3><p data-edit="home-047">내장재 폼부터 누빔 겉커버까지 <b>국내에서 생산</b>합니다. 원산지는 대한민국입니다.</p></li>
+        <li data-reveal="3"><span class="kr-flow__n">03</span><h3 data-edit="home-048">시험</h3><p data-edit="home-049">KATRI·SGS·한일원자력에서 <b>밀도·내구성·유해물질·라돈</b>을 시험하고 성적서를 공개합니다.</p></li>
+        <li data-reveal="4"><span class="kr-flow__n">04</span><h3 data-edit="home-050">사후 관리</h3><p data-edit="home-051">국내 고객센터가 직접 응대하고, 2년 안에 폼이 꺼지면 <b>폼을 무상으로 교체</b>합니다.</p></li>
       </ol>
       <div class="kr-why">
         <div class="kr-why__txt">
-          <h3>잠스쿨 가격에 들어 있는 것</h3>
-          <p>폼부터 겉커버까지 국내 생산, 밀도·내구성·유해물질·라돈 공인 시험, 2년 폼 교체 보증과 14일 무료체험(기간 한정). 이 조건을 함께 갖춘 값이라 폼 매트리스 중에서는 높은 가격대입니다.</p>
-          <p>더 싼 제품이 나쁘다는 뜻은 아닙니다. 국내에서 만든 저렴한 제품도 있고, 구성품마다 제조국이 다른 제품도 있습니다. 매일 깔고 자는 물건이니 가격 옆에 적힌 <b>구성품별 제조국과 시험 근거</b>를 같이 보고 고르셨으면 합니다.</p>
+          <h3 data-edit="home-052">잠스쿨 가격에 들어 있는 것</h3>
+          <p data-edit="home-053">폼부터 겉커버까지 국내 생산, 밀도·내구성·유해물질·라돈 공인 시험, 2년 폼 교체 보증과 14일 무료체험(기간 한정). 이 조건을 함께 갖춘 값이라 폼 매트리스 중에서는 높은 가격대입니다.</p>
+          <p data-edit="home-054">더 싼 제품이 나쁘다는 뜻은 아닙니다. 국내에서 만든 저렴한 제품도 있고, 구성품마다 제조국이 다른 제품도 있습니다. 매일 깔고 자는 물건이니 가격 옆에 적힌 <b>구성품별 제조국과 시험 근거</b>를 같이 보고 고르셨으면 합니다.</p>
         </div>
         <dl class="kr-why__dl">
-          <div><dt>제조국</dt><dd>대한민국 <span>폼·겉커버 모두</span></dd></div>
-          <div><dt>폼 밀도</dt><dd>31.30kg/m³ <span>KATRI 측정</span></dd></div>
-          <div><dt>유해물질</dt><dd>미검출 <span>SGS 6대 유해물질</span></dd></div>
-          <div><dt>라돈</dt><dd>7.6Bq/m³ 미만 <span>한일원자력</span></dd></div>
-          <div><dt>폼 보증</dt><dd>2년 <span>꺼지면 무상 교체</span></dd></div>
+          <div><dt data-edit="home-055">제조국</dt><dd data-edit="home-056">대한민국 <span data-edit="home-057">폼·겉커버 모두</span></dd></div>
+          <div><dt data-edit="home-058">폼 밀도</dt><dd data-edit="home-059">31.30kg/m³ <span data-edit="home-060">KATRI 측정</span></dd></div>
+          <div><dt data-edit="home-061">유해물질</dt><dd data-edit="home-062">미검출 <span data-edit="home-063">SGS 6대 유해물질</span></dd></div>
+          <div><dt data-edit="home-064">라돈</dt><dd data-edit="home-065">7.6Bq/m³ 미만 <span data-edit="home-066">한일원자력</span></dd></div>
+          <div><dt data-edit="home-067">폼 보증</dt><dd data-edit="home-068">2년 <span data-edit="home-069">꺼지면 무상 교체</span></dd></div>
         </dl>
       </div>
-      <p class="kr-tip">다른 제품을 볼 때는 상세페이지 아래 <b>‘상품정보 제공고시’의 제조국</b>(구성품마다 다를 수 있습니다)과 <b>시험성적서 공개 여부</b>를 먼저 확인해 보세요.</p>
+      <p data-edit="home-070" class="kr-tip">다른 제품을 볼 때는 상세페이지 아래 <b>‘상품정보 제공고시’의 제조국</b>(구성품마다 다를 수 있습니다)과 <b>시험성적서 공개 여부</b>를 먼저 확인해 보세요.</p>
     </div>
   </section>
   <!-- 가격 -->
   <section class="section" id="price" aria-labelledby="price-t">
     <div class="wrap">
       <div class="sec-head sec-head--center">
-        <p class="eyebrow">PRICE</p>
-        <h2 class="h-sec" id="price-t">가격은 두께와 사이즈로만 정해집니다</h2>
-        <p class="lead">그레이와 아이보리는 같은 가격입니다. 14일 무료체험과 2년 폼 교체 보증은 모든 옵션에 똑같이 들어갑니다.</p>
+        <p data-edit="home-071" class="eyebrow">PRICE</p>
+        <h2 data-edit="home-072" class="h-sec" id="price-t">가격은 두께와 사이즈로만 정해집니다</h2>
+        <p data-edit="home-073" class="lead">그레이와 아이보리는 같은 가격입니다. 14일 무료체험과 2년 폼 교체 보증은 모든 옵션에 똑같이 들어갑니다.</p>
       </div>
       <div class="tabs tabs--center" role="tablist" aria-label="두께 선택" id="price-tabs"><!--@price-tabs--><!--/@price-tabs--></div>
       <!--@price-panels--><!--/@price-panels-->
       <ul class="price-incl">
-        <li><svg aria-hidden="true"><use href="#i-truck"/></svg>(기간 한정) 무료 배송</li>
-        <li><svg aria-hidden="true"><use href="#i-drop"/></svg>방수 속커버 증정 (이벤트 기간)</li>
-        <li><svg aria-hidden="true"><use href="#i-cal"/></svg>14일 무료체험</li>
-        <li><svg aria-hidden="true"><use href="#i-shield"/></svg>2년 폼 무상 교체</li>
+        <li data-edit="home-074"><svg aria-hidden="true"><use href="#i-truck"/></svg>(기간 한정) 무료 배송</li>
+        <li data-edit="home-075"><svg aria-hidden="true"><use href="#i-drop"/></svg>방수 속커버 증정 (이벤트 기간)</li>
+        <li data-edit="home-076"><svg aria-hidden="true"><use href="#i-cal"/></svg>14일 무료체험</li>
+        <li data-edit="home-077"><svg aria-hidden="true"><use href="#i-shield"/></svg>2년 폼 무상 교체</li>
       </ul>
-      <p class="note price-note">정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준이며, 쿠폰 적용 전 금액입니다. 가입축하 쿠폰(10,000원)은 공식몰(jamschool.co.kr) 회원 결제에 적용됩니다. 하루 비용은 할인가를 폼 보증 기간 730일로 나눈 값입니다.</p>
+      <p data-edit="home-078" class="note price-note">정가와 할인가는 3단 상세페이지 이벤트 가격표(2026년 10월) 기준이며, 쿠폰 적용 전 금액입니다. 가입축하 쿠폰(10,000원)은 공식몰(jamschool.co.kr) 회원 결제에 적용됩니다. 하루 비용은 할인가를 폼 보증 기간 730일로 나눈 값입니다.</p>
     </div>
   </section>
   <!-- 두께·사이즈 가이드 -->
   <section class="section section--soft" id="guide" aria-labelledby="guide-t">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">CHOOSE YOUR SIZE</p>
-        <h2 class="h-sec" id="guide-t">두께와 사이즈 고르기</h2>
-        <p class="lead">어디에 깔지, 몇 명이 쓸지만 고르세요. 맞는 옵션의 펼친 크기와 접은 크기, 무게, 판매가를 바로 보여 드립니다.</p>
+        <p data-edit="home-079" class="eyebrow">CHOOSE YOUR SIZE</p>
+        <h2 data-edit="home-080" class="h-sec" id="guide-t">두께와 사이즈 고르기</h2>
+        <p data-edit="home-081" class="lead">어디에 깔지, 몇 명이 쓸지만 고르세요. 맞는 옵션의 펼친 크기와 접은 크기, 무게, 판매가를 바로 보여 드립니다.</p>
       </div>
       <div class="guide">
         <div>
           <div class="spec-viz" aria-live="polite">
-            <div class="spec-viz__cap"><span>펼쳤을 때</span><span>접었을 때</span></div>
+            <div class="spec-viz__cap"><span data-edit="home-082">펼쳤을 때</span><span data-edit="home-083">접었을 때</span></div>
             <svg id="viz" viewBox="0 0 640 360" role="img" aria-label="선택한 옵션의 크기 도식"></svg>
           </div>
           <dl class="spec-list" id="spec-list"></dl>
         </div>
         <div class="guide__panel" id="guide-panel">
           <div class="reco">
-            <p class="reco__q">어디에 까시나요?</p>
+            <p data-edit="home-084" class="reco__q">어디에 까시나요?</p>
             <div class="chips" role="radiogroup" aria-label="사용 위치" data-reco="t">
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="7">침대 위에만</button>
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="12">바닥 또는 둘 다</button>
+              <button data-edit="home-085" class="chip" type="button" role="radio" aria-checked="false" data-v="7">침대 위에만</button>
+              <button data-edit="home-086" class="chip" type="button" role="radio" aria-checked="false" data-v="12">바닥 또는 둘 다</button>
             </div>
-            <p class="reco__q" style="margin-top:14px">누가 쓰시나요?</p>
+            <p data-edit="home-087" class="reco__q" style="margin-top:14px">누가 쓰시나요?</p>
             <div class="chips" role="radiogroup" aria-label="사용 인원" data-reco="s">
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="MS">아이 · 차박 · 캠핑</button>
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="SS">성인 1명</button>
-              <button class="chip" type="button" role="radio" aria-checked="false" data-v="Q">2명 · 넓게</button>
+              <button data-edit="home-088" class="chip" type="button" role="radio" aria-checked="false" data-v="MS">아이 · 차박 · 캠핑</button>
+              <button data-edit="home-089" class="chip" type="button" role="radio" aria-checked="false" data-v="SS">성인 1명</button>
+              <button data-edit="home-090" class="chip" type="button" role="radio" aria-checked="false" data-v="Q">2명 · 넓게</button>
             </div>
-            <p class="reco__a" id="reco-a">두 가지를 고르면 맞는 옵션을 골라 드립니다.</p>
+            <p data-edit="home-091" class="reco__a" id="reco-a">두 가지를 고르면 맞는 옵션을 골라 드립니다.</p>
           </div>
           <div class="field">
-            <p class="field__label" id="lb-t">두께<span id="lb-t-note"></span></p>
+            <p data-edit="home-092" class="field__label" id="lb-t">두께<span id="lb-t-note"></span></p>
             <div class="seg" role="radiogroup" aria-labelledby="lb-t" id="opt-t"></div>
           </div>
           <div class="field">
-            <p class="field__label" id="lb-s">사이즈<span>폭 × 길이 200cm</span></p>
+            <p data-edit="home-093" class="field__label" id="lb-s">사이즈<span data-edit="home-094">폭 × 길이 200cm</span></p>
             <div class="sizes" role="radiogroup" aria-labelledby="lb-s" id="opt-s"></div>
           </div>
           <div class="field">
-            <p class="field__label" id="lb-c">색상</p>
+            <p data-edit="home-095" class="field__label" id="lb-c">색상</p>
             <div class="colors" role="radiogroup" aria-labelledby="lb-c" id="opt-c"></div>
           </div>
           <div class="guide__cta">
-            <a class="btn btn--line" href="product-29.html">상세 보기</a>
-            <button class="btn btn--primary" type="button" id="guide-add">장바구니 담기</button>
+            <a data-edit="home-096" class="btn btn--line" href="product-29.html">상세 보기</a>
+            <button data-edit="home-097" class="btn btn--primary" type="button" id="guide-add">장바구니 담기</button>
           </div>
         </div>
       </div>
       <details class="spec-more" style="margin-top:32px">
-        <summary>옵션별 크기·무게·가격 전체 보기</summary>
+        <summary data-edit="home-098">옵션별 크기·무게·가격 전체 보기</summary>
         <div style="margin-top:14px"><!--@spec--><!--/@spec--></div>
       </details>
     </div>
@@ -265,15 +265,15 @@
   <section class="section" id="safety" aria-labelledby="safety-t">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">TECHNOLOGY / SAFETY</p>
-        <h2 class="h-sec" id="safety-t">잠스쿨의 기술력과 안전성을 확인하세요</h2>
-        <p class="lead">밀도와 내구성, 유해물질, 라돈까지. 공인 시험기관 성적서의 수치를 그대로 옮겼습니다.</p>
+        <p data-edit="home-099" class="eyebrow">TECHNOLOGY / SAFETY</p>
+        <h2 data-edit="home-100" class="h-sec" id="safety-t">잠스쿨의 기술력과 안전성을 확인하세요</h2>
+        <p data-edit="home-101" class="lead">밀도와 내구성, 유해물질, 라돈까지. 공인 시험기관 성적서의 수치를 그대로 옮겼습니다.</p>
       </div>
       <div class="stats">
-        <div class="stat" data-reveal><p class="stat__v"><span data-count="31.30">0</span><small>kg/m³</small></p><p class="stat__k">매트리스 폼 밀도</p><p class="stat__src">KATRI · KS M 6672</p></div>
-        <div class="stat" data-reveal="2"><p class="stat__v"><span data-count="100000">0</span><small>회</small></p><p class="stat__k">반복 압축 내구성 시험</p><p class="stat__src">KATRI · KS M 6672:2016</p></div>
-        <div class="stat" data-reveal="3"><p class="stat__v"><span data-count="7.6">0</span><small>Bq/m³ 미만</small></p><p class="stat__k">라돈 검출 결과<br>(환경부 권고 기준 148)</p><p class="stat__src">한일원자력</p></div>
-        <div class="stat" data-reveal="4"><p class="stat__v"><span data-count="6">0</span><small>대</small></p><p class="stat__k">유해물질 미검출</p><p class="stat__src">SGS</p></div>
+        <div class="stat" data-reveal><p class="stat__v"><span data-count="31.30">0</span><small data-edit="home-102">kg/m³</small></p><p data-edit="home-103" class="stat__k">매트리스 폼 밀도</p><p data-edit="home-104" class="stat__src">KATRI · KS M 6672</p></div>
+        <div class="stat" data-reveal="2"><p class="stat__v"><span data-count="100000">0</span><small data-edit="home-105">회</small></p><p data-edit="home-106" class="stat__k">반복 압축 내구성 시험</p><p data-edit="home-107" class="stat__src">KATRI · KS M 6672:2016</p></div>
+        <div class="stat" data-reveal="3"><p class="stat__v"><span data-count="7.6">0</span><small data-edit="home-108">Bq/m³ 미만</small></p><p data-edit="home-109" class="stat__k">라돈 검출 결과<br>(환경부 권고 기준 148)</p><p data-edit="home-110" class="stat__src">한일원자력</p></div>
+        <div class="stat" data-reveal="4"><p class="stat__v"><span data-count="6">0</span><small data-edit="home-111">대</small></p><p data-edit="home-112" class="stat__k">유해물질 미검출</p><p data-edit="home-113" class="stat__src">SGS</p></div>
       </div>
       <div class="acc" id="tests"><!--@tests--><!--/@tests--></div>
     </div>
@@ -282,9 +282,9 @@
   <section class="section section--warm" id="use" aria-labelledby="use-t">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">EVERYDAY USE</p>
-        <h2 class="h-sec" id="use-t">자취방에서, 거실에서, 차&nbsp;안에서</h2>
-        <p class="lead">쓰는 곳에 맞춰 두께와 사이즈를 고르세요.</p>
+        <p data-edit="home-114" class="eyebrow">EVERYDAY USE</p>
+        <h2 data-edit="home-115" class="h-sec" id="use-t">자취방에서, 거실에서, 차&nbsp;안에서</h2>
+        <p data-edit="home-116" class="lead">쓰는 곳에 맞춰 두께와 사이즈를 고르세요.</p>
       </div>
       <div class="tabs" role="tablist" aria-label="사용 장면" id="use-tabs"><!--@uses-tabs--><!--/@uses-tabs--></div>
       <div class="tabpanel" role="tabpanel" id="use-p" aria-labelledby="use-t0" tabindex="0"><!--@uses-panel--><!--/@uses-panel--></div>
@@ -294,31 +294,31 @@
   <section class="section" id="promise" aria-labelledby="promise-t">
     <div class="wrap">
       <div class="sec-head">
-        <p class="eyebrow">PROMISE</p>
-        <h2 class="h-sec" id="promise-t">써 보고 결정하세요</h2>
+        <p data-edit="home-117" class="eyebrow">PROMISE</p>
+        <h2 data-edit="home-118" class="h-sec" id="promise-t">써 보고 결정하세요</h2>
       </div>
       <div class="promise">
-        <div class="pr pr--dark" data-reveal><span class="pr__ic"><svg aria-hidden="true"><use href="#i-cal"/></svg></span><h3>14일 무료체험</h3><p>14일 동안 써 보고 만족스럽지 않으면 환불해 드립니다.</p></div>
-        <div class="pr" data-reveal="2"><span class="pr__ic"><svg aria-hidden="true"><use href="#i-shield"/></svg></span><h3>2년 폼 교체 보증</h3><p>2년 안에 폼이 꺼지면 무상으로 교체합니다.</p></div>
-        <div class="pr" data-reveal="3"><span class="pr__ic"><svg aria-hidden="true"><use href="#i-truck"/></svg></span><h3>오후 1시 당일 출고</h3><p>오후 1시 이전 결제 확인 시 당일 발송합니다. 주말·공휴일 제외.</p></div>
-        <div class="pr" data-reveal="4"><span class="pr__ic"><svg aria-hidden="true"><use href="#i-drop"/></svg></span><h3>방수 속커버 증정</h3><p>이벤트 기간에는 매트리스에 씌워 보내 드립니다.</p></div>
+        <div class="pr pr--dark" data-reveal><span class="pr__ic"><svg aria-hidden="true"><use href="#i-cal"/></svg></span><h3 data-edit="home-119">14일 무료체험</h3><p data-edit="home-120">14일 동안 써 보고 만족스럽지 않으면 환불해 드립니다.</p></div>
+        <div class="pr" data-reveal="2"><span class="pr__ic"><svg aria-hidden="true"><use href="#i-shield"/></svg></span><h3 data-edit="home-121">2년 폼 교체 보증</h3><p data-edit="home-122">2년 안에 폼이 꺼지면 무상으로 교체합니다.</p></div>
+        <div class="pr" data-reveal="3"><span class="pr__ic"><svg aria-hidden="true"><use href="#i-truck"/></svg></span><h3 data-edit="home-123">오후 1시 당일 출고</h3><p data-edit="home-124">오후 1시 이전 결제 확인 시 당일 발송합니다. 주말·공휴일 제외.</p></div>
+        <div class="pr" data-reveal="4"><span class="pr__ic"><svg aria-hidden="true"><use href="#i-drop"/></svg></span><h3 data-edit="home-125">방수 속커버 증정</h3><p data-edit="home-126">이벤트 기간에는 매트리스에 씌워 보내 드립니다.</p></div>
       </div>
-      <div class="promise-foot"><button class="link-more" type="button" data-open="terms">혜택·보증 조건 자세히<svg aria-hidden="true"><use href="#i-right"/></svg></button></div>
+      <div class="promise-foot"><button data-edit="home-127" class="link-more" type="button" data-open="terms">혜택·보증 조건 자세히<svg aria-hidden="true"><use href="#i-right"/></svg></button></div>
     </div>
   </section>
   <!-- FAQ -->
   <section class="section section--soft" id="faq" aria-labelledby="faq-t">
     <div class="wrap" style="max-width:920px">
       <div class="sec-head sec-head--center">
-        <p class="eyebrow">FAQ</p>
-        <h2 class="h-sec" id="faq-t">자주 묻는 질문</h2>
+        <p data-edit="home-128" class="eyebrow">FAQ</p>
+        <h2 data-edit="home-129" class="h-sec" id="faq-t">자주 묻는 질문</h2>
       </div>
       <div class="chips faq-filter" id="faq-filter" role="group" aria-label="질문 분류">
-        <button class="chip" type="button" aria-pressed="true" data-f="all">전체</button>
-        <button class="chip" type="button" aria-pressed="false" data-f="product">제품</button>
-        <button class="chip" type="button" aria-pressed="false" data-f="size">사이즈</button>
-        <button class="chip" type="button" aria-pressed="false" data-f="price">가격</button>
-        <button class="chip" type="button" aria-pressed="false" data-f="ship">배송·반품</button>
+        <button data-edit="home-130" class="chip" type="button" aria-pressed="true" data-f="all">전체</button>
+        <button data-edit="home-131" class="chip" type="button" aria-pressed="false" data-f="product">제품</button>
+        <button data-edit="home-132" class="chip" type="button" aria-pressed="false" data-f="size">사이즈</button>
+        <button data-edit="home-133" class="chip" type="button" aria-pressed="false" data-f="price">가격</button>
+        <button data-edit="home-134" class="chip" type="button" aria-pressed="false" data-f="ship">배송·반품</button>
       </div>
       <div class="acc" id="faq-list"><!--@faq--><!--/@faq--></div>
     </div>
@@ -327,8 +327,8 @@
   <section class="section" id="blog" aria-labelledby="blog-t">
     <div class="wrap">
       <div class="sec-head sec-head--row">
-        <div><p class="eyebrow">SLEEP GUIDE</p><h2 class="h-sec" id="blog-t">잠스쿨 수면 가이드</h2><p class="lead">사기 전에 많이 묻는 질문을 하나씩 글로 정리합니다.</p></div>
-        <a class="link-more" href="blog/">전체 글 보기<svg aria-hidden="true"><use href="#i-right"/></svg></a>
+        <div><p data-edit="home-135" class="eyebrow">SLEEP GUIDE</p><h2 data-edit="home-136" class="h-sec" id="blog-t">잠스쿨 수면 가이드</h2><p data-edit="home-137" class="lead">사기 전에 많이 묻는 질문을 하나씩 글로 정리합니다.</p></div>
+        <a data-edit="home-138" class="link-more" href="blog/">전체 글 보기<svg aria-hidden="true"><use href="#i-right"/></svg></a>
       </div>
       <div class="post-grid"><!--@posts--><!--/@posts--></div>
     </div>
@@ -337,20 +337,20 @@
   <section class="section section--soft" id="story" aria-labelledby="story-t">
     <div class="wrap">
       <div class="story">
-        <div class="story__img" data-reveal><img src="assets/img/products/29/02.jpg" alt="잠스쿨 매트리스 위에서 기지개를 켜는 모습" width="1000" height="1000" loading="lazy"></div>
+        <div class="story__img" data-reveal><img src="assets/img/products/29/02.jpg" alt="잠스쿨 매트리스 위에서 기지개를 켜는 모습" width="1000" height="1000" loading="lazy" data-edit-img="home-img-1"></div>
         <div data-reveal="2">
-          <p class="eyebrow">JAMSCHOOL STORY</p>
+          <p data-edit="home-139" class="eyebrow">JAMSCHOOL STORY</p>
           <h2 class="sr-only" id="story-t">잠스쿨 스토리</h2>
-          <blockquote style="margin-top:14px">잠스쿨은 <em>잠에 대한 고민</em>에서 시작했습니다.</blockquote>
-          <p>다양한 수면 고민을 가진 분들을 만나며 그 고민에 공감했습니다. 모든 사람이 걱정 없이 잘 수 있도록 올바른 수면을 고민하고 연구합니다. 지금의 3단 접이식 매트리스는 잠스쿨 연구소의 4세대 제품입니다.</p>
+          <blockquote data-edit="home-140" style="margin-top:14px">잠스쿨은 <em>잠에 대한 고민</em>에서 시작했습니다.</blockquote>
+          <p data-edit="home-141">다양한 수면 고민을 가진 분들을 만나며 그 고민에 공감했습니다. 모든 사람이 걱정 없이 잘 수 있도록 올바른 수면을 고민하고 연구합니다. 지금의 3단 접이식 매트리스는 잠스쿨 연구소의 4세대 제품입니다.</p>
           <ol class="timeline" aria-label="3단 매트리스 개발 과정">
-            <li>수많은 소비자 니즈 조사</li>
-            <li>2만 개가 넘는 자사 고객 후기 분석</li>
-            <li>수백 번의 수면 체험 분석</li>
-            <li>제품 테스트와 공인 시험</li>
+            <li data-edit="home-142">수많은 소비자 니즈 조사</li>
+            <li data-edit="home-143">2만 개가 넘는 자사 고객 후기 분석</li>
+            <li data-edit="home-144">수백 번의 수면 체험 분석</li>
+            <li data-edit="home-145">제품 테스트와 공인 시험</li>
           </ol>
-          <p style="margin-top:22px;font-size:15px;color:var(--ink);font-weight:700">공식몰 외에 이곳에서도 만날 수 있습니다</p>
-          <div class="channels"><a href="https://smartstore.naver.com/healingq/products/7338124791" target="_blank" rel="noopener">네이버 스마트스토어</a><span>11번가</span><span>오늘의집</span><span>GS샵</span><span>현대Hmall</span></div>
+          <p data-edit="home-146" style="margin-top:22px;font-size:15px;color:var(--ink);font-weight:700">공식몰 외에 이곳에서도 만날 수 있습니다</p>
+          <div class="channels"><a data-edit="home-147" href="https://smartstore.naver.com/healingq/products/7338124791" target="_blank" rel="noopener">네이버 스마트스토어</a><span data-edit="home-148">11번가</span><span data-edit="home-149">오늘의집</span><span data-edit="home-150">GS샵</span><span data-edit="home-151">현대Hmall</span></div>
         </div>
       </div>
     </div>
@@ -362,7 +362,7 @@
 <div class="layer modal" id="rvm" role="dialog" aria-modal="true" aria-labelledby="rvm-t" aria-hidden="true" hidden>
   <div class="layer__dim"></div>
   <div class="modal__box modal__box--full" style="max-width:600px">
-    <div class="modal__head"><h2 id="rvm-t">BEST 구매평</h2><button class="icon-btn" type="button" data-close aria-label="닫기"><svg><use href="#i-x"/></svg></button></div>
+    <div class="modal__head"><h2 data-edit="home-152" id="rvm-t">BEST 구매평</h2><button class="icon-btn" type="button" data-close aria-label="닫기"><svg><use href="#i-x"/></svg></button></div>
     <div class="modal__body" id="rvm-body"></div>
   </div>
 </div>

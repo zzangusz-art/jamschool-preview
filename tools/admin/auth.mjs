@@ -12,7 +12,7 @@ const FILE = process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'admin-users
 const SECRET = process.env.SESSION_SECRET || (process.env.ADMIN_STORE === 'local' ? crypto.randomBytes(32).toString('hex') : '');
 const TTL = 12 * 3600e3;
 
-export const ROLES = { owner: '관리자', client: '클라이언트' };
+export const ROLES = { owner: '총괄 관리자', client: '잠스쿨 관리자' };
 export function hashPassword(pw) {
   const salt = crypto.randomBytes(16);
   return `scrypt$${salt.toString('base64')}$${crypto.scryptSync(pw, salt, 32).toString('base64')}`;

@@ -110,68 +110,6 @@
   function checksHTML(list) {
     return `<div class="chk"><div class="chk__head" aria-hidden="true"><span>확인할 것</span><span>잠스쿨</span><span>시중 제품 볼 때</span></div>${list.map(c => `<div class="chk__row"><p class="chk__q">${esc(c.q)}</p><p class="chk__a"><b>${esc(c.a)}</b><span>${esc(c.s)}</span></p><p class="chk__m">${esc(c.m)}</p></div>`).join('')}</div>`;
   }
-  // ── 구매 이유 벤토 그리드(왜 잠스쿨): 시험 수치를 혜택 문장 + 실사·시연 영상으로. 값은 TESTS·MARKET·PRODUCTS 에서만
-  function bentoHTML({ T, M, P }) {
-    const t = f => T.findIndex(x => x.cert === `certs/${f}.jpg`);
-    const cert = (i, label = '성적서') => i < 0 ? '' : `<button class="bt__cert" type="button" data-proof-cert="${i}">${esc(label)}<svg aria-hidden="true"><use href="#i-right"/></svg></button>`;
-    const iR = t('radon'), iC = t('katri-compression'), iD = t('katri-density'), iS = t('sgs'), iF = t('katri-formaldehyde'), iM = t('katri-mite');
-    const radonPct = Math.floor(7.6 / 148 * 1000) / 10;          // 5.1 (버림)
-    const day = Math.round(M.ours.v / 730);
-    const subs = ['중금속', 'PBBs', 'PBDEs', 'HBCDD', '폼알데하이드', '아릴아민', '알레르기성 염료'];
-    const ph = (src, alt = '') => pic(src, `alt="${esc(alt)}" loading="lazy" decoding="async" width="1000" height="1000"`);
-    return `<div class="bento">
-      <article class="bt bt--video bt--a" data-reveal>
-        <video class="bt__bg" data-src="assets/video/bento-foam.mp4" poster="assets/video/bento-foam.jpg" muted loop playsinline preload="none" aria-hidden="true"></video>
-        <div class="bt__body"><p class="bt__eyebrow">31kg 고밀도 폼</p><h4 class="bt__t">차가 밟고 지나가도<br>다시 펴지는 탄탄함</h4><p class="bt__d">KATRI 측정 밀도 <b>31.30kg/m³</b> · 폼 시연 영상</p>${cert(iD, '밀도 성적서')}</div>
-      </article>
-      <article class="bt bt--navy bt--b" data-reveal="2">
-        <p class="bt__eyebrow">10만 번 반복 압축 시험</p>
-        <p class="bt__num"><b data-count="99">99</b><span>%</span></p>
-        <div><h4 class="bt__t">10만 번 눌러도 두께는 그대로</h4><p class="bt__d">영구 줄음률 1% · KATRI · KS M 6672:2016</p>${cert(iC)}</div>
-        <span class="bt__meter" aria-hidden="true"><i style="--w:99%"></i></span>
-      </article>
-      <article class="bt bt--sky bt--c" data-reveal>
-        <p class="bt__eyebrow">라돈</p>
-        <p class="bt__num"><b data-count="${radonPct}">${radonPct}</b><span>% 미만</span></p>
-        <p class="bt__d">환경부 실내 권고 기준 148Bq/m³ 대비<br><b>7.6Bq/m³ 미만</b></p>
-        <span class="bt__radon" aria-hidden="true"><i class="bt__radon-std"></i><i class="bt__radon-ours" style="--w:${(7.6 / 148 * 100).toFixed(2)}%"></i></span>
-        ${cert(iR)}
-      </article>
-      <article class="bt bt--white bt--d" data-reveal="2">
-        <span class="bt__ic" aria-hidden="true"><svg><use href="#i-flag"/></svg></span>
-        <p class="bt__num"><b>100</b><span>%</span></p>
-        <div><h4 class="bt__t">폼부터 겉커버까지<br>국내 생산</h4><p class="bt__d">특허 제10-2378668호 다층구조 매트리스</p></div>
-      </article>
-      <article class="bt bt--photo bt--e" data-reveal>
-        ${ph('assets/img/products/29/02.jpg', '3단 접이식 매트리스 위에서 기지개를 켜는 모습')}
-        <div class="bt__body"><p class="bt__eyebrow">기간 한정</p><h4 class="bt__t">14일 써 보고<br>결정하세요</h4><p class="bt__d">마음에 들지 않으면 환불해 드립니다. 반품 왕복 배송비는 고객 부담입니다.</p><button class="bt__btn" type="button" data-open="terms">체험 조건 보기</button></div>
-      </article>
-      <article class="bt bt--soft bt--f" data-reveal="2">
-        <p class="bt__eyebrow">가족이 매일 눕는 매트리스라서</p>
-        <h4 class="bt__t">유해물질 <em>${subs.length}가지</em>, 모두 미검출·통과</h4>
-        <ul class="bt__chips">${subs.map(s => `<li><svg aria-hidden="true"><use href="#i-check"/></svg>${esc(s)}</li>`).join('')}</ul>
-        <p class="bt__certs">${cert(iS, 'SGS 성적서')}${cert(iF, 'KATRI 성적서')}</p>
-      </article>
-      <article class="bt bt--photo bt--g" data-reveal>
-        ${ph('assets/img/products/29/07.jpg', '누빔 커버를 손으로 쓰다듬는 모습')}
-        <div class="bt__body"><p class="bt__eyebrow">누빔 커버</p><h4 class="bt__t">진드기보다<br>10배 작은 틈</h4><p class="bt__d">커버 최대 기공 0.02mm · 진드기 0.2mm 이상 · KATRI</p>${cert(iM)}</div>
-      </article>
-      <article class="bt bt--white bt--h" data-reveal="2">
-        <p class="bt__eyebrow">2년 폼 교체 보증</p>
-        <p class="bt__num"><b data-count="2">2</b><span>년</span></p>
-        <div><h4 class="bt__t">꺼지면 폼을<br>무상으로 교체</h4><p class="bt__d">2년으로 나누면 하루 약 <b>${day.toLocaleString('ko-KR')}원</b></p></div>
-      </article>
-      <article class="bt bt--white bt--pic bt--i" data-reveal>
-        <div class="bt__pic">${ph('assets/img/products/29/03.jpg', '바닥형 12cm와 침대형 7cm 두께 비교')}</div>
-        <div><p class="bt__eyebrow">두께 선택</p><h4 class="bt__t">바닥엔 12cm, 침대 위엔 7cm</h4></div>
-      </article>
-      <article class="bt bt--cta bt--j" data-reveal="2">
-        <p class="bt__rv"><span class="stars" style="--v:${P.rating}" aria-hidden="true"></span><b>${P.rating.toFixed(2)}</b> · 구매평 ${P.reviews.toLocaleString('ko-KR')}건</p>
-        <div><p class="bt__price"><span>${rate(P)}%</span><b>${won(P.price)}</b>부터</p><p class="bt__d">할인가 · 구매평 공식몰 기준</p></div>
-        <div class="bt__ctas"><a class="btn btn--primary" href="${href(P)}">제품 보기</a><a class="btn btn--line" href="#price">가격표</a></div>
-      </article>
-    </div>`;
-  }
   // ── 롤링 후기 (두 줄, 반대 방향). 복제본은 보조기기에서 숨긴다
   function reviewRollHTML(best, shorts) {
     const card1 = (r, i, dup) => `<button class="roll-card" type="button" data-rv="${i}"${dup ? ' tabindex="-1" aria-hidden="true"' : ''}><span class="roll-card__top"><span class="stars" style="--v:5" aria-hidden="true"></span><span class="rv__best">BEST</span></span><span class="roll-card__text">${esc(r.text)}</span><span class="roll-card__foot">${esc(r.id)}${r.opt ? ` · ${esc(r.opt)}` : ''} · 스마트스토어 구매평</span></button>`;
@@ -184,5 +122,5 @@
   function postCard(p, base = '') {
     return `<article class="post-card"><a href="${base}blog/${esc(p.slug)}.html">${p.thumb ? `<span class="post-card__img">${pic(p.thumb, 'alt="" width="1200" height="630" loading="lazy" decoding="async"')}</span>` : ''}<p class="post-card__cat">${esc(p.category)}</p><h3>${esc(p.title)}</h3><p class="post-card__desc">${esc(p.description)}</p><p class="post-card__meta"><time datetime="${esc(p.date)}">${esc(p.date.replace(/-/g, '.'))}</time> · ${p.minutes}분 읽기</p></a></article>`;
   }
-  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, bentoHTML, reviewRollHTML, postCard, perDay, ICON };
+  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, reviewRollHTML, postCard, perDay, ICON };
 })(typeof window !== 'undefined' ? window : globalThis);

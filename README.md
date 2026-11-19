@@ -110,7 +110,15 @@ GitHub Actions가 **매일 09·13·18시(KST) 하루 3번** `_topics.json` 의 �
 - 보안: 저장소가 공개라 계정은 git 에 없음. 비밀번호는 scrypt 해시, 로그인은 SESSION_SECRET 서명 쿠키(12시간, HttpOnly·SameSite=Strict, 재배포돼도 유지, 비밀번호 바꾸면 기존 로그인 끊김), 쓰기 요청은 `X-Jam-Admin` 헤더 필수, IP+아이디 기준 15분 10회 실패 시 잠금, CSP·noindex, robots `Disallow: /admin`
 - **Railway 변수(처음 한 번, 값은 상위 폴더 `관리자/관리자_계정.txt`)**: `SESSION_SECRET`, `ADMIN_USERS`(해시만 든 계정 JSON), `GITHUB_TOKEN`(fine-grained, 이 저장소 Contents 읽기·쓰기만), 볼륨을 `/data` 로 붙이고 `DATA_DIR=/data`(계정 추가·비밀번호 변경 가능해짐, 없으면 ADMIN_USERS 읽기 전용), `CANONICAL_HOST=jamschool.kr`
 - 계정 다시 만들기: `node tools/admin/make-users.mjs --force` (결과는 저장소 밖 `../관리자/`)
-- 화면: 사이트와 같은 Noto Sans KR·잉크색, 왼쪽 메뉴(현황·콘텐츠·관리자 전용 묶음, 휴대폰은 위쪽 막대+메뉴 버튼). `public/admin.css`·`admin.js`(빌드 없음)
+- 화면: 사이트와 같은 Noto Sans KR·잉크색, 왼쪽 메뉴는 글자만(현황·사이트 꾸미기·글·총괄 관리자 전용, 휴대폰은 위쪽 막대+메뉴 버튼). `public/admin.css`·`admin.js`(빌드 없음)
+- 권한: owner = 총괄 관리자(전부), client = 잠스쿨 관리자(총괄 전용 메뉴 — 소유확인·추적 코드, 자동 발행, 키워드 점검, 작업 기록, 계정, 서버 옮기기, 결제 취소·켜기·연결 점검 — 빼고 전부)
+- 사이트 꾸미기(잠스쿨 관리자도 씀, 저장은 모두 `content/site.json` 에 '처음 값과 다른 것만'):
+  - 홈 화면·구매평·자주 묻는 질문·기본 정보 = data.js 목록(첫 화면 슬라이드·신뢰 띠·기능·사용 장면·시험·비교 7가지·가격대·BEST/짧은 구매평·포토 구매평·FAQ·고객센터). 칸 정의·검사는 `tools/admin/blocks.mjs` 하나(화면이 정의대로 입력 칸을 그림), 저장 키 `blocks.<이름>`
+  - 페이지 문구·사진 = 템플릿(`src/**/*.html`)의 `data-edit`·`data-edit-img` 칸(약 600개: 홈·바닥글·머리글·팝업·상품 페이지 공통·배송/교환/반품·장바구니·주문서·약관·개인정보처리방침 등). 저장 키 `text.<칸>`·`img.<칸>`, 빌드가 템플릿을 읽을 때 덮어쓰고 표시는 지움(`tools/admin/edits.mjs`). 편집용 글: 줄바꿈=`<br>`, `**굵게**`, `==강조==`, 그 밖의 태그는 글자로
+  - 새 문구를 템플릿에 넣었으면 `node tools/admin/mark-edits.mjs` 로 표시를 이어 붙인다(이미 붙은 번호는 저장 키라 그대로 둠). 상품 페이지 고정 문구는 `src/partials/{ship,pd-events,pd-trust}.html`, 왜 잠스쿨 카드는 `src/partials/bento.html`({{…}} 자리는 빌드가 시험·가격 데이터로 채움)
+  - 상품: 평점·구매평 수, 상품정보 제공고시(`notice.<상품>`)
+  - 시험: `node tools/admin/test-edits.mjs`(편집 칸 왕복·덮어쓰기·사진·표시 지우기) · `node tools/admin/test-blocks.mjs`(기본값 통과·잘못된 값 거절·data.js 반영)
+- 방문·유입 화면: 날짜별 선 그래프(마우스를 올리면 그날 숫자, 누르면 그날만), 유입 경로·요일별 레이더(직전 같은 기간과 겹쳐 비교), 기기 도넛, 직전 기간 대비 증감. 집계 API 가 직전 기간(`prev`)과 날짜별 유입·기기를 같이 준다
 - 로컬에서 띄우기(시험): `ADMIN_STORE=local ADMIN_USERS_FILE=../관리자/admin-users.json PORT=5620 node tools/serve.mjs _site` → http://localhost:5620/admin (저장하면 이 폴더 파일을 직접 고치고 빌드, 커밋은 deploy.bat). 실제 파일을 안 건드리려면 `ADMIN_LOCAL_ROOT=<복사본> ADMIN_LOCAL_NOBUILD=1`
 
 ## AI 노출도 측정 · 블로그 키워드 점검 · 주간/월간 리포트 (`tools/monitor/`)

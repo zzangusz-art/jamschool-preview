@@ -3,59 +3,59 @@
     <!--@steps-->
     <div class="done-pv" id="done-pv" role="note" hidden><b>미리보기 화면</b> 실제 주문은 접수되지 않았고 결제도 되지 않았습니다. 리뉴얼 오픈 후 결제가 끝나면 이 화면이 보입니다.</div>
 
-    <p class="done-wait" id="done-wait" role="status" hidden>결제 결과를 확인하고 있습니다…</p>
+    <p data-edit="complete-001" class="done-wait" id="done-wait" role="status" hidden>결제 결과를 확인하고 있습니다…</p>
 
     <div class="done-none" id="done-fail" role="alert" hidden>
-      <p class="cp-empty__t">결제가 완료되지 않았습니다</p>
+      <p data-edit="complete-002" class="cp-empty__t">결제가 완료되지 않았습니다</p>
       <p class="cp-empty__d" id="done-fail-msg"></p>
-      <div class="cp-empty__btns"><a class="btn btn--primary" id="done-retry" href="checkout.html">다시 결제하기</a><a class="btn btn--line" href="https://pf.kakao.com/_XxhVxeT/chat" target="_blank" rel="noopener">카카오톡 상담</a></div>
-      <p class="note" style="margin-top:14px">카드 승인 문자를 받았는데 이 화면이 보이면 고객센터 010-9610-8868(평일 09:00~17:00)로 알려 주세요.</p>
+      <div class="cp-empty__btns"><a data-edit="complete-003" class="btn btn--primary" id="done-retry" href="checkout.html">다시 결제하기</a><a data-edit="complete-004" class="btn btn--line" href="https://pf.kakao.com/_XxhVxeT/chat" target="_blank" rel="noopener">카카오톡 상담</a></div>
+      <p data-edit="complete-005" class="note" style="margin-top:14px">카드 승인 문자를 받았는데 이 화면이 보이면 고객센터 010-9610-8868(평일 09:00~17:00)로 알려 주세요.</p>
     </div>
 
     <div class="done-none" id="done-none" hidden>
-      <p class="cp-empty__t">표시할 주문 정보가 없습니다</p>
-      <p class="cp-empty__d">주문 완료 화면은 주문서에서 결제를 마친 직후 한 번만 보입니다.</p>
-      <div class="cp-empty__btns"><a class="btn btn--primary" href="shop.html">전체 상품 보기</a><a class="btn btn--line" href="index.html">홈으로</a></div>
+      <p data-edit="complete-006" class="cp-empty__t">표시할 주문 정보가 없습니다</p>
+      <p data-edit="complete-007" class="cp-empty__d">주문 완료 화면은 주문서에서 결제를 마친 직후 한 번만 보입니다.</p>
+      <div class="cp-empty__btns"><a data-edit="complete-008" class="btn btn--primary" href="shop.html">전체 상품 보기</a><a data-edit="complete-009" class="btn btn--line" href="index.html">홈으로</a></div>
     </div>
 
     <div id="done-body" hidden>
       <header class="done-head">
         <span class="done-head__ic" aria-hidden="true"><svg><use href="#i-check"/></svg></span>
-        <h1 class="done-head__t" id="done-t">주문이 접수되었습니다</h1>
-        <p class="done-head__no">주문번호 <b id="done-no"></b></p>
+        <h1 data-edit="complete-010" class="done-head__t" id="done-t">주문이 접수되었습니다</h1>
+        <p data-edit="complete-011" class="done-head__no">주문번호 <b id="done-no"></b></p>
       </header>
 
       <section class="done-box" aria-labelledby="done-pay-t">
-        <h2 class="done-box__t" id="done-pay-t">결제 정보</h2>
+        <h2 data-edit="complete-012" class="done-box__t" id="done-pay-t">결제 정보</h2>
         <dl class="done-dl">
-          <div><dt>결제 수단</dt><dd id="done-pay"></dd></div>
-          <div><dt>결제 금액</dt><dd><b id="done-total"></b></dd></div>
-          <div id="done-bank" hidden><dt>입금 계좌</dt><dd>결제 연동 후 무통장입금 계좌가 이 자리에 표시됩니다.</dd></div>
+          <div><dt data-edit="complete-013">결제 수단</dt><dd id="done-pay"></dd></div>
+          <div><dt data-edit="complete-014">결제 금액</dt><dd><b id="done-total"></b></dd></div>
+          <div id="done-bank" hidden><dt data-edit="complete-015">입금 계좌</dt><dd data-edit="complete-016">결제 연동 후 무통장입금 계좌가 이 자리에 표시됩니다.</dd></div>
         </dl>
       </section>
 
       <section class="done-box" aria-labelledby="done-ship-t">
-        <h2 class="done-box__t" id="done-ship-t">배송 정보</h2>
+        <h2 data-edit="complete-017" class="done-box__t" id="done-ship-t">배송 정보</h2>
         <dl class="done-dl">
-          <div><dt>받는 분</dt><dd id="done-name"></dd></div>
-          <div><dt>연락처</dt><dd id="done-tel"></dd></div>
-          <div><dt>주소</dt><dd id="done-addr"></dd></div>
-          <div id="done-memo-w" hidden><dt>배송 메모</dt><dd id="done-memo"></dd></div>
+          <div><dt data-edit="complete-018">받는 분</dt><dd id="done-name"></dd></div>
+          <div><dt data-edit="complete-019">연락처</dt><dd id="done-tel"></dd></div>
+          <div><dt data-edit="complete-020">주소</dt><dd id="done-addr"></dd></div>
+          <div id="done-memo-w" hidden><dt data-edit="complete-021">배송 메모</dt><dd id="done-memo"></dd></div>
         </dl>
       </section>
 
       <section class="done-box" aria-labelledby="done-items-t">
-        <h2 class="done-box__t" id="done-items-t">주문 상품</h2>
+        <h2 data-edit="complete-022" class="done-box__t" id="done-items-t">주문 상품</h2>
         <ul class="co-items" id="done-items"></ul>
       </section>
 
       <section class="done-box" aria-labelledby="done-next-t">
-        <h2 class="done-box__t" id="done-next-t">받기까지</h2>
+        <h2 data-edit="complete-023" class="done-box__t" id="done-next-t">받기까지</h2>
         <ol class="done-flow" id="done-flow"></ol>
       </section>
 
-      <div class="done-btns"><a class="btn btn--primary" href="shop.html">쇼핑 계속하기</a><a class="btn btn--line" href="https://pf.kakao.com/_XxhVxeT/chat" target="_blank" rel="noopener">카카오톡 상담</a></div>
-      <p class="note" style="margin-top:16px;text-align:center">교환·반품은 받은 날부터 7일 이내에 고객센터 010-9610-8868(평일 09:00~17:00)로 먼저 요청해 주세요.</p>
+      <div class="done-btns"><a data-edit="complete-024" class="btn btn--primary" href="shop.html">쇼핑 계속하기</a><a data-edit="complete-025" class="btn btn--line" href="https://pf.kakao.com/_XxhVxeT/chat" target="_blank" rel="noopener">카카오톡 상담</a></div>
+      <p data-edit="complete-026" class="note" style="margin-top:16px;text-align:center">교환·반품은 받은 날부터 7일 이내에 고객센터 010-9610-8868(평일 09:00~17:00)로 먼저 요청해 주세요.</p>
     </div>
   </div>
 </main>

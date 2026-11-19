@@ -16,6 +16,8 @@ import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
 import * as PAY from '../pay/seedpay.mjs';
 import * as NOTIFY from '../pay/notify.mjs';
 import { clientIp } from '../client-ip.mjs';
+import { BLOCKS, MENUS, ICONS, IMG_PATH, cleanBlock } from './blocks.mjs';
+import { EDIT_FILES, listEdits, normText } from './edits.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -129,7 +131,8 @@ route('GET', '/api/admin/stats', 'client', async ({ query }) => {
   const n = Math.min(90, Math.max(1, +query.get('days') || 7));
   const { cur } = await products();
   const posts = await listPosts();
-  return { ...statsSummary(n), names: Object.fromEntries(cur.PRODUCTS.map(p => [p.id, p.short])), titles: Object.fromEntries(posts.map(p => [`/blog/${p.slug}`, p.title])) };
+  const prev = statsSummary(n, n);   // 바로 앞 같은 기간(증감 비교)
+  return { ...statsSummary(n), prev: { days: prev.days, total: { pv: prev.total.pv, uv: prev.total.uv, entries: prev.total.entries, sources: prev.total.sources, devices: prev.total.devices, events: prev.total.events } }, names: Object.fromEntries(cur.PRODUCTS.map(p => [p.id, p.short])), titles: Object.fromEntries(posts.map(p => [`/blog/${p.slug}`, p.title])) };
 });
 
 // 블로그
@@ -185,7 +188,7 @@ route('DELETE', '/api/admin/posts/:slug', 'owner', async ({ params, user }) => {
 });
 
 // 상품
-const EDITABLE = ['name', 'short', 'summary', 'list', 'price', 'badges', 'points', 'imgs', 'store'];
+const EDITABLE = ['name', 'short', 'summary', 'list', 'price', 'badges', 'points', 'imgs', 'store', 'rating', 'reviews'];
 route('GET', '/api/admin/products', 'client', async () => {
   const { cur } = await products();
   return { products: cur.PRODUCTS.map(p => ({ id: p.id, name: p.name, short: p.short, price: p.price, list: p.list, img: p.imgs[0], full: !!p.full })) };
@@ -206,8 +209,11 @@ route('POST', '/api/admin/products/:id', 'client', async ({ params, data, user }
   }
   need(imgs.length, 400, '대표 사진이 한 장은 있어야 합니다');
   const next = { name: oneLine(f.name), short: oneLine(f.short), summary: oneLine(f.summary), list: Math.round(+f.list || 0), price: Math.round(+f.price || 0),
-    badges: (f.badges || []).map(oneLine).filter(Boolean).slice(0, 4), points: (f.points || []).map(oneLine).filter(Boolean).slice(0, 8), imgs, store: oneLine(f.store) };
+    badges: (f.badges || []).map(oneLine).filter(Boolean).slice(0, 4), points: (f.points || []).map(oneLine).filter(Boolean).slice(0, 8), imgs, store: oneLine(f.store),
+    rating: Math.round(+f.rating * 100) / 100, reviews: Math.round(+f.reviews) };
   need(next.name && next.short, 400, '상품명과 짧은 이름을 입력해 주세요');
+  need(next.rating >= 0 && next.rating <= 5, 400, '평점은 0~5 사이 숫자로 넣어 주세요');
+  need(next.reviews >= 0 && next.reviews < 1e7, 400, '구매평 수를 숫자로 넣어 주세요');
   need(!next.store || /^https:\/\/smartstore\.naver\.com\//.test(next.store), 400, '스토어 링크는 스마트스토어 주소만');
   if (b.full) { delete next.price; delete next.list; }   // 3단은 옵션 가격표에서 정한다
   else need(next.price > 0 && next.list >= next.price, 400, '판매가는 0보다 크고 정가 이하여야 합니다');
@@ -252,6 +258,113 @@ route('POST', '/api/admin/detail/:id', 'client', async ({ params, data, user }) 
   const head = prev.head.replace(/\n?\/\/ 어드민 마지막 수정:.*\n?$/, '\n') + `// 어드민 마지막 수정: ${kst()} ${user.name}\n`;
   files.push({ path: detailPath(params.id), text: `${head.replace(/\n+$/, '\n')}(window.DETAIL = window.DETAIL || {})[${params.id}] = ${JSON.stringify(items)};\n` });
   const c = await store.commit(files, msg(user, `상세페이지 수정 「${p.short}」 (${items.length}개 항목)`), user.name);
+  return { ok: true, commit: c.sha };
+});
+
+// ── 사이트 꾸미기: 목록(blocks.mjs)·페이지 문구·사진(edits.mjs)·상품정보 제공고시 — 모두 content/site.json 한 파일에 '바뀐 것만'
+const SITE_JSON = 'content/site.json';
+const saveSite = (site, files, user, what) => {
+  for (const k of ['blocks', 'text', 'img', 'notice']) if (site[k] && !Object.keys(site[k]).length) delete site[k];
+  files.push({ path: SITE_JSON, text: JSON.stringify(site, null, 2) + '\n' });
+  return store.commit(files, msg(user, what), user.name);
+};
+// 사진 올리기: data:image → assets/img/up/<앞머리>-<시각><번호>.<확장자>. 이미 있는 주소는 형식만 검사
+function imageSaver(files, prefix, ctx) {
+  let i = 0;
+  return (v, f, label) => {
+    const base = (f && f.base) || '';
+    if (v && typeof v === 'object' && v.data) {
+      const img = decodeImage(v.data), p = `assets/img/up/${prefix}-${stamp()}${i++}.${img.ext}`;
+      files.push({ path: p, base64: img.base64 });
+      if (ctx && f && f.sizeKey) ctx.lastSize = Math.round(+v.w) || 0;
+      return p.slice(base.length);
+    }
+    const s = typeof v === 'string' ? v : (v && v.src) || '';
+    need(IMG_PATH.test(base + s), 400, `${label || '사진'}: 사진을 골라 주세요`);
+    return s;
+  };
+}
+route('GET', '/api/admin/blocks/:name', 'client', async ({ params }) => {
+  const def = BLOCKS[params.name]; need(def, 404, '없는 항목');
+  const { base, cur, site } = await products();
+  return { name: params.name, def, menu: MENUS[def.menu], value: cur[params.name], base: base[params.name], changed: !!(site.blocks || {})[params.name],
+    products: cur.PRODUCTS.map(p => ({ id: p.id, short: p.short })), icons: ICONS, siblings: Object.entries(BLOCKS).filter(([, d]) => d.menu === def.menu).map(([k, d]) => ({ name: k, label: d.label, changed: !!(site.blocks || {})[k] })) };
+});
+route('POST', '/api/admin/blocks/:name', 'client', async ({ params, data, user }) => {
+  const def = BLOCKS[params.name]; need(def, 404, '없는 항목');
+  const { base, site } = await products(true), files = [];
+  const ctx = { products: base.PRODUCTS.map(p => p.id), lastSize: 0 };
+  ctx.image = imageSaver(files, params.name.toLowerCase().replace(/_/g, '-'), ctx);
+  site.blocks = site.blocks || {};
+  if (data.reset) delete site.blocks[params.name];
+  else {
+    const v = await cleanBlock(params.name, data.value, ctx);
+    let same = false;   // 기본값과 같으면 저장하지 않는다(data.js 를 고치면 그대로 따라가게)
+    try { same = JSON.stringify(v) === JSON.stringify(await cleanBlock(params.name, base[params.name], { ...ctx, image: imageSaver([], 'x') })); } catch { /* 기본값이 정의와 다르면 다르게 본다 */ }
+    if (same) delete site.blocks[params.name]; else site.blocks[params.name] = v;
+  }
+  const c = await saveSite(site, files, user, `${MENUS[def.menu]} · ${def.label} ${data.reset ? '처음 값으로 되돌림' : '수정'}`);
+  return { ok: true, commit: c.sha };
+});
+// 페이지 문구·사진
+route('GET', '/api/admin/texts', 'client', async () => {
+  const site = await readJson(SITE_JSON, {}), T = site.text || {}, I = site.img || {};
+  const files = [];
+  for (const f of EDIT_FILES) {
+    const items = listEdits(await readText(f.file) || '');
+    files.push({ key: f.key, label: f.label, page: f.page, count: items.length, changed: items.filter(x => (x.kind === 'img' ? I : T)[x.key] != null).length });
+  }
+  return { files };
+});
+route('GET', '/api/admin/texts/:file', 'client', async ({ params }) => {
+  const f = EDIT_FILES.find(x => x.key === params.file); need(f, 404, '없는 페이지');
+  const site = await readJson(SITE_JSON, {}), T = site.text || {}, I = site.img || {};
+  const items = listEdits(await readText(f.file) || '').map(x => x.kind === 'img' ? { ...x, cur: I[x.key] || null } : { ...x, cur: T[x.key] ?? null });
+  return { file: { key: f.key, label: f.label, page: f.page }, items };
+});
+route('POST', '/api/admin/texts/:file', 'client', async ({ params, data, user }) => {
+  const f = EDIT_FILES.find(x => x.key === params.file); need(f, 404, '없는 페이지');
+  const byKey = new Map(listEdits(await readText(f.file) || '').map(x => [x.key, x]));
+  const site = await readJson(SITE_JSON, {}, true), files = [], save = imageSaver(files, `txt-${f.key}`);
+  site.text = site.text || {}; site.img = site.img || {};
+  let n = 0;
+  for (const [k, v] of Object.entries(data.text || {})) {
+    const it = byKey.get(k); need(it && it.kind === 'text', 400, '이 페이지에 없는 칸이 있습니다');
+    const t = v == null ? '' : normText(v); need([...t].length <= 3000, 400, '한 칸은 3,000자 이내로 적어 주세요');
+    if (!t || t === it.text) delete site.text[k]; else site.text[k] = t;
+    n++;
+  }
+  for (const [k, v] of Object.entries(data.img || {})) {
+    const it = byKey.get(k); need(it && it.kind === 'img', 400, '이 페이지에 없는 사진 칸이 있습니다');
+    n++;
+    if (v == null) { delete site.img[k]; continue; }
+    const src = save(v.data ? v : (v.src || ''), null, '사진'), alt = oneLine(v.alt).slice(0, 120);
+    if (src === it.src && (!alt || alt === it.alt)) delete site.img[k];
+    else site.img[k] = { src, w: Math.round(+v.w) || it.w, h: Math.round(+v.h) || it.h, ...(alt && alt !== it.alt ? { alt } : {}) };
+  }
+  need(n, 400, '바꾼 내용이 없습니다');
+  const c = await saveSite(site, files, user, `페이지 문구·사진 수정 「${f.label}」 ${n}칸`);
+  return { ok: true, commit: c.sha };
+});
+// 상품정보 제공고시(상품 페이지 아래 표): [항목, [줄…]] 목록
+route('GET', '/api/admin/notice/:id', 'client', async ({ params }) => {
+  need(/^\d+$/.test(params.id), 400, '상품 번호 오류');
+  const { base, cur, site } = await products();
+  return { rows: cur.NOTICE[params.id] || [], base: base.NOTICE[params.id] || [], changed: !!(site.notice || {})[params.id] };
+});
+route('POST', '/api/admin/notice/:id', 'client', async ({ params, data, user }) => {
+  need(/^\d+$/.test(params.id), 400, '상품 번호 오류');
+  const { base, site } = await products(true);
+  const p = base.PRODUCTS.find(x => String(x.id) === params.id); need(p, 404, '상품을 찾지 못했습니다');
+  site.notice = site.notice || {};
+  if (data.reset) delete site.notice[params.id];
+  else {
+    const rows = (Array.isArray(data.rows) ? data.rows : []).map(r => [oneLine(r && r[0]), (Array.isArray(r && r[1]) ? r[1] : String((r && r[1]) || '').split('\n')).map(oneLine).filter(Boolean)]).filter(r => r[0] || r[1].length);
+    need(rows.length <= 25, 400, '항목은 25개까지');
+    for (const [t, lines] of rows) { need(t && [...t].length <= 40, 400, '항목 이름을 40자 이내로 적어 주세요'); need(lines.length && lines.length <= 12 && lines.every(l => [...l].length <= 400), 400, `「${t}」 내용을 적어 주세요(한 줄 400자, 12줄 이내)`); }
+    if (JSON.stringify(rows) === JSON.stringify(base.NOTICE[params.id] || [])) delete site.notice[params.id]; else site.notice[params.id] = rows;
+  }
+  const c = await saveSite(site, [], user, `상품정보 제공고시 ${data.reset ? '처음 값으로 되돌림' : '수정'} 「${p.short}」`);
   return { ok: true, commit: c.sha };
 });
 

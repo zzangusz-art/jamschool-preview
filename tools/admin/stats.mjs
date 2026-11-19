@@ -105,10 +105,11 @@ export function countEvent(req, body) {
   touch();
 }
 
-// 어드민 조회: 최근 n일 합계 + 날짜별
-export function summary(n = 7) {
+// 어드민 조회: 최근 n일 합계 + 날짜별(유입 경로·기기도 날짜별로 — 그래프에서 날짜를 누르면 그날 것만 본다)
+//   offset: 며칠 앞으로 밀어서(지난 기간 비교: summary(7, 7) = 그 전 7일)
+export function summary(n = 7, offset = 0) {
   const list = [];
-  for (let i = n - 1; i >= 0; i--) {
+  for (let i = n - 1 + offset; i >= offset; i--) {
     const date = kst(Date.now() - i * 864e5);
     let d = days.get(date);
     if (!d && DIR) { const f = path.join(DIR, `${date}.json`); if (fs.existsSync(f)) try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* 무시 */ } }
@@ -122,5 +123,5 @@ export function summary(n = 7) {
     for (const [id, p] of Object.entries(d.products || {})) { tot.products[id] = tot.products[id] || { views: 0, buy: 0 }; tot.products[id].views += p.views; tot.products[id].buy += p.buy; }
     tot.orders.n += d.orders.n; tot.orders.sum += d.orders.sum; add(tot.orders.items, d.orders.items); add(tot.orders.pay, d.orders.pay);
   }
-  return { days: list.map(d => ({ date: d.date, pv: d.pv, uv: d.uv, entries: d.entries, ai: Object.values(d.ai || {}).reduce((a, b) => a + b, 0), orders: d.orders.n, events: d.events })), total: tot, persistent: persistent() };
+  return { days: list.map(d => ({ date: d.date, pv: d.pv, uv: d.uv, entries: d.entries, ai: Object.values(d.ai || {}).reduce((a, b) => a + b, 0), orders: d.orders.n, events: d.events, sources: d.sources || {}, devices: d.devices || {} })), total: tot, persistent: persistent() };
 }

@@ -6,11 +6,14 @@ import path from 'node:path';
 import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { loadPosts } from './tools/blog/lib.mjs';
+import { applyEdits, stripEditAttrs } from './tools/admin/edits.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 // 공식 홈 주소(정식 주소·사이트맵·구조화 데이터 기준). 공식몰(jamschool.co.kr, 로그인·약관·구매평)은 다른 사이트라 따로 링크한다
 const SITE = 'https://jamschool.kr/';
-const rd = p => fs.readFileSync(path.join(ROOT, p), 'utf8');
+// 템플릿(src/**/*.html)은 읽을 때 어드민에서 고친 문구·사진(content/site.json text·img)을 덮어쓴다(tools/admin/edits.mjs)
+let EDITS = {};
+const rd = p => { const s = fs.readFileSync(path.join(ROOT, p), 'utf8'); return /^src\/.*\.html$/.test(p) ? applyEdits(s, EDITS) : s; };
 
 // 소유확인·추적 코드(src/site-tags.json, 비어 있는 항목은 넣지 않음): 모든 .html 의 <head> 첫머리, <body> 바로 뒤(GTM noscript), </body> 앞
 const TAGS = JSON.parse(rd('src/site-tags.json'));
@@ -51,8 +54,14 @@ const BODY_END = [
   AD_JS,
 ].filter(Boolean).join('\n');
 // 어드민 값이 있으면 data.js 바로 앞에 넣는다(OVERRIDES 는 아래에서 읽고, 이 함수는 페이지를 쓸 때 불린다)
-const ovTag = () => Object.values(OVERRIDES).some(v => v && typeof v === 'object' && Object.keys(v).length)
-  ? `<script>window.JAM_OVERRIDES=${JSON.stringify(OVERRIDES).replace(/</g, '\\u003c')}</script>\n` : '';
+//   페이지 스크립트가 쓰는 것만 넣는다(상품·3단 옵션 가격, 브라우저가 쓰는 목록). 페이지 문구(text)·사진(img)·제공고시(notice)는 빌드에서 이미 반영됨
+const CLIENT_BLOCKS = ['TESTS', 'USES', 'REVIEWS', 'PHOTOS', 'CS'];
+const clientOv = () => {
+  const b = Object.fromEntries(CLIENT_BLOCKS.filter(k => (OVERRIDES.blocks || {})[k] != null).map(k => [k, OVERRIDES.blocks[k]]));
+  return { products: OVERRIDES.products || {}, options29: OVERRIDES.options29 || {}, ...(Object.keys(b).length ? { blocks: b } : {}) };
+};
+const ovTag = () => { const o = clientOv(); return Object.values(o).some(v => v && typeof v === 'object' && Object.keys(v).length)
+  ? `<script>window.JAM_OVERRIDES=${JSON.stringify(o).replace(/</g, '\\u003c')}</script>\n` : ''; };
 const withTags = s => {
   const ov = ovTag();
   if (ov) s = s.replace(/<script src="[^"]*assets\/js\/data\.js"><\/script>/, m => ov + m);
@@ -85,7 +94,7 @@ function seoCheck(p, s) {
 const PAGE_HASH = {};
 const wr = (p, s) => {
   if (p.endsWith('.html')) {
-    s = withTags(s); seoCheck(p, s);
+    s = withTags(stripEditAttrs(s)); seoCheck(p, s);
     if (!/<meta name="robots" content="noindex/.test(s)) PAGE_HASH[p] = crypto.createHash('md5').update(s.replace(/\?v=[0-9a-f]{8}/g, '')).digest('hex').slice(0, 12);
   }
   fs.writeFileSync(path.join(ROOT, p), s);
@@ -100,6 +109,7 @@ const noWebp = IMGS.filter(f => /\.(jpe?g|png)$/i.test(f) && !WEBP.has(f.replace
 // 어드민에서 고친 상품 값(content/site.json): 빌드(vm)와 각 페이지(window.JAM_OVERRIDES)에 똑같이 넣는다
 const OVERRIDES = fs.existsSync(path.join(ROOT, 'content/site.json')) ? JSON.parse(rd('content/site.json')) : {};
 delete OVERRIDES._설명;
+EDITS = { text: OVERRIDES.text || {}, img: OVERRIDES.img || {} };
 const ctx = { window: { WEBP, JAM_OVERRIDES: OVERRIDES }, console };
 ctx.globalThis = ctx.window;
 vm.createContext(ctx);
@@ -120,7 +130,8 @@ const fill = (s, key, html) => {
   if (pair.test(s)) return s.replace(pair, `<!--@${key}-->${html}<!--/@${key}-->`);
   return s.split(`<!--@${key}-->`).join(html);
 };
-const ld = obj => `<script type="application/ld+json">${JSON.stringify(obj)}</script>`;
+// < 는 < 로(어드민에서 고친 FAQ·상품명 등에 </script> 가 들어가도 스크립트 밖으로 못 나가게)
+const ld = obj => `<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`;
 // 템플릿에 직접 적은 <img src="assets/img/….jpg|png"> 도 <picture>(WebP + 원본 폴백)로 바꾼다. 이미 R.pic 으로 만든 것은 건너뜀
 const picturize = html => html.replace(/(?<!type="image\/webp">)<img src="(assets\/img\/[^"]+\.(?:jpe?g|png))"([^>]*)>/g, (m, src, rest) => R.pic(src, rest.trim()));
 
@@ -155,14 +166,13 @@ const ORG = {
 
 // ───────── index
 const P29H = PRODUCTS.find(p => p.id === 29);
-const TRUST = [
-  ['i-star', `<b>${P29H.rating.toFixed(2)}</b> 3단 접이식 구매평 ${P29H.reviews.toLocaleString('ko-KR')}건`], ['i-flag', '폼부터 커버까지 <b>100% 국내 생산</b>'], ['i-cal', '<b>14일</b> 무료체험'],
-  ['i-shield', '<b>2년</b> 폼 무상 교체'], ['i-truck', '오후 1시 이전 결제 시 <b>당일 출고</b>'], ['i-layers', 'KATRI · SGS · 한일원자력 <b>시험 완료</b>'],
-];
-const trustHTML = [0, 1].map(k => TRUST.map(([ic, t]) => `<p class="trust__item"${k ? ' aria-hidden="true"' : ''}><svg aria-hidden="true"><use href="#${ic}"/></svg><span>${t}</span></p>`).join('')).join('');
+// 홈 신뢰 띠(data.js TRUST, 어드민 '홈 화면 > 신뢰 띠'): **굵게**, {rating}·{reviews} = 3단 평점·구매평 수
+const trustText = t => R.esc(t).replace(/\{rating\}/g, P29H.rating.toFixed(2)).replace(/\{reviews\}/g, P29H.reviews.toLocaleString('ko-KR')).replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>');
+const trustHTML = [0, 1].map(k => JAM.TRUST.map(({ icon, text }) => `<p class="trust__item"${k ? ' aria-hidden="true"' : ''}><svg aria-hidden="true"><use href="#${icon}"/></svg><span>${trustText(text)}</span></p>`).join('')).join('');
 const uses = R.usesHTML(USES);
 let idx = includes(rd('src/index.tpl.html'));
 idx = fill(idx, 'trust', trustHTML);
+idx = idx.split('{{rv-score}}').join(P29H.rating.toFixed(2));
 // 홈 베스트: 큰 썸네일 3열(모바일 2열) — 3×3 으로 맞추려고 잠스쿨 브랜드 9개만, 전체는 shop.html
 idx = fill(idx, 'products', PRODUCTS.filter(p => !p.brand).slice(0, 9).map(p => R.productCard(p)).join(''));
 // 히어로 슬라이드(쇼릴 다음): data.js HERO_SLIDES
@@ -201,7 +211,13 @@ idx = fill(idx, 'perday', R.perDay(MARKET.ours.v).toLocaleString('ko-KR'));
 idx = fill(idx, 'ourswon', won(MARKET.ours.v));
 idx = fill(idx, 'rv-n', P29H.reviews.toLocaleString('ko-KR')); idx = fill(idx, 'rv-basis', esc(JAM.REVIEW_BASIS));
 idx = fill(idx, 'checks', R.checksHTML(CHECKS));
-idx = fill(idx, 'bento', R.bentoHTML({ T: TESTS, M: MARKET, P: PRODUCTS.find(p => p.id === 29) }));
+// 왜 잠스쿨 벤토(src/partials/bento.html — 문구·사진은 어드민 '페이지 문구·사진'): {{…}} 자리는 시험·가격 데이터에서 채운다
+{
+  const certBtn = (f, label = '성적서') => { const i = TESTS.findIndex(x => x.cert === `certs/${f}.jpg`); return i < 0 ? '' : `<button class="bt__cert" type="button" data-proof-cert="${i}">${esc(label)}<svg aria-hidden="true"><use href="#i-right"/></svg></button>`; };
+  const V = { radonPct: Math.floor(7.6 / 148 * 1000) / 10, radonW: (7.6 / 148 * 100).toFixed(2), day: Math.round(MARKET.ours.v / 730).toLocaleString('ko-KR'),
+    rating: P29H.rating, rating2: P29H.rating.toFixed(2), reviews: P29H.reviews.toLocaleString('ko-KR'), rate: R.rate(P29H), price: won(P29H.price), href: R.href(P29H) };
+  idx = fill(idx, 'bento', partial('bento').trim().replace(/\{\{cert:([\w-]+)(?::([^}]+))?\}\}/g, (_, f, l) => certBtn(f, l)).replace(/\{\{(\w+)\}\}/g, (m, k) => k in V ? String(V[k]) : m));
+}
 idx = fill(idx, 'checks-acc', R.accItem('why-chk', '다른 제품과 비교할 때 확인할 7가지', R.checksHTML(CHECKS)));
 idx = fill(idx, 'posts', POSTS.slice(0, 3).map(p => R.postCard(p)).join('') || '<p class="note">첫 글을 준비하고 있습니다.</p>');
 idx = fill(idx, 'jsonld', ld({
@@ -233,20 +249,11 @@ function optionsHTML(p) {
   </div>`;
 }
 function eventsHTML(p) {
-  if (p.id !== 29) return '';
-  const ev = [['기간 한정', '14일 무료체험'], ['기간 한정', '구매 금액 상관없이 무료 배송'], ['선착순', '방수 속커버 무료 증정'], ['이벤트', '우수 구매평 5만원 이마트 상품권']];
-  return `<div class="pd-events"><p class="pd-events__t">진행 중인 혜택</p><ul>${ev.map(([a, b]) => `<li><span>${esc(a)}</span>${esc(b)}</li>`).join('')}</ul><button class="link-more" type="button" data-open="terms" style="margin-top:8px;font-size:14px">조건 보기${svg('i-right')}</button></div>`;
+  return p.id === 29 ? partial('pd-events').trim() : '';   // src/partials/pd-events.html(어드민 '페이지 문구'에서 고침)
 }
 // 가격 아래 신뢰 배지(3단 접이식): 출고·보증은 조건 시트, 국내 생산·시험은 홈 해당 섹션으로(14일 체험은 바로 아래 '진행 중인 혜택'에 있어 뺐다)
 function trustHTML29(p) {
-  if (p.id !== 29) return '';
-  const it = [
-    ['button', 'data-open="terms"', 'i-truck', '오후 1시 당일 출고', '주말·공휴일 제외'],
-    ['button', 'data-open="terms"', 'i-shield', '2년 폼 교체', '꺼지면 무상'],
-    ['a', 'href="index.html#korea"', 'i-flag', '국산 100%', '폼부터 겉커버까지'],
-    ['a', 'href="index.html#safety"', 'i-layers', '시험성적서 공개', 'KATRI · SGS · 한일원자력'],
-  ];
-  return `<ul class="pd-trust" aria-label="구매 조건과 근거">${it.map(([tag, attr, ic, t, sub]) => `<li><${tag} class="pd-trust__i" ${tag === 'button' ? 'type="button" ' : ''}${attr}>${svg(ic)}<span><b>${esc(t)}</b>${esc(sub)}</span></${tag}></li>`).join('')}</ul>`;
+  return p.id === 29 ? partial('pd-trust').trim() : '';   // src/partials/pd-trust.html
 }
 function infoHTML(p) {
   const r = R.rate(p);
@@ -339,11 +346,6 @@ function qnaHTML(p) {
   const list = p.id === 29 ? FAQ : FAQ.filter(f => f.c === 'ship');
   return `<div class="acc">${R.faqHTML(list, 'pq')}</div>`;
 }
-const SHIP = `<div class="ship">
-  <div><h3>배송</h3><ul><li>오후 1시 이전 결제(입금) 확인 건은 당일 출고합니다(주말·공휴일 휴무).</li><li>평균 1~3일 걸리며 도서산간 지역은 다소 늦어질 수 있습니다.</li><li>로젠택배·대신택배로 보내며 제주·도서산간은 추가 배송비가 발생합니다.</li></ul></div>
-  <div><h3>교환·반품</h3><ul><li>교환·반품 전 반드시 고객센터(010-9610-8868)로 수거 요청을 해 주세요. 연락 없이 보내시면 반송될 수 있습니다.</li><li>단순 변심에 따른 교환·반품은 왕복 배송비를 고객이 부담합니다. 매트리스 36,000원 · 커버류 6,000원(편도 18,000원 · 3,000원).</li><li>제품 하자는 배송비를 받지 않습니다. 제주·도서산간은 7,000원이 추가됩니다.</li><li>요청 기간은 수령 후 7일 이내입니다. 3단 접이식 매트리스 14일 무료체험은 받은 날부터 14일 안에 신청하면 됩니다. 제품을 먼저 회수해 검수한 뒤 진행합니다.</li></ul></div>
-  <div><h3>반품이 어려운 경우</h3><ul><li>압축 포장을 연 경우(사이즈를 먼저 확인해 주세요)</li><li>시간이 지나 재판매가 곤란할 정도로 가치가 떨어진 경우(전자상거래법 제17조)</li><li>고객 부주의로 오염·훼손되었거나 사용·세탁한 경우</li><li>탈취제(섬유 유연제 등)를 사용한 경우</li></ul></div>
-</div>`;
 function mainHTML(p) {
   const related = PRODUCTS.filter(x => x.id !== p.id).slice(0, 4);
   const cat = p.cat === 'mattress' ? '매트리스' : '침구·건강용품';
@@ -357,7 +359,7 @@ function mainHTML(p) {
   <section class="pd-sec" id="spec" aria-labelledby="spec-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="spec-t">제품 정보</h2>${specHTML(p)}</div></section>
   <section class="pd-sec" id="reviews" aria-labelledby="reviews-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="reviews-t">구매평</h2>${reviewsHTMLp(p)}</div></section>
   <section class="pd-sec" id="qna" aria-labelledby="qna-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="qna-t">자주 묻는 질문</h2>${qnaHTML(p)}</div></section>
-  <section class="pd-sec" id="ship" aria-labelledby="ship-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="ship-t">배송 · 교환 · 반품</h2>${SHIP}</div></section>
+  <section class="pd-sec" id="ship" aria-labelledby="ship-t"><div class="wrap wrap--narrow"><h2 class="pd-h2" id="ship-t">배송 · 교환 · 반품</h2>${partial('ship').trim()}</div></section>
   <section class="section section--soft" aria-labelledby="rel-t"><div class="wrap"><div class="sec-head"><h2 class="h-sec" id="rel-t" style="font-size:clamp(22px,5vw,30px)">함께 보면 좋은 상품</h2></div><div class="pgrid">${related.map(x => R.productCard(x)).join('')}</div></div></section>
 </main>
 <div class="buybar" id="buybar"><button class="icon-btn pd-wish" type="button" data-wish="${p.id}" aria-pressed="false" aria-label="찜하기">${R.ICON.heart}</button><a class="buybar__rv" href="#reviews"><span>구매평</span><b>${p.reviews.toLocaleString('ko-KR')}</b></a><button class="btn btn--primary" type="button" id="bb-buy">구매하기</button></div>

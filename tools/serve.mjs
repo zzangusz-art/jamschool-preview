@@ -71,7 +71,8 @@ http.createServer(async (req, res) => {
   }
   if (!INDEX && url.split('?')[0] === '/robots.txt') { res.writeHead(200, { 'Content-Type': TYPES['.txt'] }); res.end('User-agent: *\nDisallow: /\n'); return; }
   const f = resolve(url);
-  if (!f) { res.writeHead(404, { 'Content-Type': TYPES['.html'] }); res.end('<!doctype html><meta charset="utf-8"><title>404</title><p>페이지를 찾을 수 없습니다. <a href="/">홈으로</a></p>'); return; }
+  // 404 는 저장하지 않게(no-store): 어드민에서 올린 사진을 반영 전에 열어 본 404 를 Cloudflare·브라우저가 몇 시간 붙잡지 않도록
+  if (!f) { res.writeHead(404, { 'Content-Type': TYPES['.html'], 'Cache-Control': 'no-store' }); res.end('<!doctype html><meta charset="utf-8"><title>404</title><p>페이지를 찾을 수 없습니다. <a href="/">홈으로</a></p>'); return; }
   const type = TYPES[path.extname(f.abs).toLowerCase()] || 'application/octet-stream';
   if (req.method === 'GET' && type.startsWith('text/html')) countPage(req, url.split('?')[0], HOST || 'jamschool.kr');
   const headers = { 'Content-Type': type, 'Last-Modified': f.st.mtime.toUTCString(), 'Accept-Ranges': 'bytes',

@@ -40,13 +40,16 @@
   // ── 사진: 큰 사진은 줄여서(JPEG) 올린다. GIF 는 움직임 유지를 위해 그대로
   const readURL = f => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(f); });
   const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('사진을 열지 못했습니다')); i.src = src; });
-  async function prepImage(file, maxW) {
+  // ratio(가로/세로)를 주면 가운데를 그 비율로 잘라서 올린다(예: 1 = 정사각형)
+  async function prepImage(file, maxW, ratio) {
     if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) throw new Error('JPG·PNG·WebP·GIF 사진만 올릴 수 있습니다');
     const url = await readURL(file), img = await loadImg(url);
     if (file.type === 'image/gif') { if (file.size > 8e6) throw new Error('GIF 는 8MB 이하로 올려 주세요'); return { data: url, w: img.naturalWidth, h: img.naturalHeight }; }
-    const s = Math.min(1, maxW / img.naturalWidth), w = Math.round(img.naturalWidth * s), ht = Math.round(img.naturalHeight * s);
+    let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight;
+    if (ratio) { if (sw / sh > ratio) { const nw = Math.round(sh * ratio); sx = Math.round((sw - nw) / 2); sw = nw; } else { const nh = Math.round(sw / ratio); sy = Math.round((sh - nh) / 2); sh = nh; } }
+    const s = Math.min(1, maxW / sw), w = Math.round(sw * s), ht = Math.round(sh * s);
     const c = document.createElement('canvas'); c.width = w; c.height = ht;
-    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, ht); x.drawImage(img, 0, 0, w, ht);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, ht); x.drawImage(img, sx, sy, sw, sh, 0, 0, w, ht);
     return { data: c.toDataURL('image/jpeg', 0.86), w, h: ht };
   }
   function pickFiles(multiple) {
@@ -55,50 +58,38 @@
   const site = p => '/' + String(p || '').replace(/^\//, '');
   const tmpId = () => Math.random().toString(36).slice(2, 9);
 
-  // ── 화면 틀
-  const ICON = {
-    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
-    traffic: '<path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/>',
-    orders: '<path d="M5 7h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
-    blog: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
-    products: '<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>',
-    settings: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4"/>',
-    topics: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-    check: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-    log: '<path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
-    data: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
-    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.6a3.5 3.5 0 0 1 0 6.8M21.5 20a6.5 6.5 0 0 0-3.8-5.9"/>',
-    me: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
-    out: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
-    logout: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/>',
-    menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
-  };
-  const ico = k => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg>`;
-  const NAV = [['현황', [['', '홈', 'home'], ['traffic', '방문·유입', 'traffic'], ['payments', '결제 주문', 'orders'], ['orders', '주문 흐름', 'traffic']]], ['콘텐츠', [['blog', '블로그', 'blog'], ['products', '상품·상세페이지', 'products']]]];
-  const OWNER_NAV = [['settings', '소유확인·추적 코드', 'settings'], ['topics', '블로그 자동 발행', 'topics'], ['check', '키워드 점검', 'check'], ['log', '작업 기록', 'log'], ['users', '계정 관리', 'users'], ['data', '서버·데이터 옮기기', 'data']];
+  // ── 화면 틀(메뉴는 글자만)
+  const NAV = [
+    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['orders', '주문 흐름']]],
+    ['사이트 꾸미기', [['site/home', '홈 화면'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['site/reviews', '구매평'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
+    ['글', [['blog', '블로그']]],
+  ];
+  const OWNER_NAV = [['settings', '소유확인·추적 코드'], ['topics', '블로그 자동 발행'], ['check', '키워드 점검'], ['log', '작업 기록'], ['users', '계정 관리'], ['data', '서버·데이터 옮기기']];
   const route = () => location.hash.replace(/^#\/?/, '').split('/');
   // shell(제목, { desc: 제목 아래 한 줄, tool: 오른쪽 버튼, back: [주소, 글자] })
   function shell(title, o = {}) {
-    const r = route()[0], isOwner = ME.user.role === 'owner';
-    const link = ([k, t, i]) => `<a href="#/${k}" class="${r === k ? 'on' : ''}">${ico(i)}<span>${t}</span></a>`;
+    const cur = route().join('/'), isOwner = ME.user.role === 'owner';
+    const on = k => k === '' ? cur === '' : cur === k || cur.startsWith(k + '/');
+    const link = ([k, t]) => `<a href="#/${k}" class="${on(k) ? 'on' : ''}">${t}</a>`;
     $('#app').innerHTML = `<div class="shell"><aside class="side" id="side"><a class="brand" href="#/"><img src="/assets/img/brand/logo.png" alt="잠스쿨"><span>관리자</span></a>
-      <button class="navbtn" id="navbtn" type="button" aria-expanded="false" aria-controls="side-nav">${ico('menu')}<span>메뉴</span></button>
+      <button class="navbtn" id="navbtn" type="button" aria-expanded="false" aria-controls="side-nav"><span>메뉴</span></button>
       <nav id="side-nav">${NAV.map(([g, list]) => `<p class="grp">${g}</p>${list.map(link).join('')}`).join('')}
-        ${isOwner ? `<p class="grp own">관리자 전용</p>${OWNER_NAV.map(link).join('')}` : ''}
-        <div class="bottom">${link(['me', '내 계정', 'me'])}<a href="/" target="_blank" rel="noopener">${ico('out')}<span>사이트 보기</span></a><a href="#" id="logout">${ico('logout')}<span>로그아웃</span></a></div></nav>
+        ${isOwner ? `<p class="grp own">총괄 관리자 전용</p>${OWNER_NAV.map(link).join('')}` : ''}
+        <div class="bottom">${link(['me', '내 계정'])}<a href="/" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout">로그아웃</a></div></nav>
       <p class="who"><b>${h(ME.user.name)}</b>${h(ME.user.roleName)} · ${h(ME.user.id)}</p></aside>
       <main class="main"><div class="top"><div class="tt">${o.back ? `<a class="back" href="${o.back[0]}">← ${h(o.back[1])}</a>` : ''}<h1 id="ttl">${h(title)}</h1>${o.desc ? `<p>${o.desc}</p>` : ''}</div>${o.tool || ''}<span id="deploy" class="deploy ${deploy.state}" ${deploy.text ? '' : 'hidden'}>${h(deploy.text)}</span></div>
       ${!ME.storeReady ? '<div class="box bad">저장소 연결이 안 되어 있어 저장할 수 없습니다. 관리자에게 알려 주세요(Railway 변수 GITHUB_TOKEN).</div>' : ''}
       <div id="view"><p class="help">불러오는 중…</p></div></main></div>`;
     // 휴대폰: 메뉴 버튼으로 펼치고, 메뉴를 고르면 닫는다
     $('#navbtn').onclick = () => { const open = $('#side').classList.toggle('open'); $('#navbtn').setAttribute('aria-expanded', open); $('#navbtn span').textContent = open ? '닫기' : '메뉴'; };
+    hideTip();
     $('#side-nav').addEventListener('click', e => { if (e.target.closest('a')) $('#side').classList.remove('open'); });
     $('#logout').onclick = async e => { e.preventDefault(); await api('POST', '/api/admin/logout').catch(() => {}); ME.user = null; render(); };
     return $('#view');
   }
 
   function loginView() {
-    $('#app').innerHTML = `<div class="login-wrap"><div class="login-art" style="background-image:url(/assets/img/scenes/sleep-side.jpg)"><b>고친 내용은 2분 뒤<br>jamschool.kr 에 보입니다</b><p>블로그 · 상품 · 상세페이지 · 방문과 주문</p></div>
+    $('#app').innerHTML = `<div class="login-wrap"><div class="login-art" style="background-image:url(/assets/img/scenes/sleep-side.jpg)"></div>
       <form class="login" id="lf"><img src="/assets/img/brand/logo.png" alt="잠스쿨"><h1>관리자 로그인</h1><p class="sub">받은 아이디와 비밀번호를 넣어 주세요.</p>
       ${ME.ready ? '' : '<div class="box warn">아직 계정 설정이 끝나지 않았습니다. 관리자에게 문의해 주세요.</div>'}
       <label for="id">아이디</label><input type="text" id="id" autocomplete="username" autocapitalize="off" required>
@@ -137,7 +128,7 @@
     const last = days.length - 1, labels = days.map((d, i) => (i % every === 0 && last - i >= every / 2) || i === last ? `<text x="${i === last && days.length > 1 ? W - R : L + i * bw + bw / 2}" y="${H - 8}" text-anchor="${i === last && days.length > 1 ? 'end' : 'middle'}">${md(d.date)}</text>` : '').join('');
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="날짜별 그래프">${grid}${rects}${labels}</svg><div class="legend">${series.map(([, c, t]) => `<span style="--c:${c}">${t}</span>`).join('')}</div>`;
   }
-  const PERIODS = [['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일']];
+  const PERIODS = [['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['90', '최근 90일']];
   const period = base => { const n = PERIODS.some(([k]) => k === route()[1]) ? route()[1] : '7'; return { n, seg: `<div class="seg">${PERIODS.map(([k, t]) => `<a href="#/${base}/${k}" class="${k === n ? 'on' : ''}">${t}</a>`).join('')}</div>` }; };
   const PAGE_NAME = { '/': '첫 화면', '/shop': '전체 상품', '/blog/': '수면 가이드(블로그 목록)', '/cart': '장바구니', '/checkout': '주문서', '/order-complete': '주문 완료' };
   const pageName = (p, s) => { const m = p.match(/^\/product-(\d+)$/); return h(PAGE_NAME[p] || (m && s.names[m[1]] ? `상품 · ${s.names[m[1]]}` : '') || (s.titles[p] ? `글 · ${s.titles[p]}` : '') || p) + ` <small class="sub">${h(p)}</small>`; };
@@ -153,26 +144,224 @@
         <div class="kpi"><span>7일 방문자</span><b>${num(s.total.uv)}</b><small>하루 평균 ${num(Math.round(s.total.uv / 7))}명</small></div>
         <div class="kpi"><span>7일 구매 버튼 클릭</span><b>${num((s.total.events.buy_click || 0) + (s.total.events.cart_click || 0) + (s.total.events.store_click || 0))}</b><small>구매·장바구니·스마트스토어</small></div>
         <div class="kpi"><span>7일 페이지 열림</span><b>${num(s.total.pv)}</b><small>방문자 1명당 ${s.total.uv ? (s.total.pv / s.total.uv).toFixed(1) : '-'}쪽</small></div></div>` : ''}
-      <div class="cols"><div class="card"><h2>바로 가기</h2><p class="h-sub">자주 하는 일</p><div class="actions static"><a class="btn pri" href="#/blog/new">새 블로그 글 쓰기</a><a class="btn" href="#/products">상품·상세페이지</a><a class="btn" href="#/traffic">방문·유입 보기</a><a class="btn" href="#/orders">주문 보기</a></div></div>
+      <div class="cols"><div class="card"><h2>바로 가기</h2><p class="h-sub">자주 하는 일</p><div class="actions static"><a class="btn pri" href="#/site/home">홈 화면 고치기</a><a class="btn" href="#/texts">페이지 문구·사진</a><a class="btn" href="#/products">상품·상세페이지</a><a class="btn" href="#/blog/new">새 블로그 글</a><a class="btn" href="#/traffic">방문·유입</a><a class="btn" href="#/payments">결제 주문</a></div></div>
         <div class="card"><h2>사이트 반영 상태</h2><p class="h-sub">마지막으로 저장한 내용이 사이트에 올라갔는지</p><p>${st === 'success' ? '<span class="tag live">최근 변경까지 반영 완료</span>' : st === 'pending' ? '<span class="tag draft">반영 중</span>' : st === 'failure' || st === 'error' ? '<span class="tag bad">반영 실패 — 관리자 확인 필요</span>' : st === 'local' ? '<span class="tag">로컬 저장 모드</span>' : '<span class="tag">확인 중</span>'}</p></div></div>
       <div class="card"><h2>최근 변경</h2><p class="h-sub">누가 무엇을 고쳤는지(최근 순)</p><table class="list"><thead><tr><th>시간</th><th>내용</th><th>누가</th></tr></thead><tbody>${d.recent.length ? '' : '<tr><td colspan="3" class="empty">아직 기록이 없습니다.</td></tr>'}${d.recent.map(c => `<tr><td class="nw">${h(new Date(c.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td><td>${h(c.message.split('\n')[0].replace(/^어드민: /, ''))}</td><td class="nw">${h(c.author)}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
-  // ── 방문·유입
+  // ── 방문·유입(움직이는 그래프): 날짜별 선 그래프(마우스를 올리면 그날 숫자, 누르면 그날만 보기) · 유입 경로 레이더 · 요일 레이더 · 기기 도넛
+  //   색: 이번 기간 파랑 · 지난 기간 주황(점선) · 셋째 초록 — 색만으로 구분하지 않게 범례·숫자를 함께 둔다
+  const C1 = '#2a78d6', C2 = '#eb6834', C3 = '#1baf7a', CG = '#98A1AC';
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  let tipEl = null;
+  function showTip(e, rows, title) {
+    if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'tip'; tipEl.setAttribute('role', 'status'); document.body.appendChild(tipEl); }
+    tipEl.textContent = '';
+    if (title) { const t = document.createElement('p'); t.className = 'tip-t'; t.textContent = title; tipEl.appendChild(t); }
+    for (const [c, label, val, dash] of rows) {
+      const p = document.createElement('p'), k = document.createElement('i'), b = document.createElement('b'), s = document.createElement('span');
+      k.style.borderTopColor = c; if (dash) k.style.borderTopStyle = 'dashed'; b.textContent = val; s.textContent = label; p.append(k, b, s); tipEl.appendChild(p);
+    }
+    tipEl.hidden = false;
+    const r = e.clientX != null ? { x: e.clientX, y: e.clientY } : (() => { const b = e.target.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top }; })();
+    const w = tipEl.offsetWidth, ht = tipEl.offsetHeight;
+    tipEl.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.x + 14)) + 'px';
+    tipEl.style.top = Math.max(8, r.y - ht - 12 < 8 ? r.y + 18 : r.y - ht - 12) + 'px';
+  }
+  function hideTip() { if (tipEl) tipEl.hidden = true; }
+  const svgEl = (tag, attrs = {}) => { const el = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); return el; };
+  const delta = (a, b) => {
+    if (!b) return a ? '<em class="dl up">새로 생김</em>' : '<em class="dl">변화 없음</em>';
+    const d = Math.round((a - b) / b * 1000) / 10;
+    return d === 0 ? '<em class="dl">변화 없음</em>' : `<em class="dl ${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}%</em>`;
+  };
+  // 유입 경로 묶음(레이더 축) — stats.mjs source() 의 이름을 8개 축으로
+  const SRC_AX = [['네이버 검색', ['네이버 검색']], ['네이버 블로그·카페', ['네이버(블로그·카페·쇼핑)']], ['구글', ['구글']], ['직접 방문', ['직접 방문']], ['SNS·영상', ['SNS·영상']], ['AI 답변', ['AI 답변']], ['공식몰·스토어', ['공식몰·스마트스토어']], ['그 밖', null]];
+  const srcProfile = sources => { const out = SRC_AX.map(() => 0); for (const [k, c] of Object.entries(sources || {})) { let i = SRC_AX.findIndex(([, ks]) => ks && ks.includes(k)); if (i < 0) i = SRC_AX.length - 1; out[i] += c; } return out; };
+  const WD = ['월', '화', '수', '목', '금', '토', '일'];
+  const wdOf = date => (new Date(Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10))).getUTCDay() + 6) % 7;
+  const weekdayAvg = days => { const s = Array(7).fill(0), c = Array(7).fill(0); for (const d of days) { const w = wdOf(d.date); s[w] += d.uv; c[w]++; } return s.map((x, i) => c[i] ? Math.round(x / c[i] * 10) / 10 : 0); };
+  const sumObj = list => list.reduce((a, o) => { for (const [k, x] of Object.entries(o || {})) a[k] = (a[k] || 0) + x; return a; }, {});
+
+  // 선 그래프: series [{ key, name, color, dash, area, values[], on }]. onPick(i) 날짜 누름
+  function lineChart(box, dates, series, opt = {}) {
+    const draw = () => {
+      box.textContent = '';
+      const W = Math.max(300, box.clientWidth), H = W < 520 ? 210 : 250, L = 40, R = 12, T = 14, B = 28, n = dates.length;
+      const vis = series.filter(s => s.on);
+      const max = nice(Math.max(2, ...vis.flatMap(s => s.values)));
+      const x = i => n < 2 ? (L + W - R) / 2 : L + i * (W - L - R) / (n - 1), y = v => T + (H - T - B) * (1 - v / max);
+      const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'lc', role: 'img', 'aria-label': opt.label || '날짜별 그래프' });
+      for (const f of max >= 8 ? [0, .25, .5, .75, 1] : [0, .5, 1]) {
+        svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: y(max * f), y2: y(max * f), class: f ? 'grid' : 'base' }));
+        const t = svgEl('text', { x: L - 8, y: y(max * f) + 4, 'text-anchor': 'end' }); t.textContent = num(Math.round(max * f * 10) / 10); svg.appendChild(t);
+      }
+      const every = Math.ceil(n / (W < 520 ? 5 : 9));
+      dates.forEach((d, i) => { if (i % every && i !== n - 1) return; if (i !== n - 1 && n - 1 - i < every / 2) return; const t = svgEl('text', { x: x(i), y: H - 8, 'text-anchor': i === n - 1 && n > 1 ? 'end' : i === 0 ? 'start' : 'middle' }); t.textContent = md(d); svg.appendChild(t); });
+      if (opt.pick != null) svg.appendChild(svgEl('rect', { x: x(opt.pick) - Math.max(6, (W - L - R) / Math.max(1, n - 1) / 2), y: T, width: Math.max(12, (W - L - R) / Math.max(1, n - 1)), height: H - T - B, class: 'pickband' }));
+      for (const s of vis) {
+        const pts = s.values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+        if (s.area && n > 1) svg.appendChild(svgEl('path', { d: `M${x(0)},${y(0)} L${pts.join(' L')} L${x(n - 1)},${y(0)} Z`, fill: s.color, 'fill-opacity': .1 }));
+        svg.appendChild(svgEl('path', { d: `M${pts.join(' L')}`, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', ...(s.dash ? { 'stroke-dasharray': '5 4' } : {}) }));
+        if (n <= 31) s.values.forEach((v, i) => svg.appendChild(svgEl('circle', { cx: x(i), cy: y(v), r: 2.5, fill: s.color })));
+      }
+      const hair = svgEl('line', { y1: T, y2: H - B, class: 'hair', visibility: 'hidden' }), dots = svgEl('g', { visibility: 'hidden' });
+      vis.forEach(s => dots.appendChild(svgEl('circle', { r: 5, fill: '#fff', stroke: s.color, 'stroke-width': 2 })));
+      svg.append(hair, dots);
+      const hit = svgEl('rect', { x: L - 6, y: 0, width: W - L - R + 12, height: H - B + 6, fill: 'transparent', tabindex: 0, class: 'hit', 'aria-label': '날짜를 고르려면 왼쪽·오른쪽 화살표, 그날만 보려면 Enter' });
+      svg.appendChild(hit); box.appendChild(svg);
+      let cur = -1;
+      const at = (i, e) => {
+        cur = Math.max(0, Math.min(n - 1, i)); hair.setAttribute('x1', x(cur)); hair.setAttribute('x2', x(cur)); hair.setAttribute('visibility', 'visible'); dots.setAttribute('visibility', 'visible');
+        [...dots.children].forEach((c, k) => { c.setAttribute('cx', x(cur)); c.setAttribute('cy', y(vis[k].values[cur])); });
+        showTip(e, vis.map(s => [s.color, s.name, num(s.values[cur]), s.dash]), `${dates[cur]} (${WD[wdOf(dates[cur])]})${opt.pickHint ? ' · 누르면 그날만 보기' : ''}`);
+      };
+      const idx = e => { const b = svg.getBoundingClientRect(), px = (e.clientX - b.left) * W / b.width; return n < 2 ? 0 : Math.round((px - L) / ((W - L - R) / (n - 1))); };
+      hit.addEventListener('pointermove', e => at(idx(e), e));
+      hit.addEventListener('pointerleave', () => { hair.setAttribute('visibility', 'hidden'); dots.setAttribute('visibility', 'hidden'); hideTip(); });
+      hit.addEventListener('click', e => opt.onPick && opt.onPick(idx(e)));
+      hit.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+          e.preventDefault(); const ni = Math.max(0, Math.min(n - 1, (cur < 0 ? n - 1 : cur) + (e.key === 'ArrowRight' ? 1 : -1))), b = svg.getBoundingClientRect();
+          at(ni, { clientX: b.left + x(ni) * b.width / W, clientY: b.top + y(Math.max(...vis.map(q => q.values[ni]))) * b.height / H });
+        }
+        if (e.key === 'Enter' && cur >= 0 && opt.onPick) opt.onPick(cur);
+      });
+      hit.addEventListener('blur', hideTip);
+    };
+    draw();
+    return draw;
+  }
+  // 레이더: axes[이름], series [{ name, color, dash, values[], on }], fmt(값) → 글자. 축 끝 점에 마우스를 올리면 모든 기간 값
+  function radarChart(box, axes, series, fmt, opt = {}) {
+    const draw = () => {
+      box.textContent = '';
+      const S = Math.min(440, Math.max(280, box.clientWidth)), cx = S / 2, cy = S / 2 - 4, R = S / 2 - (S < 380 ? 70 : 64), n = axes.length;
+      const names = S < 380 && opt.short ? opt.short : axes;   // 휴대폰: 짧은 축 이름
+      const vis = series.filter(s => s.on);
+      const max = Math.max(1e-9, ...vis.flatMap(s => s.values)) * 1.08;
+      const ang = i => -Math.PI / 2 + i * 2 * Math.PI / n, pt = (i, f) => [cx + Math.cos(ang(i)) * R * f, cy + Math.sin(ang(i)) * R * f];
+      const svg = svgEl('svg', { viewBox: `0 0 ${S} ${S}`, class: 'rc', role: 'img', 'aria-label': opt.label || '레이더 그래프' });
+      for (const f of [.25, .5, .75, 1]) svg.appendChild(svgEl('polygon', { points: axes.map((_, i) => pt(i, f).join(',')).join(' '), class: 'ring' }));
+      axes.forEach((a, i) => {
+        const [x2, y2] = pt(i, 1); svg.appendChild(svgEl('line', { x1: cx, y1: cy, x2, y2, class: 'spoke' }));
+        const [lx, ly] = pt(i, 1.13), c = Math.cos(ang(i));
+        const t = svgEl('text', { x: lx, y: ly + 4, 'text-anchor': Math.abs(c) < .3 ? 'middle' : c > 0 ? 'start' : 'end', class: 'ax' }); t.textContent = names[i]; svg.appendChild(t);
+      });
+      const ring = svgEl('text', { x: cx + 4, y: cy - R * .5 - 3, class: 'rl' }); ring.textContent = fmt(max / 1.08 * .5, true); svg.appendChild(ring);
+      for (const s of vis) svg.appendChild(svgEl('polygon', { points: s.values.map((v, i) => pt(i, v / max).join(',')).join(' '), fill: s.color, 'fill-opacity': s.dash ? .06 : .16, stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', ...(s.dash ? { 'stroke-dasharray': '5 4' } : {}) }));
+      for (const s of vis) s.values.forEach((v, i) => { const [x, y] = pt(i, v / max); svg.appendChild(svgEl('circle', { cx: x, cy: y, r: 4, fill: s.dash ? '#fff' : s.color, stroke: s.color, 'stroke-width': 2 })); });
+      axes.forEach((a, i) => {
+        const [x, y] = pt(i, Math.max(...vis.map(s => s.values[i] / max), .12)), hit = svgEl('circle', { cx: x, cy: y, r: 14, fill: 'transparent', tabindex: 0, class: 'hit', 'aria-label': `${a}: ${vis.map(s => `${s.name} ${fmt(s.values[i])}`).join(', ')}` });
+        const show = e => showTip(e, vis.map(s => [s.color, s.name, fmt(s.values[i]), s.dash]), a);
+        hit.addEventListener('pointerenter', show); hit.addEventListener('pointermove', show); hit.addEventListener('focus', show);
+        hit.addEventListener('pointerleave', hideTip); hit.addEventListener('blur', hideTip);
+        svg.appendChild(hit);
+      });
+      box.appendChild(svg);
+    };
+    draw();
+    return draw;
+  }
+  // 도넛(기기): [[이름, 값, 색]] — 조각에 마우스를 올리면 가운데에 이름·비율
+  function donut(box, parts) {
+    box.textContent = '';
+    const total = parts.reduce((a, p) => a + p[1], 0), S = 200, r = 78, w = 26, c = S / 2;
+    const svg = svgEl('svg', { viewBox: `0 0 ${S} ${S}`, class: 'dc', role: 'img', 'aria-label': parts.map(p => `${p[0]} ${pct(p[1], total)}`).join(', ') || '기록 없음' });
+    const mid = svgEl('text', { x: c, y: c - 2, 'text-anchor': 'middle', class: 'dv' }), mid2 = svgEl('text', { x: c, y: c + 18, 'text-anchor': 'middle', class: 'dk' });
+    const reset = () => { mid.textContent = num(total); mid2.textContent = '방문자'; };
+    if (!total) svg.appendChild(svgEl('circle', { cx: c, cy: c, r, fill: 'none', stroke: '#EEF1F4', 'stroke-width': w }));
+    let a0 = -Math.PI / 2;
+    for (const [name, v, col] of parts) {
+      if (!v) continue;
+      const a1 = a0 + v / total * Math.PI * 2, gap = parts.filter(p => p[1]).length > 1 ? .02 : 0, s = a0 + gap, e = a1 - gap, big = e - s > Math.PI ? 1 : 0;
+      const P = (a, rr) => `${c + Math.cos(a) * rr},${c + Math.sin(a) * rr}`;
+      const path = v === total ? svgEl('circle', { cx: c, cy: c, r, fill: 'none', stroke: col, 'stroke-width': w })
+        : svgEl('path', { d: `M${P(s, r)} A${r},${r} 0 ${big} 1 ${P(e, r)}`, fill: 'none', stroke: col, 'stroke-width': w });
+      path.setAttribute('class', 'seg'); path.setAttribute('tabindex', 0);
+      const show = ev => { mid.textContent = pct(v, total); mid2.textContent = `${name} ${num(v)}명`; showTip(ev, [[col, name, `${num(v)}명 · ${pct(v, total)}`]]); };
+      path.addEventListener('pointerenter', show); path.addEventListener('focus', show);
+      path.addEventListener('pointerleave', () => { reset(); hideTip(); }); path.addEventListener('blur', () => { reset(); hideTip(); });
+      svg.appendChild(path); a0 = a1;
+    }
+    reset(); svg.append(mid, mid2); box.appendChild(svg);
+    const lg = document.createElement('ul'); lg.className = 'dlg';
+    for (const [name, v, col] of parts) { const li = document.createElement('li'), i = document.createElement('i'), b = document.createElement('b'), s = document.createElement('span'); i.style.background = col; s.textContent = name; b.textContent = `${num(v)}명 · ${pct(v, total)}`; li.append(i, s, b); lg.appendChild(li); }
+    box.appendChild(lg);
+  }
+  // 범례 버튼(누르면 그 계열 숨기기/보이기)
+  function legend(el, series, redraw) {
+    el.innerHTML = series.map((s, i) => `<button type="button" class="lgb${s.on ? '' : ' off'}" data-i="${i}" aria-pressed="${s.on}"><i style="border-top-color:${s.color};border-top-style:${s.dash ? 'dashed' : 'solid'}"></i>${h(s.name)}</button>`).join('');
+    el.querySelectorAll('button').forEach(b => b.onclick = () => { const s = series[+b.dataset.i]; if (s.on && series.filter(x => x.on).length === 1) return; s.on = !s.on; legend(el, series, redraw); redraw(); });
+  }
+
   async function traffic() {
     const { n, seg } = period('traffic');
-    const v = shell('방문·유입', { desc: '사이트에 몇 명이 어디서 들어왔는지. 같은 사람은 하루 한 번만 셉니다(쿠키·개인정보 없이).', tool: seg });
-    const s = await api('GET', `/api/admin/stats?days=${n}`), t = s.total;
-    v.innerHTML = `${persistNote(s)}<div class="kpis k3"><div class="kpi"><span>방문자</span><b>${num(t.uv)}</b><small>${n === '1' ? '오늘' : `하루 평균 ${num(Math.round(t.uv / +n))}명`}</small></div>
-        <div class="kpi"><span>페이지 열림</span><b>${num(t.pv)}</b><small>방문자 1명당 ${t.uv ? (t.pv / t.uv).toFixed(1) : '-'}쪽</small></div>
-        <div class="kpi"><span>다른 곳에서 들어옴</span><b>${num(t.entries)}</b><small>검색·블로그·SNS 등(직접 입력 포함)</small></div></div>
-      ${n !== '1' ? `<div class="card"><h2>날짜별</h2><p class="h-sub">막대를 누르거나 마우스를 올리면 숫자가 보입니다</p>${chart(s.days, [['pv', '#D9DFE6', '페이지 열림'], ['uv', '#15181C', '방문자']])}</div>` : ''}
-      <div class="cols"><div class="card"><h2>어디서 왔나</h2><p class="h-sub">들어온 경로별(사이트 안 이동은 빼고)</p>${bars(top(t.sources, 12), t.entries)}</div>
-        <div class="card"><h2>많이 본 페이지</h2><p class="h-sub">페이지 열림 순</p>${bars(top(t.pages, 12), t.pv, p => pageName(p, s))}</div></div>
-      <div class="cols"><div class="card"><h2>들어온 사이트</h2><p class="h-sub">검색·블로그·카페 등 주소별</p>${bars(top(t.refs, 10), sum(t.refs))}</div>
-        <div class="card"><h2>기기</h2><p class="h-sub">방문자 기준</p>${bars(top(t.devices), t.uv)}</div></div>
+    const v = shell('방문·유입', { desc: '사이트에 몇 명이 어디서 들어왔는지. 같은 사람은 하루 한 번만 셉니다(쿠키·개인정보 없이). 그래프에 마우스를 올리거나 눌러 보세요.', tool: seg });
+    const s = await api('GET', `/api/admin/stats?days=${n}`), t = s.total, p = s.prev.total;
+    const vs = n === '1' ? '어제' : `직전 ${n}일`;
+    const pages = t.uv ? (t.pv / t.uv).toFixed(1) : '-', ppages = p.uv ? (p.pv / p.uv).toFixed(1) : '-';
+    v.innerHTML = `${persistNote(s)}<div class="kpis">
+        <div class="kpi"><span>방문자</span><b>${num(t.uv)}</b><small>${delta(t.uv, p.uv)} ${vs} ${num(p.uv)}명</small></div>
+        <div class="kpi"><span>페이지 열림</span><b>${num(t.pv)}</b><small>${delta(t.pv, p.pv)} ${vs} ${num(p.pv)}번</small></div>
+        <div class="kpi"><span>다른 곳에서 들어옴</span><b>${num(t.entries)}</b><small>${delta(t.entries, p.entries)} ${vs} ${num(p.entries)}번</small></div>
+        <div class="kpi"><span>1명당 본 페이지</span><b>${pages}</b><small>${vs} ${ppages}쪽${n === '1' ? '' : ` · 하루 평균 ${num(Math.round(t.uv / +n))}명`}</small></div></div>
+      ${n !== '1' ? `<div class="card"><div class="ch"><div><h2>날짜별 흐름</h2><p class="h-sub">마우스를 올리면 그날 숫자, 누르면 아래 유입·기기가 그날 기준으로 바뀝니다. 점선은 ${vs}(같은 순서의 날)입니다.</p></div><div class="lg" id="lc-lg"></div></div><div class="lcbox" id="lc"></div></div>` : ''}
+      <div id="pickbar"></div>
+      <div class="cols"><div class="card"><div class="ch"><div><h2>유입 경로 레이더</h2><p class="h-sub" id="rs-sub">들어온 경로가 어디에 많이 몰렸는지(비율). 점에 마우스를 올리면 숫자</p></div><div class="lg" id="rs-lg"></div></div><div class="rcbox" id="rs"></div>
+          <details class="tbl"><summary>숫자로 보기</summary><div id="rs-tbl"></div></details></div>
+        <div class="card">${+n >= 7 ? `<div class="ch"><div><h2>요일별 방문 레이더</h2><p class="h-sub">요일마다 하루 평균 방문자</p></div><div class="lg" id="rw-lg"></div></div><div class="rcbox" id="rw"></div>
+          <details class="tbl"><summary>숫자로 보기</summary><div id="rw-tbl"></div></details>` : '<h2>요일별 방문 레이더</h2><p class="h-sub">최근 7일 이상을 고르면 요일별로 보입니다.</p>'}</div></div>
+      <div class="cols"><div class="card"><h2>기기</h2><p class="h-sub" id="dv-sub">방문자 기준 · 조각에 마우스를 올리면 비율</p><div class="dcbox" id="dv"></div></div>
+        <div class="card"><h2>어디서 왔나</h2><p class="h-sub" id="src-sub">들어온 경로별(사이트 안 이동은 빼고)</p><div id="src-bars">${bars(top(t.sources, 12), t.entries)}</div></div></div>
+      <div class="cols"><div class="card"><h2>많이 본 페이지</h2><p class="h-sub">페이지 열림 순</p>${bars(top(t.pages, 12), t.pv, x => pageName(x, s))}</div>
+        <div class="card"><h2>들어온 사이트</h2><p class="h-sub">검색·블로그·카페 등 주소별</p>${bars(top(t.refs, 10), sum(t.refs))}</div></div>
       <div class="card"><h2>검색엔진·AI 로봇 방문</h2><p class="h-sub">사람이 아닌 수집 로봇이 읽어간 횟수(방문자 숫자에는 안 들어감)</p>${bars(top(t.bots, 10), sum(t.bots))}</div>
       <p class="help">GA4·네이버 애널리틱스를 연결하면 거기서도 더 자세히 볼 수 있습니다. 이 화면 숫자는 사이트 서버가 직접 센 것이라 조금 다를 수 있습니다.</p>`;
+    const dates = s.days.map(d => d.date);
+    let pick = null;
+    // 레이더·기기·유입 막대: 기간 전체 또는 고른 날
+    const rsSeries = [{ name: '', color: C1, on: true, values: [] }, { name: '', color: C2, dash: true, on: true, values: [] }];
+    const shareFmt = (x, ring) => ring ? `${Math.round(x)}%` : `${Math.round(x * 10) / 10}%`;
+    let rsDraw = () => {};
+    const tbl = (axes, ser, fmtv) => `<table class="list"><thead><tr><th></th>${ser.map(x => `<th class="r">${h(x.name)}</th>`).join('')}</tr></thead><tbody>${axes.map((a, i) => `<tr><td>${h(a)}</td>${ser.map(x => `<td class="r">${fmtv(x, i)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    const fill = () => {
+      const day = pick != null ? s.days[pick] : null;
+      const curSrc = day ? day.sources : t.sources, curDev = day ? day.devices : t.devices, curEnt = day ? day.entries : t.entries;
+      const cmpSrc = day ? t.sources : p.sources;
+      const a = srcProfile(curSrc), b = srcProfile(cmpSrc), sa = a.reduce((x, y) => x + y, 0), sb = b.reduce((x, y) => x + y, 0);
+      rsSeries[0].name = day ? `${md(day.date)}(그날)` : `이번 ${n === '1' ? '오늘' : `${n}일`}`; rsSeries[0].values = a.map(x => sa ? x / sa * 100 : 0); rsSeries[0].counts = a;
+      rsSeries[1].name = day ? `이번 ${n}일 전체` : vs; rsSeries[1].values = b.map(x => sb ? x / sb * 100 : 0); rsSeries[1].counts = b;
+      rsDraw = radarChart($('#rs'), SRC_AX.map(x => x[0]), rsSeries, shareFmt, { label: '유입 경로 비율 레이더', short: ['네이버 검색', '블로그·카페', '구글', '직접 방문', 'SNS·영상', 'AI 답변', '공식몰', '그 밖'] });
+      legend($('#rs-lg'), rsSeries, () => rsDraw());
+      $('#rs-tbl').innerHTML = tbl(SRC_AX.map(x => x[0]), rsSeries, (x, i) => `${num(x.counts[i])}번 · ${shareFmt(x.values[i])}`);
+      $('#rs-sub').textContent = sa ? (day ? `${day.date} 하루와 ${n}일 전체의 유입 비율 비교` : `이번 기간과 ${vs}의 유입 비율 비교. 점에 마우스를 올리면 숫자`) : '아직 다른 곳에서 들어온 기록이 없습니다.';
+      donut($('#dv'), [['휴대폰', curDev['휴대폰'] || 0, C1], ['PC', curDev.PC || 0, C2], ['태블릿', curDev['태블릿'] || 0, C3]]);
+      $('#dv-sub').textContent = day ? `${day.date} 하루 방문자 기준` : '방문자 기준 · 조각에 마우스를 올리면 비율';
+      $('#src-bars').innerHTML = bars(top(curSrc, 12), curEnt); $('#src-sub').textContent = day ? `${day.date} 하루 들어온 경로` : '들어온 경로별(사이트 안 이동은 빼고)';
+      $('#pickbar').innerHTML = day ? `<div class="box info pick"><b>${h(day.date)}(${WD[wdOf(day.date)]})만 보는 중</b> — 방문자 ${num(day.uv)} · 페이지 ${num(day.pv)} · 들어옴 ${num(day.entries)} <button class="btn sm" id="unpick" type="button">기간 전체로</button></div>` : '';
+      if (day) $('#unpick').onclick = () => { pick = null; fill(); if (lcDraw) lcDraw(); };
+    };
+    let lcDraw = null;
+    if (n !== '1') {
+      const prevUv = s.prev.days.map(d => d.uv);
+      const lcSeries = [{ name: '방문자', color: C1, area: true, on: true, values: s.days.map(d => d.uv) }, { name: '페이지 열림', color: C3, on: true, values: s.days.map(d => d.pv) }, { name: `${vs} 방문자`, color: C2, dash: true, on: true, values: prevUv }];
+      const opt = { label: '날짜별 방문자·페이지 열림 선 그래프', pickHint: true, onPick: i => { pick = pick === i ? null : i; opt.pick = pick; fill(); lcDraw(); } };
+      lcDraw = lineChart($('#lc'), dates, lcSeries, opt);
+      legend($('#lc-lg'), lcSeries, () => lcDraw());
+    }
+    fill();
+    let rwDraw = null;
+    if (+n >= 7) {
+      const rwSeries = [{ name: `이번 ${n}일`, color: C1, on: true, values: weekdayAvg(s.days) }, { name: vs, color: C2, dash: true, on: true, values: weekdayAvg(s.prev.days) }];
+      const fmt = x => `${Math.round(x * 10) / 10}명`;
+      rwDraw = radarChart($('#rw'), WD, rwSeries, fmt, { label: '요일별 평균 방문자 레이더' });
+      legend($('#rw-lg'), rwSeries, () => rwDraw());
+      $('#rw-tbl').innerHTML = tbl(WD, rwSeries, (x, i) => fmt(x.values[i]));
+    }
+    // 화면 폭이 바뀌면 다시 그림(같은 화면일 때만)
+    const here = location.hash;
+    let rt; window.onresize = () => { clearTimeout(rt); rt = setTimeout(() => { if (location.hash !== here) { window.onresize = null; return; } lcDraw && lcDraw(); rsDraw(); rwDraw && rwDraw(); }, 150); };
   }
 
   // ── 주문(결제 연동 전: 주문서 → 스마트스토어 결제)
@@ -378,7 +567,7 @@
     v.innerHTML = `<div class="grid">${products.map(p => `<div class="pcard"><a href="#/products/${p.id}"><img src="${h(site(p.img))}" alt="" loading="lazy"></a><div><a href="#/products/${p.id}"><b>${h(p.short)}</b></a><span>${won(p.price)}${p.full ? '부터' : ''}</span>
       <p class="pc-links"><a href="#/products/${p.id}">기본 정보</a><a href="#/products/${p.id}/detail">상세페이지</a></p></div></div>`).join('')}</div>`;
   }
-  const ptabs = (id, on) => `<nav class="ptabs" aria-label="상품 편집"><a href="#/products/${id}" class="${on === 'info' ? 'on' : ''}">기본 정보·사진</a><a href="#/products/${id}/detail" class="${on === 'detail' ? 'on' : ''}">상세페이지</a></nav>`;
+  const ptabs = (id, on) => `<nav class="ptabs" aria-label="상품 편집"><a href="#/products/${id}" class="${on === 'info' ? 'on' : ''}">기본 정보·사진</a><a href="#/products/${id}/detail" class="${on === 'detail' ? 'on' : ''}">상세페이지</a><a href="#/products/${id}/notice" class="${on === 'notice' ? 'on' : ''}">상품정보 제공고시</a></nav>`;
   async function productEdit(id) {
     const v = shell('상품', { back: ['#/products', '상품 목록'] });
     const { product: p, options29: o } = await api('GET', `/api/admin/products/${id}`);
@@ -391,6 +580,7 @@
       <div class="row"><div><label for="p-short">짧은 이름 <small>카드·메뉴</small></label><input type="text" id="p-short" value="${h(p.short)}"></div>
         <div><label for="p-store">스마트스토어 링크 <small>있으면 N Pay 버튼</small></label><input type="text" id="p-store" value="${h(p.store)}"></div></div>
       <label for="p-sum">한 줄 요약</label><input type="text" id="p-sum" value="${h(p.summary)}">
+      <div class="row"><div><label for="p-rating">평점 <small>별점 평균(0~5, 예: 4.87)</small></label><input type="number" id="p-rating" step="0.01" min="0" max="5" value="${h(p.rating)}"></div><div><label for="p-reviews">구매평 수 <small>상품 카드·상품 페이지에 보임</small></label><input type="number" id="p-reviews" min="0" value="${h(p.reviews)}"></div></div>
       ${o ? '' : `<div class="row"><div><label for="p-list">정가</label><input type="number" id="p-list" value="${h(p.list)}"></div><div><label for="p-price">판매가</label><input type="number" id="p-price" value="${h(p.price)}"></div></div>`}
       <label>배지</label><div class="checks">${BADGES.map(b => `<label><input type="checkbox" value="${b}" class="p-badge" ${p.badges.includes(b) ? 'checked' : ''}>${b}</label>`).join('')}</div>
       <label for="p-points">특징 <small>한 줄에 하나씩, 상품 카드·상세 위에 보입니다</small></label><textarea id="p-points" style="min-height:110px">${h(p.points.join('\n'))}</textarea></div>
@@ -405,7 +595,7 @@
     drawImgs(); v.addEventListener('input', () => { dirty = true; });
     $('#p-add').onclick = async () => { try { for (const f of await pickFiles(true)) { const x = await prepImage(f, 1000); imgs.push({ data: x.data }); } dirty = true; drawImgs(); } catch (e) { fail(e); } };
     $('#p-save').onclick = async () => {
-      const product = { name: $('#p-name').value, short: $('#p-short').value, summary: $('#p-sum').value, store: $('#p-store').value, list: o ? 0 : $('#p-list').value, price: o ? 0 : $('#p-price').value,
+      const product = { name: $('#p-name').value, short: $('#p-short').value, summary: $('#p-sum').value, store: $('#p-store').value, rating: $('#p-rating').value, reviews: $('#p-reviews').value, list: o ? 0 : $('#p-list').value, price: o ? 0 : $('#p-price').value,
         badges: [...v.querySelectorAll('.p-badge:checked')].map(x => x.value), points: $('#p-points').value.split('\n'), imgs: imgs.map(x => x.data ? { data: x.data } : x.src) };
       const options29 = o ? { price: {}, list: {} } : null;
       if (o) v.querySelectorAll('[data-op]').forEach(i => { options29[i.dataset.op][i.dataset.k] = +i.value; });
@@ -452,6 +642,225 @@
     };
   }
 
+  // ── 사이트 꾸미기 ① 목록 편집(홈 화면·구매평·자주 묻는 질문·기본 정보) — 서버 정의(tools/admin/blocks.mjs)대로 칸을 그린다
+  const MENU_FIRST = { home: 'HERO_SLIDES', reviews: 'REVIEWS', faq: 'FAQ', info: 'CS' };
+  const MENU_TITLE = { home: '홈 화면', reviews: '구매평', faq: '자주 묻는 질문', info: '기본 정보' };
+  const MENU_DESC = {
+    home: '홈에 보이는 슬라이드·카드·표를 고칩니다. 섹션 제목·설명 문구는 <a href="#/texts/home">페이지 문구·사진 › 홈</a>에서 고칩니다.',
+    reviews: '홈과 상품 페이지에 보이는 구매평입니다. 상품별 구매평 수·평점은 <a href="#/products">상품 정보</a>에서 고칩니다.',
+    faq: '홈의 자주 묻는 질문과 상품 페이지 Q&A 에 보입니다.',
+    info: '여러 페이지에 쓰이는 기본 정보입니다. 바닥글(회사 정보)은 <a href="#/texts/footer">페이지 문구·사진 › 바닥글</a>에서 고칩니다.',
+  };
+  const clone = x => JSON.parse(JSON.stringify(x ?? null));
+  const getP = (o, p) => p.reduce((a, k) => a == null ? a : a[k], o);
+  const setP = (root, p, val) => { let o = root; p.slice(0, -1).forEach((k, i) => { if (o[k] == null || typeof o[k] !== 'object') o[k] = typeof p[i + 1] === 'number' ? [] : {}; o = o[k]; }); o[p[p.length - 1]] = val; };
+  const pathOf = s => s === '' ? [] : String(s).split('.').map(k => /^\d+$/.test(k) ? +k : k);
+  const imgSrc = (val, base = '') => !val ? '' : typeof val === 'object' ? (val.data || site(base + (val.src || ''))) : site(base + val);
+  const plainSum = x => String(Array.isArray(x) ? x.join(' ') : x ?? '').replace(/\*\*|==/g, '').replace(/\s+/g, ' ').trim();
+  function fieldHTML(f, val, path, P) {
+    const id = 'f-' + String(path || 'v').replace(/\./g, '-'), dp = `data-p="${path}"`;
+    const lab = f.label || f.help ? `<label for="${id}">${h(f.label || '')}${f.help ? ` <small>${h(f.help)}</small>` : ''}</label>` : '';
+    const cnt = f.max ? `<div class="count" data-cnt="${path}" data-max="${f.max}"></div>` : '';
+    switch (f.t) {
+      case 'text': return `${lab}<input type="text" id="${id}" ${dp} value="${h(val ?? '')}">${cnt}`;
+      case 'area': return `${lab}<textarea id="${id}" ${dp} rows="${f.rows || 3}" style="min-height:0">${h(val ?? '')}</textarea>${cnt}`;
+      case 'lines': return `${lab}<textarea id="${id}" ${dp} rows="${f.rows || 3}" style="min-height:0">${h(Array.isArray(val) ? val.join('\n') : val ?? '')}</textarea>`;
+      case 'pair': return `<p class="flab">${h(f.label)}</p><div class="row">${[0, 1].map(k => `<div><label for="${id}-${k}" class="sm">${h(f.labels ? f.labels[k] : '')}</label><input type="text" id="${id}-${k}" data-p="${path}.${k}" value="${h(String((val || [])[k] ?? '').trim())}"></div>`).join('')}</div>`;
+      case 'color': return `${lab}<div class="colr"><input type="color" id="${id}" ${dp} value="${h(/^#[0-9a-f]{6}$/i.test(val || '') ? val : '#ffffff')}"><code>${h(val || '')}</code></div>`;
+      case 'check': return `<label class="chk"><input type="checkbox" ${dp} ${val ? 'checked' : ''}> ${h(f.label)}</label>`;
+      case 'select': return `${lab}<select id="${id}" ${dp}>${f.opts.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
+      case 'icon': return `${lab}<select id="${id}" ${dp}>${P.icons.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
+      case 'product': return `${lab}<select id="${id}" ${dp} data-num="1"><option value="">상품 없음(회원 혜택 배너)</option>${P.products.map(p => `<option value="${p.id}" ${p.id === +val ? 'selected' : ''}>${h(p.short)}</option>`).join('')}</select>`;
+      case 'num': return `${lab}<input type="number" id="${id}" ${dp} data-num="1" value="${h(val ?? '')}">`;
+      case 'image': return `${lab}<div class="imgf">${val ? `<img src="${h(imgSrc(val, f.base))}" alt="">` : '<span class="noimg">사진 없음</span>'}<div><button class="btn sm" type="button" data-act="img" data-p="${path}" data-maxw="${f.maxW || 1600}" data-ratio="${f.ratio || ''}">사진 바꾸기</button>${val && typeof val === 'object' && val.data ? '<p class="help">새 사진(저장하면 올라갑니다)</p>' : ''}</div></div>`;
+      case 'table': {
+        const rows = f.one ? [val || {}] : (val || []);
+        return `<p class="flab">${h(f.label)}</p><div class="tbl-wrap"><table class="tbl-ed"><thead><tr>${f.cols.map(c => `<th>${h(c.label)}</th>`).join('')}${f.one ? '' : '<th></th>'}</tr></thead><tbody>${rows.map((r, ri) => `<tr>${f.cols.map(c => `<td><input type="${c.t === 'num' ? 'number' : 'text'}" aria-label="${h(c.label)}" data-p="${path}${f.one ? '' : '.' + ri}.${c.k}" ${c.t === 'num' ? 'data-num="1"' : ''} value="${h((r || {})[c.k] ?? '')}"></td>`).join('')}${f.one ? '' : `<td><button class="btn sm danger" type="button" data-act="row-del" data-p="${path}.${ri}">빼기</button></td>`}</tr>`).join('')}</tbody></table></div>${f.one ? '' : `<button class="btn sm" type="button" data-act="row-add" data-p="${path}" data-tuple="${f.tuple ? 1 : ''}">줄 추가</button>`}`;
+      }
+      default: return '';
+    }
+  }
+  const blankOf = def => {
+    if (def.prim) return '';
+    const o = {};
+    for (const f of def.fields) o[f.k] = f.t === 'lines' ? [] : f.t === 'pair' ? (f.optional ? undefined : ['', '']) : f.t === 'color' ? '#F5F0EA' : f.t === 'check' ? false : f.t === 'select' ? f.opts[0][0] : f.t === 'icon' ? 'i-check' : f.t === 'table' ? (f.tuple ? [['', '']] : []) : f.t === 'image' || f.t === 'product' ? '' : f.t === 'num' ? 0 : '';
+    return o;
+  };
+  async function siteBlocks(menu, name) {
+    if (!MENU_FIRST[menu]) { location.replace('#/site/home'); return; }
+    name = name || MENU_FIRST[menu];
+    const v = shell(MENU_TITLE[menu], { desc: MENU_DESC[menu] });
+    const d = await api('GET', `/api/admin/blocks/${encodeURIComponent(name)}`);
+    const def = d.def, P = { products: d.products, icons: d.icons };
+    let S = clone(d.value);
+    const open = new Set(def.list && !def.prim && S.length <= 3 ? S.map((_, i) => i) : []);
+    const prodName = id => (P.products.find(x => x.id === +id) || {}).short;
+    const sumOf = (it, i) => name === 'HERO_SLIDES' ? `${prodName(it.id) || '회원 혜택 배너'} · ${plainSum(it.title)}` : plainSum(def.title ? it[def.title] : it) || `${i + 1}번`;
+    const imgField = !def.prim && def.list ? def.fields.find(f => f.t === 'image') : null;
+    const ctl = (i, n) => `<span class="bi-ctl"><button class="btn sm" type="button" data-act="up" data-p="${i}" ${i ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${i < n - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${n > (def.min || 0) ? '' : 'disabled'}>빼기</button></span>`;
+    const counts = () => v.querySelectorAll('[data-cnt]').forEach(c => { const inp = v.querySelector(`[data-p="${c.dataset.cnt}"]`), k = len(inp ? inp.value : ''); c.textContent = `${k}자 / ${c.dataset.max}자까지`; c.classList.toggle('over', k > +c.dataset.max); });
+    const draw = () => {
+      let body;
+      if (def.scalar) body = `<div class="card">${fieldHTML({ ...def.scalar, label: def.label }, S, '', P)}</div>`;
+      else if (!def.list) body = `<div class="card">${def.fields.map(f => fieldHTML(f, S[f.k], f.k, P)).join('')}</div>`;
+      else if (def.prim && def.prim.t === 'image') body = `<div class="card"><div class="thumbs">${S.map((x, i) => `<figure><img src="${h(imgSrc(x))}" alt=""><figcaption><button class="btn sm" type="button" data-act="up" data-p="${i}" ${i ? '' : 'disabled'} aria-label="앞으로">←</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${S.length > (def.min || 0) ? '' : 'disabled'}>빼기</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${i < S.length - 1 ? '' : 'disabled'} aria-label="뒤로">→</button></figcaption></figure>`).join('')}</div>
+          <div class="actions static"><button class="btn sm" type="button" data-act="add-img" data-maxw="${def.prim.maxW || 1000}" data-ratio="${def.prim.ratio || ''}">사진 추가</button></div></div>`;
+      else if (def.prim) body = `<div class="card"><div class="plist">${S.map((x, i) => `<div class="pl"><span class="bi-no">${i + 1}</span><textarea data-p="${i}" rows="2" style="min-height:0" aria-label="${i + 1}번">${h(x)}</textarea>${ctl(i, S.length)}</div>`).join('')}</div>
+          <div class="actions static"><button class="btn sm" type="button" data-act="add" ${def.max && S.length >= def.max ? 'disabled' : ''}>추가</button></div></div>`;
+      else body = `<div class="bis">${S.map((it, i) => `<details class="bi" data-i="${i}" ${open.has(i) ? 'open' : ''}><summary><span class="bi-no">${i + 1}</span>${imgField && it[imgField.k] ? `<img class="bi-img" src="${h(imgSrc(it[imgField.k], imgField.base))}" alt="">` : ''}<span class="bi-t" data-sum="${i}">${h(sumOf(it, i))}</span>${ctl(i, S.length)}</summary>
+          <div class="bi-body">${def.fields.map(f => `<div class="fd">${fieldHTML(f, it[f.k], `${i}.${f.k}`, P)}</div>`).join('')}</div></details>`).join('')}</div>
+          <div class="actions static"><button class="btn sm" type="button" data-act="add" ${def.max && S.length >= def.max ? 'disabled' : ''}>새 항목 추가</button>${S.length > 3 ? '<button class="btn sm" type="button" data-act="openall">모두 펼치기</button>' : ''}</div>`;
+      v.innerHTML = `<nav class="ptabs scroll" aria-label="${h(MENU_TITLE[menu])}">${d.siblings.map(x => `<a href="#/site/${menu}/${x.name}" class="${x.name === name ? 'on' : ''}">${h(x.label)}${x.changed ? '<i class="dot" title="처음 값과 다르게 고친 항목"></i>' : ''}</a>`).join('')}</nav>
+        <div class="box info">${h(def.desc)}${def.anchor ? ` <a href="${h(def.anchor)}" target="_blank" rel="noopener">사이트에서 보기 ↗</a>` : ''}${d.changed ? '<br><small>지금은 처음 값과 다르게 고친 상태입니다.</small>' : ''}</div>
+        ${body}
+        <div class="actions"><button class="btn ok" id="b-save" type="button">저장하기</button>${d.changed ? '<button class="btn" id="b-reset" type="button">처음 값으로 되돌리기</button>' : ''}<a class="btn" href="${h(def.anchor || '/')}" target="_blank" rel="noopener">사이트 보기 ↗</a></div>`;
+      counts();
+      $('#b-save').onclick = async () => {
+        $('#b-save').disabled = true;
+        try { const r = await api('POST', `/api/admin/blocks/${encodeURIComponent(name)}`, { value: S }); saved(r, `「${def.label}」 내용을`); await siteBlocks(menu, name); }
+        catch (e) { fail(e); if ($('#b-save')) $('#b-save').disabled = false; }
+      };
+      const rb = $('#b-reset');
+      if (rb) rb.onclick = async () => {
+        if (!confirm(`「${def.label}」을 처음 값으로 되돌릴까요? 지금까지 고친 내용이 사이트에서 사라집니다.`)) return;
+        try { const r = await api('POST', `/api/admin/blocks/${encodeURIComponent(name)}`, { reset: true }); saved(r, '처음 값으로 되돌리기를'); await siteBlocks(menu, name); } catch (e) { fail(e); }
+      };
+    };
+    draw();
+    v.addEventListener('input', e => {
+      const el = e.target.closest('[data-p]'); if (!el || el.tagName === 'BUTTON') return;
+      let val = el.type === 'checkbox' ? el.checked : el.value;
+      if (el.dataset.num) val = el.value === '' ? '' : +el.value;
+      const p = pathOf(el.dataset.p);
+      if (!p.length) S = val; else setP(S, p, val);
+      if (el.type === 'color' && el.nextElementSibling) el.nextElementSibling.textContent = val;
+      dirty = true; counts();
+      if (def.list && !def.prim && typeof p[0] === 'number') { const t = v.querySelector(`[data-sum="${p[0]}"]`); if (t) t.textContent = sumOf(S[p[0]], p[0]); }
+    });
+    v.addEventListener('toggle', e => { const dd = e.target; if (dd.matches && dd.matches('details.bi')) { if (dd.open) open.add(+dd.dataset.i); else open.delete(+dd.dataset.i); } }, true);
+    v.addEventListener('click', async e => {
+      const b = e.target.closest('[data-act]'); if (!b) return;
+      e.preventDefault();
+      const act = b.dataset.act, p = pathOf(b.dataset.p ?? '');
+      try {
+        if (act === 'up' || act === 'down') {
+          const i = p[0], j = i + (act === 'up' ? -1 : 1); if (j < 0 || j >= S.length) return;
+          [S[i], S[j]] = [S[j], S[i]]; const oi = open.has(i), oj = open.has(j); open.delete(i); open.delete(j); if (oi) open.add(j); if (oj) open.add(i);
+        } else if (act === 'del') { S.splice(p[0], 1); const next = new Set(); for (const k of open) if (k < p[0]) next.add(k); else if (k > p[0]) next.add(k - 1); open.clear(); next.forEach(k => open.add(k)); }
+        else if (act === 'add') { S.push(blankOf(def)); open.add(S.length - 1); }
+        else if (act === 'openall') { S.forEach((_, i) => open.add(i)); }
+        else if (act === 'img') { const [f] = await pickFiles(false); if (!f) return; const x = await prepImage(f, +b.dataset.maxw || 1600, +b.dataset.ratio || 0); setP(S, p, { data: x.data, w: x.w, h: x.h }); }
+        else if (act === 'add-img') { for (const f of await pickFiles(true)) { const x = await prepImage(f, +b.dataset.maxw || 1000, +b.dataset.ratio || 0); S.push({ data: x.data, w: x.w, h: x.h }); } }
+        else if (act === 'row-add') { const arr = getP(S, p) || []; arr.push(b.dataset.tuple ? ['', ''] : {}); setP(S, p, arr); }
+        else if (act === 'row-del') { const arr = getP(S, p.slice(0, -1)); arr.splice(p[p.length - 1], 1); }
+        else return;
+        if (act !== 'openall') dirty = true;
+        draw();
+      } catch (err) { fail(err); }
+    });
+  }
+
+  // ── 사이트 꾸미기 ② 페이지 문구·사진(템플릿의 data-edit 칸, tools/admin/edits.mjs)
+  const KIND = t => /^h[1-5]$/.test(t) ? '제목' : t === 'a' || t === 'button' ? '버튼·링크' : t === 'li' ? '목록' : ['td', 'th', 'dt', 'dd'].includes(t) ? '표' : t === 'label' ? '입력칸 이름' : t === 'summary' ? '펼치기 제목' : t === 'img' ? '사진' : '글';
+  const taRows = s => Math.min(10, Math.max(1, String(s).split('\n').length + Math.floor(len(s) / 70)));
+  async function texts(fileKey) {
+    const v = shell('페이지 문구·사진', { desc: '홈·상품 페이지·주문서·약관 등 사이트 곳곳의 글자와 사진을 고칩니다. 바꾼 칸만 저장되고, 언제든 처음 문구로 되돌릴 수 있습니다.' });
+    const { files } = await api('GET', '/api/admin/texts');
+    if (!files.some(f => f.key === fileKey)) fileKey = 'home';
+    const d = await api('GET', `/api/admin/texts/${fileKey}`);
+    const items = d.items.map(x => x.kind === 'img' ? { ...x, val: x.cur ? { ...x.cur } : null, orig: JSON.stringify(x.cur || null) } : { ...x, val: x.cur ?? x.text, orig: x.cur ?? x.text });
+    const byKey = new Map(items.map(x => [x.key, x]));
+    const groups = [];
+    for (const it of items) { let g = groups.find(x => x.name === it.group); if (!g) groups.push(g = { name: it.group, anchor: it.anchor, list: [] }); g.list.push(it); }
+    const page = d.file.page, pageBase = page.split('#')[0];
+    const imgOf = it => it.val ? (it.val.data || site(it.val.src)) : site(it.src);
+    const itemHTML = it => it.kind === 'img'
+      ? `<div class="tx tx-img" data-k="${it.key}"><img src="${h(imgOf(it))}" alt=""><div><div class="tx-h"><span class="tag">사진</span><span class="tag draft" data-chg ${it.val ? '' : 'hidden'}>바뀜</span></div>
+          <div class="actions static" style="margin-top:6px"><button class="btn sm" type="button" data-img="${it.key}">사진 바꾸기</button><button class="btn sm" type="button" data-reset="${it.key}" ${it.val ? '' : 'hidden'}>처음 사진으로</button></div>
+          <label for="alt-${it.key}" class="sm">사진 설명 <small>검색엔진·화면 낭독기가 읽습니다</small></label><input type="text" id="alt-${it.key}" data-alt="${it.key}" value="${h((it.val && it.val.alt) || it.alt)}"></div></div>`
+      : `<div class="tx" data-k="${it.key}"><div class="tx-h"><span class="tag">${KIND(it.tag)}</span><span class="tag draft" data-chg ${it.val !== it.text ? '' : 'hidden'}>바뀜</span><button class="btn sm" type="button" data-reset="${it.key}" ${it.val !== it.text ? '' : 'hidden'}>처음 문구로</button></div>
+          <textarea data-k="${it.key}" rows="${taRows(it.val)}" aria-label="${h(KIND(it.tag))}: ${h(it.text.slice(0, 30))}">${h(it.val)}</textarea><p class="help tx-o" ${it.val !== it.text ? '' : 'hidden'}>처음 문구: ${h(it.text)}</p></div>`;
+    v.innerHTML = `<div class="tx-bar"><select id="tx-file" aria-label="고칠 페이지">${files.map(f => `<option value="${f.key}" ${f.key === fileKey ? 'selected' : ''}>${h(f.label)} · ${f.count}칸${f.changed ? ` (바꾼 칸 ${f.changed})` : ''}</option>`).join('')}</select>
+        <input type="search" id="tx-q" placeholder="글자로 찾기" aria-label="글자로 찾기"><label class="chk"><input type="checkbox" id="tx-ch"> 바꾼 칸만</label><a class="btn sm" href="${h(page)}" target="_blank" rel="noopener">이 페이지 보기 ↗</a></div>
+      <p class="help" style="margin:0 0 14px">Enter 로 줄을 바꾸고, <b>**글자**</b> 는 굵게, <b>==글자==</b> 는 강조 색이 됩니다. 칸을 비우거나 '처음 문구로'를 누르면 원래 문구로 돌아갑니다. 저장하면 약 2분 뒤 사이트에 반영됩니다.</p>
+      ${groups.map(g => `<section class="card tx-g"><div class="ch"><h2>${h(g.name || d.file.label)}</h2>${g.anchor ? `<a class="btn sm" href="${h(pageBase)}#${h(g.anchor)}" target="_blank" rel="noopener">사이트에서 보기 ↗</a>` : ''}</div>${g.list.map(itemHTML).join('')}</section>`).join('') || empty('이 페이지에는 고칠 수 있는 칸이 없습니다.')}
+      <p class="empty" id="tx-none" hidden>찾는 글자가 없습니다.</p>
+      <div class="actions"><button class="btn ok" id="tx-save" type="button">저장하기</button><span class="help" id="tx-n" style="align-self:center;margin:0"></span></div>`;
+    const changedN = () => items.filter(it => it.kind === 'img' ? JSON.stringify(it.val) !== it.orig : it.val !== it.orig).length;
+    const mark = it => {
+      const box = v.querySelector(`.tx[data-k="${it.key}"]`); if (!box) return;
+      const chg = it.kind === 'img' ? !!it.val : it.val !== it.text;
+      box.querySelector('[data-chg]').hidden = !chg; box.querySelector('[data-reset]').hidden = !chg;
+      const o = box.querySelector('.tx-o'); if (o) o.hidden = !chg;
+      const n = changedN(); $('#tx-n').textContent = n ? `저장 안 한 칸 ${n}개` : '';
+    };
+    const filter = () => {
+      const q = $('#tx-q').value.trim(), only = $('#tx-ch').checked; let any = false;
+      v.querySelectorAll('.tx-g').forEach(g => {
+        let vis = 0;
+        g.querySelectorAll('.tx').forEach(box => { const it = byKey.get(box.dataset.k); const hay = it.kind === 'img' ? `${it.alt} ${(it.val && it.val.alt) || ''} 사진` : `${it.val} ${it.text}`; const ok = (!q || hay.includes(q)) && (!only || (it.kind === 'img' ? !!it.val : it.val !== it.text)); box.hidden = !ok; if (ok) vis++; });
+        g.hidden = !vis; if (vis) any = true;
+      });
+      $('#tx-none').hidden = any || !items.length;
+    };
+    $('#tx-q').oninput = filter; $('#tx-ch').onchange = filter;
+    $('#tx-file').onchange = e => { location.hash = `#/texts/${e.target.value}`; };
+    v.addEventListener('input', e => {
+      const ta = e.target.closest('textarea[data-k]'), al = e.target.closest('[data-alt]');
+      if (ta) { const it = byKey.get(ta.dataset.k); it.val = ta.value; ta.rows = taRows(ta.value); dirty = true; mark(it); }
+      if (al) { const it = byKey.get(al.dataset.alt); it.val = { ...(it.val || { src: it.src, w: it.w, h: it.h }), alt: al.value }; if (!it.val.data && it.val.src === it.src && (al.value.trim() === it.alt || !al.value.trim())) it.val = null; dirty = true; mark(it); }
+    });
+    v.addEventListener('click', async e => {
+      const rb = e.target.closest('[data-reset]'), ib = e.target.closest('[data-img]');
+      if (rb) {
+        const it = byKey.get(rb.dataset.reset), box = v.querySelector(`.tx[data-k="${it.key}"]`);
+        if (it.kind === 'img') { it.val = null; box.querySelector('img').src = site(it.src); box.querySelector('[data-alt]').value = it.alt; }
+        else { it.val = it.text; const ta = box.querySelector('textarea'); ta.value = it.text; ta.rows = taRows(it.text); }
+        dirty = true; mark(it);
+      }
+      if (ib) {
+        const it = byKey.get(ib.dataset.img);
+        try { const [f] = await pickFiles(false); if (!f) return; const x = await prepImage(f, 1600, it.w && it.h ? it.w / it.h : 0); it.val = { data: x.data, w: x.w, h: x.h, alt: v.querySelector(`[data-alt="${it.key}"]`).value }; v.querySelector(`.tx[data-k="${it.key}"] img`).src = x.data; dirty = true; mark(it); toast('원래 사진과 같은 비율로 맞춰 잘랐습니다'); }
+        catch (err) { fail(err); }
+      }
+    });
+    $('#tx-save').onclick = async () => {
+      const text = {}, img = {};
+      for (const it of items) {
+        if (it.kind === 'img') { if (JSON.stringify(it.val) !== it.orig) img[it.key] = it.val; }
+        else if (it.val !== it.orig) text[it.key] = it.val;
+      }
+      if (!Object.keys(text).length && !Object.keys(img).length) { toast('바꾼 칸이 없습니다'); return; }
+      $('#tx-save').disabled = true;
+      try { const r = await api('POST', `/api/admin/texts/${fileKey}`, { text, img }); saved(r, `「${d.file.label}」 문구를`); await texts(fileKey); }
+      catch (err) { fail(err); if ($('#tx-save')) $('#tx-save').disabled = false; }
+    };
+  }
+
+  // ── 상품정보 제공고시(상품 안 세 번째 탭)
+  async function noticeEdit(id) {
+    const v = shell('상품', { back: ['#/products', '상품 목록'] });
+    const [{ product: p }, n] = await Promise.all([api('GET', `/api/admin/products/${id}`), api('GET', `/api/admin/notice/${id}`)]);
+    $('#ttl').textContent = p.short;
+    let rows = clone(n.rows).map(r => [r[0], (r[1] || []).join('\n')]);
+    const draw = () => {
+      v.innerHTML = `${ptabs(id, 'notice')}<div class="card"><h2>상품정보 제공고시</h2><p class="h-sub">상품 페이지 아래쪽 표입니다(전자상거래법 표시 항목). 내용은 한 줄이 한 줄로 보입니다.</p>
+        ${rows.length ? '' : '<div class="box warn">아직 표가 없습니다. 항목을 추가해 주세요(예: 소재, 색상, 치수, 제품 구성, 제조자, 제조국, 세탁 방법 및 취급 시 주의사항, 품질보증기준, A/S 책임자와 전화번호).</div>'}
+        <div class="items">${rows.map((r, i) => `<div class="nrow"><div><label for="nt-${i}" class="sm">항목</label><input type="text" id="nt-${i}" data-n="${i}.0" value="${h(r[0])}" placeholder="예: 소재"></div>
+          <div><label for="nv-${i}" class="sm">내용</label><textarea id="nv-${i}" data-n="${i}.1" rows="${Math.min(6, r[1].split('\n').length + 1)}" style="min-height:0">${h(r[1])}</textarea></div>
+          <div class="ctl"><button class="btn sm" type="button" data-mv="${i}" data-d="-1" ${i ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" type="button" data-mv="${i}" data-d="1" ${i < rows.length - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm danger" type="button" data-rm="${i}">빼기</button></div></div>`).join('')}</div>
+        <div class="actions static"><button class="btn sm" type="button" id="n-add">항목 추가</button></div></div>
+        <div class="actions"><button class="btn ok" id="n-save" type="button">저장하기</button>${n.changed ? '<button class="btn" id="n-reset" type="button">처음 값으로 되돌리기</button>' : ''}<a class="btn" href="/product-${id}.html" target="_blank" rel="noopener">상품 페이지 보기 ↗</a></div>`;
+      v.querySelectorAll('[data-n]').forEach(el => el.oninput = () => { const [i, k] = el.dataset.n.split('.').map(Number); rows[i][k] = el.value; dirty = true; });
+      v.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const i = +b.dataset.mv, j = i + +b.dataset.d; [rows[i], rows[j]] = [rows[j], rows[i]]; dirty = true; draw(); });
+      v.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { rows.splice(+b.dataset.rm, 1); dirty = true; draw(); });
+      $('#n-add').onclick = () => { rows.push(['', '']); dirty = true; draw(); };
+      $('#n-save').onclick = async () => { $('#n-save').disabled = true; try { const r = await api('POST', `/api/admin/notice/${id}`, { rows }); saved(r, '상품정보 제공고시를'); noticeEdit(id); } catch (e) { fail(e); $('#n-save').disabled = false; } };
+      const rb = $('#n-reset'); if (rb) rb.onclick = async () => { if (!confirm('제공고시를 처음 값으로 되돌릴까요?')) return; try { const r = await api('POST', `/api/admin/notice/${id}`, { reset: true }); saved(r, '되돌리기를'); noticeEdit(id); } catch (e) { fail(e); } };
+    };
+    draw();
+  }
+
   // ── 관리자 전용
   async function settings() {
     const v = shell('소유확인·추적 코드', { desc: '검색엔진 소유확인 값과 방문 분석 도구 ID. 저장하면 모든 페이지에 들어갑니다.' });
@@ -493,12 +902,12 @@
     v.innerHTML = `<div class="card"><table class="list"><thead><tr><th>시간</th><th>내용</th><th>누가</th></tr></thead><tbody>${commits.map(c => `<tr><td class="nw">${h(new Date(c.date).toLocaleString('ko-KR'))}</td><td>${h(c.message.split('\n')[0])}</td><td>${h(c.author)}</td></tr>`).join('')}</tbody></table></div>`;
   }
   async function users() {
-    const v = shell('계정 관리', { desc: '관리자·클라이언트 계정. 비밀번호는 새로 만들 때 한 번만 보입니다.' });
+    const v = shell('계정 관리', { desc: '총괄 관리자·잠스쿨 관리자 계정. 비밀번호는 새로 만들 때 한 번만 보입니다.' });
     const { users: list, canWrite } = await api('GET', '/api/admin/users');
     v.innerHTML = `${canWrite ? '' : '<div class="box warn">계정 추가·비밀번호 변경은 Railway 볼륨(DATA_DIR) 연결 뒤에 됩니다. 지금은 Railway 변수 ADMIN_USERS 로 읽기만 합니다.</div>'}
-      <div id="pwbox"></div><div class="card"><table class="list"><thead><tr><th>아이디</th><th>이름</th><th>권한</th><th></th></tr></thead><tbody>${list.map(u => `<tr><td>${h(u.id)}</td><td>${h(u.name)}</td><td>${u.role === 'owner' ? '<span class="tag ai">관리자</span>' : '<span class="tag">클라이언트</span>'}</td>
+      <div id="pwbox"></div><div class="card"><table class="list"><thead><tr><th>아이디</th><th>이름</th><th>권한</th><th></th></tr></thead><tbody>${list.map(u => `<tr><td>${h(u.id)}</td><td>${h(u.name)}</td><td>${u.role === 'owner' ? '<span class="tag ai">총괄 관리자</span>' : '<span class="tag">잠스쿨 관리자</span>'}</td>
         <td>${canWrite ? `<button class="btn sm" data-reset="${h(u.id)}">비밀번호 새로 만들기</button> ${u.id === ME.user.id ? '' : `<button class="btn sm danger" data-del="${h(u.id)}">삭제</button>`}` : ''}</td></tr>`).join('')}</tbody></table></div>
-      ${canWrite ? `<div class="card"><h2>계정 추가</h2><div class="row"><div><label for="u-id">아이디</label><input type="text" id="u-id" placeholder="영문 소문자·숫자"></div><div><label for="u-name">이름</label><input type="text" id="u-name"></div><div><label for="u-role">권한</label><select id="u-role"><option value="client">클라이언트</option><option value="owner">관리자</option></select></div></div><div class="actions static"><button class="btn pri" id="u-add">추가하기</button></div></div>` : ''}`;
+      ${canWrite ? `<div class="card"><h2>계정 추가</h2><div class="row"><div><label for="u-id">아이디</label><input type="text" id="u-id" placeholder="영문 소문자·숫자"></div><div><label for="u-name">이름</label><input type="text" id="u-name"></div><div><label for="u-role">권한</label><select id="u-role"><option value="client">잠스쿨 관리자</option><option value="owner">총괄 관리자</option></select></div></div><div class="actions static"><button class="btn pri" id="u-add">추가하기</button></div></div>` : ''}`;
     const showPw = (id, pw) => { $('#pwbox').innerHTML = `<div class="box ok"><b>${h(id)}</b> 계정의 새 비밀번호: <span class="pw">${h(pw)}</span><p class="help">지금 한 번만 보입니다. 본인에게 안전하게 전달하고, 첫 로그인 뒤 '내 계정'에서 바꾸게 하세요.</p></div>`; };
     v.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => { if (!confirm(`${b.dataset.reset} 의 비밀번호를 새로 만들까요? 지금 비밀번호는 바로 막힙니다.`)) return; try { const r = await api('POST', '/api/admin/users', { action: 'reset', id: b.dataset.reset }); showPw(b.dataset.reset, r.password); } catch (e) { fail(e); } });
     v.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (!confirm(`${b.dataset.del} 계정을 삭제할까요?`)) return; try { await api('POST', '/api/admin/users', { action: 'delete', id: b.dataset.del }); users(); } catch (e) { fail(e); } });
@@ -576,6 +985,9 @@
       else if (a === 'blog' && b === 'edit') await blogEdit(route()[2]);
       else if (a === 'blog') await blogList();
       else if (a === 'products' && b && route()[2] === 'detail') await detailEdit(b);
+      else if (a === 'products' && b && route()[2] === 'notice') await noticeEdit(b);
+      else if (a === 'site') await siteBlocks(b, route()[2]);
+      else if (a === 'texts') await texts(b);
       else if (a === 'products' && b) await productEdit(b);
       else if (a === 'products') await productList();
       else if (a === 'detail') { location.replace(b ? `#/products/${b}/detail` : '#/products'); return; }

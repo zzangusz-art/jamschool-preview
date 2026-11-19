@@ -280,6 +280,16 @@
     ],
   };
 
+  // 홈 신뢰 띠(첫 화면 아래 흐르는 띠): icon = 아이콘 이름(src/partials/sprite.html), text 의 **굵게**, {rating}·{reviews} = 3단 평점·구매평 수
+  const TRUST = [
+    { icon: 'i-star', text: '**{rating}** 3단 접이식 구매평 {reviews}건' },
+    { icon: 'i-flag', text: '폼부터 커버까지 **100% 국내 생산**' },
+    { icon: 'i-cal', text: '**14일** 무료체험' },
+    { icon: 'i-shield', text: '**2년** 폼 무상 교체' },
+    { icon: 'i-truck', text: '오후 1시 이전 결제 시 **당일 출고**' },
+    { icon: 'i-layers', text: 'KATRI · SGS · 한일원자력 **시험 완료**' },
+  ];
+
   // 홈 히어로: 15초 쇼릴이 끝나면 이 순서로 제품 슬라이드 배너. 가격·할인율은 PRODUCTS 에서 가져온다.
   // 사진: assets/img/hero/ — 모두 실사. 상품 원본(1000~1080px) 그대로 + 고화질 WebP. 3단은 선명도(라플라시안) 측정으로 가장 선명한 원본(29/01 접는 장면, 29/02 기지개)을 골랐다.
   // 문구는 3단 상세(대표 메시지: 허리가 편한 탄탄함·잠스쿨 연구소 4세대·31kg 고밀도·국내 생산·14일 체험·2년 교체)와 각 상품 points 에서만 뽑았다.
@@ -338,13 +348,20 @@
   const OV = (typeof window !== 'undefined' && window.JAM_OVERRIDES) || {};
   for (const p of PRODUCTS) { const o = (OV.products || {})[p.id]; if (o) Object.assign(p, o); }
   if (OV.options29) for (const k of ['price', 'list']) Object.assign(OPTIONS_29[k], OV.options29[k] || {});
+  // 어드민 '홈 화면'·'구매평'·'자주 묻는 질문'·'기본 정보' 에서 고친 목록(blocks: 목록은 통째로, 묶음은 바뀐 칸만)·상품정보 제공고시(notice)
+  const B = OV.blocks || {};
+  const LISTS = { HERO_SLIDES, TRUST, FEATURES, USES, TESTS, REVIEWS, SHORT_REVIEWS, PHOTOS, FAQ, CHECKS };
+  for (const [k, arr] of Object.entries(LISTS)) if (Array.isArray(B[k])) arr.splice(0, arr.length, ...B[k]);
+  if (B.CS) { Object.assign(CS, B.CS); CS.telHref = 'tel:' + String(CS.tel).replace(/\D/g, ''); }
+  if (B.MARKET) Object.assign(MARKET, B.MARKET);
+  for (const [id, rows] of Object.entries(OV.notice || {})) if (Array.isArray(rows)) NOTICE[id] = rows;
   { // 3단 대표 가격 = 가장 싼 옵션의 판매가·정가
     const p29 = PRODUCTS.find(p => p.id === 29), cheap = Object.keys(OPTIONS_29.price).sort((a, b) => OPTIONS_29.price[a] - OPTIONS_29.price[b])[0];
     if (p29) { p29.price = OPTIONS_29.price[cheap]; p29.list = OPTIONS_29.list[cheap]; }
   }
 
   // 구매평 수·평점의 기준(공식몰 상품 페이지 값. 공식몰 구매평에는 스마트스토어에서 연동된 구매평이 함께 들어 있다)
-  const REVIEW_BASIS = '2026년 11월 16일 공식몰 기준(스마트스토어 연동 구매평 포함)';
+  const REVIEW_BASIS = B.REVIEW_BASIS || '2026년 11월 16일 공식몰 기준(스마트스토어 연동 구매평 포함)';
 
-  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES };
+  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES, TRUST };
 })();
