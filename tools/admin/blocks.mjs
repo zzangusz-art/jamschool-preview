@@ -75,7 +75,7 @@ export const BLOCKS = {
       { k: 'bands', t: 'table', label: '유형별 가격 범위', cols: [{ k: 'k', label: '유형', max: 16 }, { k: 'sub', label: '두께', max: 12 }, { k: 'lo', label: '최저(원)', t: 'num' }, { k: 'hi', label: '최고(원)', t: 'num' }], maxItems: 6 },
       { k: 'ours', t: 'table', label: '잠스쿨 위치', one: true, cols: [{ k: 'k', label: '이름', max: 20 }, { k: 'sub', label: '두께', max: 12 }, { k: 'v', label: '가격(원)', t: 'num' }] },
     ] },
-  REVIEWS: { menu: 'reviews', label: 'BEST 구매평', desc: '홈 리뷰 롤링 윗줄(전체 상품)과 그 상품 페이지의 구매평에 보입니다. 원문 그대로 옮기고, 아이디는 가려서(예: osy6***) 적어 주세요.', list: true, min: 1, max: 60, title: 'text', anchor: '/#review', byProduct: true,
+  REVIEWS: { menu: 'reviews', label: 'BEST 구매평', desc: '홈 리뷰 롤링 윗줄(전체 상품)과 그 상품 페이지의 구매평에 보입니다. 원문 그대로 옮기고, 아이디는 가려서(예: osy6***) 적어 주세요. 스마트스토어에서 가져온 구매평 2만여 건은 「구매평 관리」에서 상품별로 보고 숨기기·답글·BEST로 올리기를 합니다.', list: true, min: 1, max: 60, title: 'text', anchor: '/#review', byProduct: true,
     fields: [
       { k: 'pid', t: 'product', label: '상품', need: true },
       { k: 'id', t: 'text', label: '아이디(가림)', max: 20 },

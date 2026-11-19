@@ -317,3 +317,6 @@ tr.sub>td{background:var(--soft);padding:6px 10px 12px}
 .rvm-bar select{width:auto;min-width:0}
 .rvm-bar form{display:flex;gap:6px}
 .rvm-bar input[type=search]{min-width:200px}
+.rvm__rd{margin-top:10px}
+.rvm__rd summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)}
+.rvm__rd textarea{width:100%;margin-top:6px}

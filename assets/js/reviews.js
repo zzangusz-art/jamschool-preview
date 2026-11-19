@@ -56,11 +56,27 @@
     const srcs = (b.dataset.phs || b.dataset.ph).split(' ').filter(Boolean);
     UI.lightbox(srcs.map((src, i) => ({ src, alt: `구매평 사진 ${i + 1}`, cap: '구매평 사진' })), +b.dataset.k || 0);
   });
-  // 서버가 있는지 한 번 확인(미리보기 사이트는 정적이라 /api 가 없다)
-  fetch(`/api/reviews?pid=${encodeURIComponent(pid)}&n=1`, { headers: { Accept: 'application/json' } })
+  // 사진이 안 열리면(네이버에서 지운 사진 등): 큰 사진 주소로 한 번 더, 그래도 안 되면 그 사진 칸을 숨긴다(깨진 그림 표시 없이)
+  const photoFail = img => {
+    const b = img.closest('.rva-c__ph'); if (!b) return;
+    if (!img.dataset.retry && b.dataset.ph && img.src !== new URL(b.dataset.ph, location.href).href) { img.dataset.retry = '1'; img.src = b.dataset.ph; return; }
+    b.hidden = true;
+    const box = b.parentElement; if (box && ![...box.children].some(x => !x.hidden)) box.hidden = true;
+  };
+  el.addEventListener('error', e => { if (e.target && e.target.tagName === 'IMG') photoFail(e.target); }, true);
+  $$('.rva__list img', el).forEach(img => { if (img.complete && img.naturalWidth === 0 && img.getAttribute('src')) photoFail(img); });
+  // 서버가 있는지 확인하면서 첫 쪽을 받는다(미리보기 사이트는 정적이라 /api 가 없다).
+  //   미리 그린 6개와 다르면(어드민에서 숨김·답글, 홈페이지 손님 구매평) 첫 쪽으로 바꿔 그린다
+  const sig = a => a.map(x => `${x.n}${x.rp ? '+' : ''}`).join(',');
+  fetch(`/api/reviews?pid=${encodeURIComponent(pid)}&n=10`, { headers: { Accept: 'application/json' } })
     .then(r => { if (!r.ok) throw new Error(); return r.json(); })
     .then(j => {
-      el.classList.add('is-live'); more.hidden = j.total <= list.children.length;
+      el.classList.add('is-live');
+      const pre = $$('.rva-c', list).map(c => `${c.dataset.n || ''}${c.dataset.rp ? '+' : ''}`).join(',');
+      if (seq === 0 && pre !== sig(j.items.slice(0, list.children.length))) {
+        list.innerHTML = j.items.map((x, i) => RENDER.rvCard(x, `rva-0-1-${i}`, null)).join('') || '<p class="rva__empty">아직 구매평이 없습니다.</p>';
+        st.page = j.page; st.pages = j.pages; st.fresh = false; more.hidden = st.page >= st.pages; UI.fitReviews(list);
+      } else more.hidden = j.total <= list.children.length;
       siteTab(j.site);
       openFromLink();
     })

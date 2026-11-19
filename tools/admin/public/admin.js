@@ -804,15 +804,16 @@
   // ── 구매평 관리
   //   홈페이지 손님 구매평: 이 홈페이지에서 산 손님(주문 확인) = 바로 게시, 다른 곳에서 샀다고 적은 손님 = 승인 대기. 게시·숨기기·답글은 바로 반영
   //   모든 구매평: 상품 페이지 '구매평 모아 보기'와 같은 목록(BEST → 홈페이지 → 스마트스토어). 스마트스토어 글 숨기기·BEST 로 올리기는 저장 → 약 2분 뒤 반영
-  const RVF = { tab: 'site', status: 'pending', pid: '', f: 'all', sort: 'rec', q: '', vis: 'all', page: 1 };
+  const RVF = { tab: 'all', status: 'pending', pid: '', f: 'all', sort: 'rec', q: '', vis: 'all', page: 1 }, RVP = { pending: 0 };
   const STARS = n => '★'.repeat(n) + '☆'.repeat(5 - n);
   const RV_ST = { shown: ['live', '게시'], pending: ['draft', '승인 대기'], hidden: ['bad', '숨김'] };
   async function reviewsMgr() {
-    const v = shell('구매평 관리', { desc: '손님이 홈페이지에서 쓴 구매평을 확인하고, 상품 페이지 「구매평 모아 보기」에 보이는 모든 구매평을 살펴 숨기거나 BEST로 올립니다.' });
-    const tabs = `<div class="seg" role="group" aria-label="구매평 관리 화면">${[['site', '홈페이지 손님 구매평'], ['all', '모든 구매평']].map(([k, t]) => `<a href="#" data-tab="${k}" class="${RVF.tab === k ? 'on' : ''}">${t}</a>`).join('')}</div>`;
+    const v = shell('구매평 관리', { desc: '상품 페이지 「구매평 모아 보기」에 보이는 구매평(스마트스토어에서 가져온 글 · 잠스쿨이 고른 BEST · 홈페이지 손님 글)을 상품별로 보고 숨기기·답글·BEST로 올리기를 합니다. 손님이 홈페이지에서 쓴 글의 승인은 두 번째 탭에서 합니다.' });
+    const tabsHTML = () => `<div class="seg" role="group" aria-label="구매평 관리 화면">${[['all', '스마트스토어·전체 구매평'], ['site', `홈페이지 손님 구매평${RVP.pending ? ` · 승인 대기 ${RVP.pending}` : ''}`]].map(([k, t]) => `<a href="#" data-tab="${k}" class="${RVF.tab === k ? 'on' : ''}">${t}</a>`).join('')}</div>`;
     const bindTabs = () => v.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); RVF.tab = a.dataset.tab; reviewsMgr(); });
     if (RVF.tab === 'site') {
-      const d = await api('GET', `/api/admin/reviews-site?status=${RVF.status}`), C = d.counts;
+      const d = await api('GET', `/api/admin/reviews-site?status=${RVF.status}`), C = d.counts; RVP.pending = C.pending || 0;
+      const tabs = tabsHTML();
       const one = r => `<div class="rvm" data-id="${h(r.id)}">
         <div class="rvm__top"><span class="rvm__s" aria-label="별점 ${r.stars}점">${STARS(r.stars)}</span><span class="tag ${RV_ST[r.status][0]}">${RV_ST[r.status][1]}</span><b>${h(r.product)}</b><span>${h(r.name)} · ${h(r.srcName)} · ${h(new Date(Date.parse(r.at) + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' '))}</span>${r.moid ? `<a href="#/payments/${encodeURIComponent(r.moid)}">${h(r.moid)}</a>` : ''}</div>
         ${r.opt ? `<p class="rvm__o">${h(r.opt)}</p>` : ''}<p class="rvm__t">${h(r.text)}</p>
@@ -835,12 +836,14 @@
       return;
     }
     const qs = new URLSearchParams({ pid: RVF.pid, f: RVF.f, sort: RVF.sort, q: RVF.q, vis: RVF.vis, page: String(RVF.page), n: '20' });
-    const d = await api('GET', `/api/admin/reviews-all?${qs}`); RVF.pid = String(d.pid);
+    const d = await api('GET', `/api/admin/reviews-all?${qs}`); RVF.pid = String(d.pid); RVP.pending = d.pending || 0;
+    const tabs = tabsHTML();
     const KIND = { best: ['live', 'BEST(잠스쿨이 고름)'], site: ['ai', '홈페이지 손님'], ss: ['', '스마트스토어'] };
     const one = x => `<div class="rvm${x.hid ? ' is-hid' : ''}" data-no="${h(x.n)}">
       <div class="rvm__top"><span class="rvm__s" aria-label="별점 ${+x.s || 5}점">${STARS(+x.s || 5)}</span><span class="tag ${KIND[x.kind][0]}">${KIND[x.kind][1]}</span>${x.hid ? '<span class="tag bad">숨김</span>' : ''}${x.m ? '<span class="tag">한 달 사용</span>' : ''}<span>${h(x.i || '')}${x.d ? ' · ' + h(x.d) : ''}${x.kind === 'ss' ? ' · 글번호 ' + h(x.n) : ''}</span></div>
       ${x.o ? `<p class="rvm__o">${h(x.o)}</p>` : ''}<p class="rvm__t clamp">${h(x.t)}</p>
       ${x.ph.length ? `<div class="rvm__ph">${x.ph.map((p, i) => `<a href="${h(p.l)}" target="_blank" rel="noopener noreferrer"><img src="${h(p.s)}" alt="구매평 사진 ${i + 1}" loading="lazy" referrerpolicy="no-referrer"></a>`).join('')}</div>` : ''}
+      ${x.kind === 'ss' ? `<details class="rvm__rd"${x.rp ? ' open' : ''}><summary>잠스쿨 답글${x.rp ? ' — 달려 있음' : ' 달기'}</summary><label class="sr-only" for="rp-${h(x.n)}">잠스쿨 답글</label><textarea id="rp-${h(x.n)}" rows="2" maxlength="500" placeholder="상품 페이지 이 구매평 아래에 보입니다. 비우고 저장하면 지웁니다">${h(x.rp || '')}</textarea><div class="actions static"><button class="btn sm" data-reply>답글 저장</button></div></details>` : ''}
       <div class="actions static">${x.kind === 'ss' ? `<button class="btn sm" data-hide="${x.hid ? '' : '1'}">${x.hid ? '다시 보이기' : '숨기기'}</button>${x.hid ? '' : '<button class="btn sm ok" data-best>BEST로 올리기</button>'}` : x.kind === 'best' ? `<a class="btn sm" href="#/site/reviews/REVIEWS/${d.pid}">BEST 구매평에서 고치기·빼기</a>` : '<a class="btn sm" href="#" data-tab="site">홈페이지 손님 구매평에서 관리</a>'}</div></div>`;
     const P = d.products.find(p => p.id === d.pid) || {};
     v.innerHTML = `<div class="card ofbar">${tabs}</div>
@@ -849,7 +852,7 @@
         <label>보기 <select id="rv-f">${[['all', '전체'], ['photo', '포토'], ['best', 'BEST'], ['site', '홈페이지 손님'], ['month', '한 달 사용'], ['r4', '별점 4점'], ['hidden', `숨긴 글 (${num(d.hiddenCount)})`]].map(([k, t]) => `<option value="${k}" ${(k === 'hidden' ? RVF.vis === 'hidden' : RVF.vis !== 'hidden' && RVF.f === k) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <label>정렬 <select id="rv-sort">${[['rec', '추천순'], ['new', '최신순'], ['star', '별점순'], ['photo', '포토리뷰순']].map(([k, t]) => `<option value="${k}" ${RVF.sort === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <form id="rv-qf"><input type="search" id="rv-q" value="${h(RVF.q)}" placeholder="글 내용·글번호로 찾기" aria-label="구매평 찾기"><button class="btn sm">찾기</button></form></div>
-        <p class="help">상품 페이지 「구매평 모아 보기」와 같은 순서입니다(BEST → 홈페이지 손님 → 스마트스토어). <b>${h(P.short || '')}</b> BEST ${num(P.best || 0)} · 홈페이지 ${num(P.site || 0)} · 스마트스토어 ${num(P.ss || 0)}. 스마트스토어 글 숨기기·BEST로 올리기는 저장 뒤 약 2분 뒤 사이트에 반영됩니다.</p>
+        <p class="help">상품 페이지 「구매평 모아 보기」와 같은 순서입니다(BEST → 홈페이지 손님 → 스마트스토어). <b>${h(P.short || '')}</b> BEST ${num(P.best || 0)} · 홈페이지 ${num(P.site || 0)} · 스마트스토어 ${num(P.ss || 0)}. 스마트스토어 글의 <b>숨기기·답글은 1분 안에 바로</b> 반영되고, BEST로 올리기는 약 2분 뒤 반영됩니다(홈 리뷰에도 들어가 다시 배포).</p>
         <p class="help"><b>${num(d.total)}건</b>${d.pages > 1 ? ` · ${d.page} / ${num(d.pages)}쪽` : ''}</p>
         ${d.items.length ? d.items.map(one).join('') : '<p class="help">조건에 맞는 구매평이 없습니다.</p>'}
         ${d.pages > 1 ? `<div class="actions static"><button class="btn sm" id="rv-prev" ${d.page <= 1 ? 'disabled' : ''}>이전</button><button class="btn sm" id="rv-next" ${d.page >= d.pages ? 'disabled' : ''}>다음</button></div>` : ''}</div>`;
@@ -864,7 +867,8 @@
       const b = e.target.closest('button'); if (!b) return;
       const no = box.dataset.no; b.disabled = true;
       try {
-        if (b.dataset.hide != null) { const r = await api('POST', '/api/admin/reviews-hide', { no, hide: !!b.dataset.hide }); toast(`${b.dataset.hide ? '숨겼습니다' : '다시 보이게 했습니다'}. 약 2분 뒤 사이트에 반영됩니다.`); watchDeploy(r.commit); box.classList.toggle('is-hid', !!b.dataset.hide); b.textContent = '저장됨'; }
+        if (b.dataset.hide != null) { const r = await api('POST', '/api/admin/reviews-hide', { pid: d.pid, no, hide: !!b.dataset.hide }); toast(`${b.dataset.hide ? '숨겼습니다' : '다시 보이게 했습니다'}. 1분 안에 사이트에 반영됩니다.`); if (r.commit) watchDeploy(r.commit); reviewsMgr(); return; }
+        if (b.dataset.reply != null) { const r = await api('POST', '/api/admin/reviews-reply', { pid: d.pid, no, reply: box.querySelector('textarea').value }); toast(r.reply ? '답글을 저장했습니다. 1분 안에 상품 페이지에 보입니다.' : '답글을 지웠습니다.'); b.disabled = false; const s = box.querySelector('.rvm__rd summary'); if (s) s.textContent = r.reply ? '잠스쿨 답글 — 달려 있음' : '잠스쿨 답글 달기'; return; }
         else if (b.dataset.best != null) { if (!confirm('이 구매평을 BEST 구매평(홈 리뷰·상품 페이지 맨 위)으로 올릴까요?')) { b.disabled = false; return; } const r = await api('POST', '/api/admin/reviews-best', { pid: d.pid, no }); saved(r, 'BEST 구매평을'); b.textContent = 'BEST로 올림'; }
       } catch (err) { fail(err); b.disabled = false; }
     });

@@ -18,10 +18,17 @@ let SUM = null, TOP = null, HID = { m: -1, set: new Set() }, JAM = { stamp: '', 
 const DATA = new Map(), IDX = new Map();
 const mtime = f => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } };
 // 숨긴 스마트스토어 글(어드민 '구매평 관리' › 숨기기 → content/reviews/hidden.json)
-export function hiddenSet() {
+//   + 어드민에서 바로 숨긴 글(서버 볼륨 DATA_DIR/reviews/ss-admin.json, site.mjs ssHide)
+export function repoHidden() {
   const f = path.join(DIR(), 'hidden.json'), m = mtime(f);
   if (m !== HID.m) { let a = []; try { a = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { a = []; } HID = { m, set: new Set((Array.isArray(a) ? a : []).map(String)) }; }
   return HID.set;
+}
+let HSET = { key: '', set: new Set() };
+export function hiddenSet() {
+  const R = repoHidden(), S = SITE.ssState(), key = `${HID.m}|${SITE.version()}`;
+  if (HSET.key !== key) HSET = { key, set: new Set([...R, ...Object.keys(S.hidden)]) };
+  return HSET.set;
 }
 const summary = () => { if (!SUM) { try { SUM = JSON.parse(fs.readFileSync(path.join(DIR(), 'summary.json'), 'utf8')); } catch { SUM = { products: {} }; } } return SUM; };
 const topics = () => { if (!TOP) { try { TOP = JSON.parse(fs.readFileSync(path.join(DIR(), 'topics.json'), 'utf8')); } catch { TOP = { topics: {}, sets: {}, products: {} }; } } return TOP; };
@@ -48,7 +55,8 @@ function data(pid) {
   const picks = (JAM.jam.REVIEWS || []).filter(r => String(r.pid) === String(pid) && r.text).map((r, i) => ({ n: `B${pid}-${i + 1}`, i: r.id || '', d: '', s: 5, t: r.text, b: 1, pk: 1, ...(r.opt ? { o: r.opt } : {}), k: topicsOf(pid, r.text) }));
   const mine = SITE.publicItems(pid).map(x => ({ ...x, k: topicsOf(pid, x.t) }));
   const seen = new Set(picks.map(x => norm(x.t)));
-  const list = [...picks, ...mine, ...ss.filter(x => !seen.has(norm(x.t)))];
+  const RP = SITE.ssState().reply;   // 스마트스토어 글에 단 잠스쿨 답글
+  const list = [...picks, ...mine, ...ss.filter(x => !seen.has(norm(x.t))).map(x => RP[x.n] ? { ...x, rp: RP[x.n].text } : x)];
   const idx = list.map((x, i) => i);
   const out = { v, list,
     byNew: idx.slice().sort((a, b) => (list[b].d || '').localeCompare(list[a].d || '') || a - b),
@@ -146,4 +154,4 @@ export async function handleReviews(req, res) {
   } catch (e) { console.error('[reviews]', e); if (!res.headersSent) json(res, 500, { error: '구매평을 불러오지 못했습니다' }); }
   return true;
 }
-export const _test = { reset: () => { SUM = null; TOP = null; DATA.clear(); IDX.clear(); HID = { m: -1, set: new Set() }; JAM = { stamp: '', jam: null }; } };
+export const _test = { reset: () => { SUM = null; TOP = null; DATA.clear(); IDX.clear(); HID = { m: -1, set: new Set() }; HSET = { key: '', set: new Set() }; JAM = { stamp: '', jam: null }; } };

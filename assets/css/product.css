@@ -228,3 +228,4 @@
 .rvw__thumbs button { position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center; }
 .rvw__thumbs button svg { width: 12px; height: 12px; }
 .rvw__done { padding: 18px 0; text-align: center; font-size: 16px; line-height: 1.7; }
+.rva-c__phs[hidden], .rva-c__ph[hidden] { display: none; }

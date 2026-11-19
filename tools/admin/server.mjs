@@ -330,9 +330,10 @@ route('POST', '/api/admin/blocks/:name', 'client', async ({ params, data, user }
 });
 // ── 구매평 관리
 //   홈페이지 손님 구매평: 서버 볼륨(tools/reviews/site.mjs) — 게시·숨기기·답글이 바로 반영된다
-//   모든 구매평(손님 화면과 같은 목록): 스마트스토어 글 숨기기 = content/reviews/hidden.json 커밋(재배포 뒤 반영), BEST 로 올리기 = BEST 구매평(site.json REVIEWS)에 추가
+//   모든 구매평(손님 화면과 같은 목록): 스마트스토어 글 숨기기·답글 = 서버 볼륨(site.mjs ssHide·ssReply, 바로 반영), BEST 로 올리기 = BEST 구매평(site.json REVIEWS)에 추가(재배포 뒤)
 const RV_PHOTO = 'https://phinf.pstatic.net/checkout.phinf/';
-const rvPhoto = (p, size) => !p ? '' : /^\//.test(p) ? p : (/^https:/.test(p) ? p : RV_PHOTO + p) + (size ? `?type=${size}` : '');
+// 네이버 동영상 구매평 썸네일(image.nmv)은 f300_300 이 없다(404) → w320
+const rvPhoto = (p, size) => { if (!p) return ''; if (/^\//.test(p)) return p; const u = /^https:/.test(p) ? p : RV_PHOTO + p; return size ? `${u}?type=${size === 'f300_300' && /\/image\.nmv\//.test(u) ? 'w320' : size}` : u; };
 const rvKind = x => x.pk ? 'best' : x.w ? 'site' : 'ss';
 async function rvProducts() {
   const S = RVAPI.summaryOf(), { cur } = await products(), counts = {};
@@ -361,17 +362,26 @@ route('GET', '/api/admin/reviews-all', 'client', async ({ query }) => {
   query.set('pid', pid); if (!query.get('n')) query.set('n', '20');
   const r = RVAPI.query(query, { admin: true });
   need(r.status === 200, r.status, r.body.error);
-  return { products: prods, pid: +pid, hiddenCount: RVAPI.hiddenSet().size, ...r.body,
+  return { products: prods, pid: +pid, hiddenCount: RVAPI.hiddenSet().size, pending: RVSITE.counts().pending || 0, ...r.body,
     items: r.body.items.map(x => ({ ...x, kind: rvKind(x), ph: (x.ps || (x.p ? [x.p] : [])).slice(0, 3).map(p => ({ s: rvPhoto(p, 'f300_300'), l: rvPhoto(p, 'w640') })) })) };
 });
+// 스마트스토어 글: 그 상품에 있는 글인지 확인하고 서버 볼륨에 바로 저장. 예전에 커밋으로 숨긴 글을 다시 보이게 할 때만 커밋도 한다
+const ssOne = (pid, no) => { const x = RVAPI.one(pid, no); need(x && typeof x.n === 'number', 404, '스마트스토어 구매평을 찾을 수 없습니다'); return x; };
 route('POST', '/api/admin/reviews-hide', 'client', async ({ data, user }) => {
-  const no = String(data.no || '');
-  need(/^\d{5,}$/.test(no), 400, '스마트스토어 구매평만 여기서 숨길 수 있습니다');
-  const cur = await readJson('content/reviews/hidden.json', [], true), set = new Set((Array.isArray(cur) ? cur : []).map(String));
-  if (data.hide) set.add(no); else set.delete(no);
-  const list = [...set].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
-  const c = await store.commit([{ path: 'content/reviews/hidden.json', text: JSON.stringify(list) + '\n' }], msg(user, `구매평 관리 · 스마트스토어 구매평 ${no} ${data.hide ? '숨김' : '다시 보이기'}`), user.name);
-  return { ok: true, commit: c.sha, hiddenCount: list.length };
+  const x = ssOne(data.pid, data.no), no = String(x.n);
+  RVSITE.ssHide(no, !!data.hide, user);
+  let commit = '';
+  if (!data.hide && RVAPI.repoHidden().has(no)) {
+    const cur = await readJson('content/reviews/hidden.json', [], true), list = (Array.isArray(cur) ? cur : []).map(String).filter(v => v !== no);
+    commit = (await store.commit([{ path: 'content/reviews/hidden.json', text: JSON.stringify(list) + '\n' }], msg(user, `구매평 관리 · 스마트스토어 구매평 ${no} 다시 보이기`), user.name)).sha;
+  }
+  console.log(`[admin] 스마트스토어 구매평 ${no} ${data.hide ? '숨김' : '다시 보이기'} — ${user.id}`);
+  return { ok: true, commit, hiddenCount: RVAPI.hiddenSet().size };
+});
+route('POST', '/api/admin/reviews-reply', 'client', async ({ data, user }) => {
+  const x = ssOne(data.pid, data.no), r = RVSITE.ssReply(x.n, data.reply, user);
+  console.log(`[admin] 스마트스토어 구매평 ${x.n} 답글 ${r.reply ? '저장' : '지움'} — ${user.id}`);
+  return { ok: true, reply: r.reply };
 });
 route('POST', '/api/admin/reviews-best', 'client', async ({ data, user }) => {
   const x = RVAPI.one(data.pid, data.no);

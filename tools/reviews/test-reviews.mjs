@@ -149,6 +149,31 @@ try {
     assert.equal((await fetch(`${base}/api/reviews/write`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{' })).status, 400);
   } finally { srv.close(); }
   ok('HTTP: 주문번호+휴대폰 확인·조회 주소 확인·쓰기(사진 2장)·두 번 못 씀·틀린 키 404·보내기 전 400·다른 곳 승인 대기·목록·사진·경로 막기·관리자 알림');
+
+  // 8) 어드민에서 스마트스토어 글 바로 숨기기·답글(서버 볼륨 ss-admin.json) — 손님 목록·개수·어드민 숨긴 글에 바로 반영
+  const ss30 = Q('pid=30&n=30').body.items.find(x => typeof x.n === 'number'), t30 = Q('pid=30').body.total, admin = { id: 'tester', name: '시험' };
+  SITE.ssHide(ss30.n, true, admin);
+  assert.equal(Q('pid=30').body.total, t30 - 1); assert.ok(!Q('pid=30&n=30').body.items.some(x => x.n === ss30.n));
+  const hv30 = Q('pid=30&vis=hidden', { admin: true }).body; assert.equal(hv30.total, 1); assert.equal(hv30.items[0].hid, true);
+  SITE.ssReply(ss30.n, '  불편을 드려 죄송합니다. 교환해 드렸습니다.  ', admin);
+  SITE.ssHide(ss30.n, false, admin);
+  const back = Q('pid=30&n=30').body.items.find(x => x.n === ss30.n);
+  assert.equal(Q('pid=30').body.total, t30); assert.equal(back.rp, '불편을 드려 죄송합니다. 교환해 드렸습니다.');
+  SITE.ssReply(ss30.n, '', admin); assert.equal(Q('pid=30&n=30').body.items.find(x => x.n === ss30.n).rp, undefined);
+  assert.throws(() => SITE.ssHide('B29-1', true, admin), /번호/); assert.throws(() => SITE.ssReply('../x', 'a', admin), /번호/);
+  assert.deepEqual(Object.keys(JSON.parse(fs.readFileSync(path.join(process.env.DATA_DIR, 'reviews', 'ss-admin.json'), 'utf8'))).sort(), ['hidden', 'reply']);
+  ok('스마트스토어 글: 바로 숨기기(목록·개수·어드민 숨긴 글)·다시 보이기·답글 달기/지우기·잘못된 번호 막기');
+
+  // 9) 사진 주소: 네이버 동영상 구매평 썸네일(image.nmv)은 작은 사진을 w320 으로(f300_300 은 404), 일반 사진은 f300_300 그대로
+  const ctx = { window: { WEBP: new Set() } }; ctx.globalThis = ctx.window; (await import('node:vm')).createContext(ctx);
+  (await import('node:vm')).runInContext(fs.readFileSync(path.join(ROOT, 'assets/js/render.js'), 'utf8').replace(/typeof window !== 'undefined' \? window : globalThis/, 'window'), ctx);
+  const RP = ctx.window.RENDER.rvPhoto, NMV = 'https://phinf.pstatic.net/image.nmv/shopnbuyer_2025_12_31_694/aXs3penBB6_03.jpg';
+  assert.equal(RP(NMV, 'f300_300'), NMV + '?type=w320'); assert.equal(RP(NMV, 'w640'), NMV + '?type=w640');
+  assert.equal(RP('20250115_189/a.jpg', 'f300_300'), 'https://phinf.pstatic.net/checkout.phinf/20250115_189/a.jpg?type=f300_300');
+  assert.equal(RP('/api/reviews/img/R1-1.jpg', 'f300_300'), '/api/reviews/img/R1-1.jpg');
+  const card = ctx.window.RENDER.rvCard({ n: 123456, s: 5, t: '좋아요', p: NMV, rp: '고맙습니다' }, 'x');
+  assert.match(card, /data-n="123456" data-rp="1"/); assert.match(card, /aXs3penBB6_03\.jpg\?type=w320/); assert.ok(!/f300_300/.test(card));
+  ok('사진 주소: 동영상 썸네일 w320·큰 사진 w640·일반 f300_300·홈페이지 사진 그대로, 카드에 글번호·답글 표시');
 } finally { fs.rmSync(TMP, { recursive: true, force: true }); }
 
 console.log(`\n구매평 시험 ${n}개 통과`);

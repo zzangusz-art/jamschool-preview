@@ -22,7 +22,7 @@ export function all() {
   if (m !== CACHE.m) { let a = []; try { a = JSON.parse(fs.readFileSync(FILE(), 'utf8')); } catch { a = []; } CACHE = { m, list: Array.isArray(a) ? a : [] }; }
   return CACHE.list;
 }
-export const version = () => `${(all(), CACHE.m)}.${VER}`;
+export const version = () => `${(all(), CACHE.m)}.${(ssState(), SSC.m)}.${VER}`;
 function write(list) {
   fs.mkdirSync(DIR(), { recursive: true });
   const tmp = `${FILE()}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify(list, null, 1)); fs.renameSync(tmp, FILE());
@@ -87,4 +87,34 @@ export function publicItems(pid) {
   }));
 }
 export const counts = () => { const c = { shown: 0, pending: 0, hidden: 0 }; for (const r of all()) c[r.status] = (c[r.status] || 0) + 1; return c; };
+
+// ── 스마트스토어(가져온) 구매평 관리: 숨기기·잠스쿨 답글 — DATA_DIR/reviews/ss-admin.json(서버 볼륨, 배포 없이 바로 반영)
+//   { hidden: { <리뷰글번호>: { at, by } }, reply: { <리뷰글번호>: { text, at, by } } }
+//   예전 방식(content/reviews/hidden.json 커밋)도 그대로 함께 본다(api.mjs hiddenSet)
+const SSF = () => path.join(DIR(), 'ss-admin.json');
+let SSC = { m: -1, d: { hidden: {}, reply: {} } };
+export function ssState() {
+  let m = 0; try { m = fs.statSync(SSF()).mtimeMs; } catch { m = 0; }
+  if (m !== SSC.m) {
+    let d = {}; try { d = JSON.parse(fs.readFileSync(SSF(), 'utf8')); } catch { d = {}; }
+    SSC = { m, d: { hidden: d && typeof d.hidden === 'object' && d.hidden ? d.hidden : {}, reply: d && typeof d.reply === 'object' && d.reply ? d.reply : {} } };
+  }
+  return SSC.d;
+}
+function ssWrite(d) {
+  fs.mkdirSync(DIR(), { recursive: true });
+  const tmp = `${SSF()}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify(d, null, 1)); fs.renameSync(tmp, SSF());
+  SSC = { m: -1, d: { hidden: {}, reply: {} } }; VER++;
+}
+const ssNo = no => /^\d{5,}$/.test(String(no || '')) ? String(no) : bad('스마트스토어 구매평 번호를 확인해 주세요');
+export function ssHide(no, hide, user) {
+  no = ssNo(no); const d = ssState(), next = { hidden: { ...d.hidden }, reply: { ...d.reply } };
+  if (hide) next.hidden[no] = { at: new Date().toISOString(), by: user.id }; else delete next.hidden[no];
+  ssWrite(next); return { no, hidden: !!hide };
+}
+export function ssReply(no, text, user) {
+  no = ssNo(no); const t = clean(text, 500), d = ssState(), next = { hidden: { ...d.hidden }, reply: { ...d.reply } };
+  if (t) next.reply[no] = { text: t, at: new Date().toISOString(), by: user.name || user.id }; else delete next.reply[no];
+  ssWrite(next); return { no, reply: t };
+}
 export const _test = { mask, DIR };
