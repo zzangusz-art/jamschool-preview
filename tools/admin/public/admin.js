@@ -60,7 +60,7 @@
 
   // ── 화면 틀(메뉴는 글자만)
   const NAV = [
-    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['orders', '주문 흐름']]],
+    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['settle', '정산'], ['shipset', '배송 설정'], ['orders', '주문 흐름']]],
     ['사이트 꾸미기', [['site/home', '홈 화면'], ['site/event', '팝업·이벤트'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['site/reviews', '구매평'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
     ['글', [['blog', '블로그']]],
   ];
@@ -443,12 +443,15 @@
   // 결제 주문 화면 상태(자세히 보고 돌아와도 그대로): 기간·상태
   const PAYF = { range: '30', from: '', to: '', st: 'paid' };
   const RANGES = [['0', '오늘'], ['1', '어제'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체 기간'], ['pick', '날짜 고르기']];
-  const OST = [['todo', '발송 전'], ['paid', '결제 완료 전체'], ['shipped', '발송함'], ['issue', '취소·확인 필요'], ['tries', '결제 시도 전체']];
+  const OST = [['todo', '발송 전'], ['ship', '배송 중'], ['done', '배송 완료'], ['claim', '취소·반품·교환'], ['refund', '환불'], ['paid', '결제 완료 전체'], ['issue', '확인 필요·결제 취소'], ['tries', '결제 시도 전체']];
   const kToday = (back = 0) => new Date(Date.now() + 9 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
   const WDK = ['일', '월', '화', '수', '목', '금', '토'];
   const dayLabel = s => `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일 (${WDK[new Date(s + 'T00:00:00Z').getUTCDay()]})${s === kToday() ? ' · 오늘' : s === kToday(1) ? ' · 어제' : ''}`;
   const rangeDates = () => { const r = PAYF.range; if (r === 'pick') return [PAYF.from, PAYF.to]; if (r === 'all') return ['', '']; if (r === '0') return [kToday(), kToday()]; if (r === '1') return [kToday(1), kToday(1)]; return [kToday(+r - 1), kToday()]; };
-  const stOk = (o, st) => st === 'todo' ? o.status === 'paid' && o.fulfil !== 'shipped' : st === 'paid' ? o.status === 'paid' : st === 'shipped' ? o.status === 'paid' && o.fulfil === 'shipped' : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : true;
+  const open = o => !!(o.claim && o.claim.open);
+  const stOk = (o, st) => st === 'todo' ? o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && !open(o) : st === 'ship' ? o.status === 'paid' && o.fulfil === 'shipped' && !open(o)
+    : st === 'done' ? o.status === 'paid' && o.fulfil === 'delivered' && !open(o) : st === 'claim' ? open(o) : st === 'refund' ? o.refunded > 0 : st === 'paid' ? o.status === 'paid'
+    : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : true;
   // 서버가 준 엑셀 파일을 내려받기(이름은 Content-Disposition 의 filename*)
   async function download(url, data) {
     const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-Jam-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -460,7 +463,7 @@
   }
   async function payments() {
     const owner = ME.user.role === 'owner';
-    const v = shell('결제 주문', { desc: '홈페이지에서 결제된 주문입니다. 날짜별로 보고, 보낼 주문을 골라 택배 엑셀을 내려받은 뒤 \'발송 처리\'를 눌러 주세요.' });
+    const v = shell('결제 주문', { desc: '홈페이지에서 결제된 주문입니다. 보낼 주문을 골라 발주 확인 → 엑셀(택배·3PL 발주서) → 송장 일괄 입력 순서로 처리합니다. 취소·반품·교환·환불은 주문을 눌러 상세에서 합니다.', tool: '<a class="btn" href="#/shipset">배송 설정</a> <a class="btn" href="#/settle">정산</a>' });
     const [from, to] = rangeDates();
     const d = await api('GET', `/api/admin/payments?${PAYF.st === 'tries' ? 'all=1&' : ''}from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`);
     // ── 총괄 관리자만: 결제 켜기·상점·결제통보·중계·알림·시험 기록 정리
@@ -483,7 +486,7 @@
           <div class="actions static" id="reset-box"><button class="btn sm danger" type="button" id="reset-1">시험 기록 정리하기</button></div></div></details>`;
     }
     // ── 이 기간 숫자
-    const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => o.fulfil !== 'shipped');
+    const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => stOk(o, 'todo')), shipIn = paidIn.filter(o => stOk(o, 'ship')), claimIn = d.orders.filter(o => stOk(o, 'claim'));
     const list = d.orders.filter(o => stOk(o, PAYF.st));
     const days = []; for (const o of list) { let g = days.find(x => x.day === o.day); if (!g) days.push(g = { day: o.day, list: [] }); g.list.push(o); }
     const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}">
@@ -493,25 +496,29 @@
           <p class="o-to"><b>${h(o.receiver)}</b> · ${h(telFmt(o.tel))} · (${h(o.zip)}) ${h(o.addr)}${o.jeju ? ' · <b class="o-warn">제주·도서산간</b>' : ''}</p>
           ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${h(o.fail)}</p>` : ''}
           <p class="o-id">${h(o.moid)} · ${h(o.payLabel || '')}</p></div>
-        <div class="o-side"><b>${won(o.amount)}</b><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.status === 'paid' ? (o.fulfil === 'shipped' ? `<span class="tag live">발송함 ${h(dt(o.shippedAt))}</span>` : '<span class="tag draft">발송 전</span>') : ''}<a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></div></div>`;
-    v.innerHTML = `${ownerBox}
+        <div class="o-side"><b>${won(o.amount)}</b><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.stageName ? `<span class="tag ${h(o.stageTone || '')}">${h(o.stageName)}</span>` : ''}${o.invoice ? `<a class="o-inv" href="${h(o.track)}" target="_blank" rel="noopener">${h(o.courier)} ${h(o.invoice)} ↗</a>` : ''}<a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></div></div>`;
+    v.innerHTML = `${ownerBox}${d.shipReady ? '' : '<div class="box info"><b>배송 설정이 비어 있습니다.</b> <a href="#/shipset">배송 설정</a>에서 발송지·회수지 주소와 기본 택배사를 넣어 주세요(택배 엑셀·반품 안내에 쓰입니다).</div>'}${FLOW(d.autoDays)}
       <div class="card ofbar"><div class="seg wrap" role="group" aria-label="기간">${RANGES.map(([k, t]) => `<a href="#" data-range="${k}" class="${PAYF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
         <div class="ofpick" ${PAYF.range === 'pick' ? '' : 'hidden'}><input type="date" id="of-from" value="${h(PAYF.from)}" aria-label="시작 날짜"> ~ <input type="date" id="of-to" value="${h(PAYF.to)}" aria-label="끝 날짜"><button class="btn sm" type="button" id="of-go">보기</button></div>
         <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}</a>`).join('')}</div></div>
-      <div class="kpis k3"><div class="kpi"><span>결제 완료</span><b>${num(paidIn.length)}건</b><small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
+      <div class="kpis"><div class="kpi"><span>결제 완료</span><b>${num(paidIn.length)}건</b><small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
         <div class="kpi"><span>발송 전</span><b>${num(todoIn.length)}건</b><small>${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
-        <div class="kpi"><span>발송함</span><b>${num(paidIn.length - todoIn.length)}건</b><small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div></div>
+        <div class="kpi"><span>배송 중</span><b>${num(shipIn.length)}건</b><small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div>
+        <div class="kpi"><span>취소·반품·교환 진행</span><b>${num(claimIn.length)}건</b><small>${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
       <div class="obar"><label class="chk"><input type="checkbox" id="o-all"> 보이는 결제 완료 주문 모두 고르기</label><span class="o-n" id="o-n">0건 고름</span>
         <select id="o-fmt" aria-label="엑셀 양식">${(d.formats || []).map(([k, t]) => `<option value="${h(k)}">${h(t)}</option>`).join('')}</select>
-        <button class="btn sm pri" type="button" id="o-xls" disabled>엑셀 내려받기</button><button class="btn sm" type="button" id="o-ship" disabled>발송 처리</button><button class="btn sm" type="button" id="o-unship" disabled>발송 전으로</button></div>
+        <button class="btn sm pri" type="button" id="o-xls" disabled>엑셀 내려받기</button><button class="btn sm" type="button" data-bulk="prep" disabled>발주 확인</button><button class="btn sm" type="button" data-bulk="shipped" disabled>발송 처리</button><button class="btn sm" type="button" data-bulk="delivered" disabled>배송 완료</button><button class="btn sm" type="button" data-bulk="new" disabled>신규로</button><button class="btn sm" type="button" id="o-inv">송장 일괄 입력</button></div>
+      <div class="card" id="inv-box" hidden><h2>송장 일괄 입력</h2><p class="h-sub">3PL·택배사 엑셀에서 <b>주문번호</b>와 <b>송장번호</b> 두 열을 복사해 붙여 넣으세요(한 줄에 한 주문). 줄에 택배사 이름(로젠·대신·CJ 등)이 있으면 그 택배사, 없으면 아래 택배사로 넣고 발송 처리합니다.</p>
+        <div class="fgrid"><div><label for="inv-c">택배사</label><select id="inv-c">${(d.couriers || []).map(([k, t]) => `<option value="${h(k)}" ${k === d.courier ? 'selected' : ''}>${h(t)}</option>`).join('')}</select></div></div>
+        <textarea id="inv-t" rows="6" placeholder="JS20261119123456ABCDEF&#9;12345678901"></textarea><div class="actions static"><button class="btn sm pri" type="button" id="inv-go">송장 넣고 발송 처리</button></div><div id="inv-out"></div></div>
       ${days.length ? days.map(g => { const pd = g.list.filter(o => o.status === 'paid'); return `<section class="oday"><h3>${h(dayLabel(g.day))}<small>${g.list.length}건${pd.length ? ` · 결제 완료 ${pd.length}건 ${won(pd.reduce((a, o) => a + o.amount, 0))}` : ''}</small></h3>${g.list.map(row).join('')}</section>`; }).join('')
         : `<div class="card">${empty(PAYF.st === 'todo' ? '이 기간에 보낼 주문이 없습니다.' : '이 기간에 주문이 없습니다.')}</div>`}
-      <p class="help">엑셀: '택배 접수용'은 주문 1건이 1줄(로젠 iLOGEN 등 복수건 접수 화면에서 열과 항목을 한 번 맞춰 엑셀 타입으로 저장해 두면 계속 쓸 수 있습니다), '3PL 출고용'은 상품 1개가 1줄입니다. 손님 이름·연락처·주소가 들어 있으니 접수 뒤에는 PC 에서 지워 주세요.</p>`;
+      <p class="help">엑셀: '택배 접수용'은 주문 1건이 1줄(로젠 iLOGEN 등 복수건 접수 화면에서 열과 항목을 한 번 맞춰 엑셀 타입으로 저장해 두면 계속 쓸 수 있습니다), '3PL 발주서'는 업체 양식 그대로 상품 1개가 1줄(품목명 규칙은 배송 설정)입니다. 손님 이름·연락처·주소가 들어 있으니 접수 뒤에는 PC 에서 지워 주세요.</p>`;
     // 고르기
     const sel = new Set();
     const sync = () => {
       $('#o-n').textContent = `${sel.size}건 고름`;
-      ['#o-xls', '#o-ship', '#o-unship'].forEach(k => { $(k).disabled = !sel.size; });
+      $('#o-xls').disabled = !sel.size; v.querySelectorAll('[data-bulk]').forEach(b => { b.disabled = !sel.size; });
       const boxes = [...v.querySelectorAll('[data-sel]:not(:disabled)')]; $('#o-all').checked = boxes.length > 0 && boxes.every(b => b.checked);
     };
     v.querySelectorAll('[data-sel]').forEach(b => b.onchange = () => { if (b.checked) sel.add(b.dataset.sel); else sel.delete(b.dataset.sel); b.closest('.orow').classList.toggle('picked', b.checked); sync(); });
@@ -528,11 +535,22 @@
       try { const name = await download('/api/admin/payments-export', { moids: [...sel], format: $('#o-fmt').value }); toast(`${name} 을(를) 내려받았습니다. 택배 접수가 끝나면 '발송 처리'를 눌러 주세요.`, 6000); }
       catch (e) { fail(e); } finally { $('#o-xls').disabled = !sel.size; }
     };
-    const ship = status => async () => {
-      try { const r = await api('POST', '/api/admin/payments-ship', { moids: [...sel], status }); toast(status === 'shipped' ? `${r.changed}건 발송 처리했습니다` : `${r.changed}건을 발송 전으로 돌렸습니다`); payments(); }
+    const bulk = async status => {
+      const label = { prep: '발주 확인(상품 준비 중)', shipped: '발송 처리', delivered: '배송 완료', new: '신규 주문으로 되돌리기' }[status];
+      if (status === 'shipped' && !confirm(`고른 ${sel.size}건을 송장 없이 발송 처리할까요? 송장이 있으면 '송장 일괄 입력'을 쓰세요.`)) return;
+      try { const r = await api('POST', '/api/admin/payments-ship', { moids: [...sel], status }); toast(`${r.changed}건 ${label}${r.skipped && r.skipped.length ? ` · ${r.skipped.length}건은 못 함(${r.skipped[0]})` : ''}`, 6000); payments(); }
       catch (e) { fail(e); }
     };
-    $('#o-ship').onclick = ship('shipped'); $('#o-unship').onclick = ship('new');
+    v.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => bulk(b.dataset.bulk));
+    $('#o-inv').onclick = () => { const bx = $('#inv-box'); bx.hidden = !bx.hidden; if (!bx.hidden) $('#inv-t').focus(); };
+    $('#inv-go').onclick = async () => {
+      $('#inv-go').disabled = true;
+      try {
+        const r = await api('POST', '/api/admin/payments-invoices', { text: $('#inv-t').value, courier: $('#inv-c').value });
+        $('#inv-out').innerHTML = `<div class="box ${r.errors.length ? 'info' : 'ok'}"><b>${r.changed}건 송장 입력·발송 처리</b>${r.errors.length ? `<br>못 넣은 줄 ${r.errors.length}개:<br>${r.errors.slice(0, 20).map(h).join('<br>')}` : ''}</div>`;
+        if (r.changed) setTimeout(payments, r.errors.length ? 4000 : 1200);
+      } catch (e) { fail(e); } finally { $('#inv-go').disabled = false; }
+    };
     if (!owner) return;
     // ── 총괄 관리자 버튼
     const nb = $('#notify-test');
@@ -576,37 +594,178 @@
       };
     };
   }
+  // 주문 처리 흐름(결제 주문 목록 위 · 상세 안내)
+  const FLOW = days => `<details class="flowbox"><summary>주문 처리 흐름 보기 — 배송·취소·반품·교환·환불</summary><div class="flow">
+      <div class="fl"><b>정상 배송</b><span>결제 완료</span><i>→</i><span>발주 확인<small>상품 준비 중</small></span><i>→</i><span>송장 입력<small>배송 중</small></span><i>→</i><span>배송 완료<small>${days ? `발송 ${days}일 뒤 자동` : '직접 누름'}</small></span></div>
+      <div class="fl"><b>발송 전 취소</b><span>취소 요청</span><i>→</i><span>전액 환불<small>결제 취소</small></span><i>→</i><span>취소 완료</span></div>
+      <div class="fl"><b>반품</b><span>반품 요청<small>고객·판매자 사유</small></span><i>→</i><span>회수 접수<small>회수 송장</small></span><i>→</i><span>회수 완료<small>검수</small></span><i>→</i><span>환불<small>고객 사유면 왕복 배송비 차감</small></span><i>→</i><span>반품 완료</span></div>
+      <div class="fl"><b>교환</b><span>교환 요청</span><i>→</i><span>회수 접수</span><i>→</i><span>회수 완료</span><i>→</i><span>재발송<small>새 송장</small></span><i>→</i><span>교환 완료</span></div>
+      <p class="help">환불은 씨드페이먼츠 결제 취소(전액·부분)로 카드사에 바로 돌려줍니다. 계좌로 따로 돌려준 경우는 '결제 밖 환불 기록'으로 남깁니다. 결제·환불이 언제 정산되는지는 <a href="#/settle">정산</a>에서 봅니다.</p></div></details>`;
+  const courierSel = (id, list, val) => `<select id="${id}">${list.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
   async function payDetail(moid) {
     const v = shell('결제 주문 상세', { back: ['#/payments', '결제 주문'] });
-    const { order: o, canCancel } = await api('GET', `/api/admin/payments/${encodeURIComponent(moid)}`);
+    const d = await api('GET', `/api/admin/payments/${encodeURIComponent(moid)}`), o = d.order;
     const dl = rows => `<table class="list"><tbody>${rows.filter(r => r[1] !== '' && r[1] != null).map(([k, val]) => `<tr><th style="width:130px">${h(k)}</th><td>${val}</td></tr>`).join('')}</tbody></table>`;
-    const pg = o.pg || {}, rc = o.receiver, by = o.buyer;
-    v.innerHTML = `<div class="cols"><div class="card"><h2>결제</h2><p class="h-sub">주문번호 ${h(o.moid)}</p>${dl([
+    const pg = o.pg || {}, rc = o.receiver, by = o.buyer, f = o.fulfilNow || { status: 'new' }, c = o.claimView, paid = o.status === 'paid';
+    const link = (url, t) => url ? `<a href="${h(url)}" target="_blank" rel="noopener">${h(t)} ↗</a>` : h(t);
+    // 진행 막대: 결제 완료 → 상품 준비 중 → 배송 중 → 배송 완료
+    const reached = { new: 1, prep: 2, shipped: 3, delivered: 4 }[f.status] || 1;
+    const steps = [['결제 완료', o.paidAt], ['상품 준비 중', f.prepAt], ['배송 중', f.shippedAt], ['배송 완료', f.deliveredAt || (f.auto ? '' : '')]];
+    const bar = paid || o.status === 'cancelled' ? `<div class="stepbar">${steps.map(([t, at], i) => `<div class="st ${i < reached && paid ? 'on' : ''}"><b>${i + 1}</b><span>${h(t)}</span><small>${h(at ? dt(at) : i === 3 && f.auto ? '자동' : '')}</small></div>`).join('')}</div>` : '';
+    const stageTag = o.stage && o.stage.label ? `<span class="tag ${h(o.stage.tone || '')}">${h(o.stage.label)}</span>` : '';
+    // ── 배송 카드
+    const shipForm = paid && !(c && c.open && c.type === 'cancel') ? `<div class="fgrid">
+        <div><label for="sh-c">택배사</label>${courierSel('sh-c', d.couriers, f.courier || d.courier)}</div>
+        <div><label for="sh-n">송장번호</label><input type="text" id="sh-n" value="${h(f.invoice || '')}" inputmode="numeric" placeholder="숫자만(하이픈 없어도 됨)"></div></div>
+      <div class="actions static">
+        ${f.status === 'new' ? '<button class="btn sm" data-ful="prep">발주 확인(상품 준비 중)</button>' : ''}
+        <button class="btn sm pri" data-ful="shipped">${f.status === 'shipped' || f.status === 'delivered' ? '송장 고치기' : '송장 저장·발송 처리'}</button>
+        ${f.status === 'shipped' ? '<button class="btn sm" data-ful="delivered">배송 완료</button>' : ''}
+        ${f.status !== 'new' ? `<button class="btn sm" data-ful="${f.status === 'prep' ? 'new' : 'prep'}">${f.status === 'prep' ? '신규로 되돌리기' : '상품 준비 중으로 되돌리기'}</button>` : ''}</div>` : '';
+    const shipCard = `<div class="card"><h2>배송</h2><p class="h-sub">${stageTag} ${f.invoice ? link(o.track, `${o.courierName} ${f.invoice} 배송 조회`) : paid ? '송장 미입력' : ''}</p>${dl([
+        ['받는 분', h(rc.name)], ['연락처', h(telFmt(rc.tel))], ['주소', h(`(${rc.zip}) ${rc.addr1} ${rc.addr2}`)], ['배송 메모', h(rc.memo || '')],
+        ['제주·도서산간', rc.jeju ? '<b>추가 배송비 안내 필요</b>' : ''], ['주문하는 분', h(`${by.name} · ${telFmt(by.tel)}${by.email ? ' · ' + by.email : ''}`)],
+      ])}${shipForm}</div>`;
+    // ── 취소·반품·교환 카드
+    const sent = ['shipped', 'delivered'].includes(f.status);
+    let claimBody = '';
+    if (!paid && !c) claimBody = '<p class="help">결제 완료된 주문만 취소·반품·교환을 받습니다.</p>';
+    else if (!c || !c.open) {
+      claimBody = `${c ? `<p class="help">지난 요청: ${h(c.label)} · ${h(c.reason || '')}${c.note ? ' · ' + h(c.note) : ''}</p>` : ''}${paid ? `<div class="actions static">${sent ? '<button class="btn sm" data-req="return">반품 요청 받기</button><button class="btn sm" data-req="exchange">교환 요청 받기</button>' : '<button class="btn sm" data-req="cancel">취소 요청 받기</button>'}</div>
+        <div id="req-form" hidden><input type="hidden" id="rq-t"><label for="rq-r">사유 <small>손님이 말한 그대로 짧게</small></label><input type="text" id="rq-r" maxlength="200">
+          <div id="rq-fault-w"><label for="rq-f">누구 사유인가요</label><select id="rq-f"><option value="buyer">고객 사유(단순 변심 등) — 왕복 배송비 고객 부담</option><option value="seller">판매자 사유(불량·오배송) — 배송비 잠스쿨 부담</option></select></div>
+          <label for="rq-m">메모(선택)</label><input type="text" id="rq-m" maxlength="300"><div class="actions static"><button class="btn sm pri" id="rq-go">요청 접수</button></div></div>` : ''}`;
+    } else {
+      const R = d.ret || {};
+      const next = c.type === 'cancel' ? `<p class="help">발송을 멈추고 아래 <b>환불</b>에서 전액 환불하면 취소가 끝납니다.</p>`
+        : c.status === 'requested' || c.status === 'collecting' ? `<p class="help">회수지: ${h([R.name, telFmt(R.tel), R.zip ? `(${R.zip})` : '', R.addr1, R.addr2].filter(Boolean).join(' ') || '배송 설정에서 회수지를 넣어 주세요')}</p>
+            <div class="fgrid"><div><label for="pk-c">회수 택배사</label>${courierSel('pk-c', d.couriers, (c.pickup || {}).courier || d.courier)}</div><div><label for="pk-n">회수 송장번호 <small>나중에 넣어도 됨</small></label><input type="text" id="pk-n" value="${h((c.pickup || {}).invoice || '')}" inputmode="numeric"></div></div>
+            <div class="actions static"><button class="btn sm" data-cl="pickup">회수 접수 저장</button></div>
+            <label for="cl-note">검수 메모(선택)</label><input type="text" id="cl-note" maxlength="300" placeholder="예: 포장 훼손 없음, 사용감 없음"><div class="actions static"><button class="btn sm pri" data-cl="collected">회수 완료(검수 끝)</button></div>`
+        : c.type === 'exchange' && (c.status === 'collected' || c.status === 'resent') ? `<div class="fgrid"><div><label for="rs-c">재발송 택배사</label>${courierSel('rs-c', d.couriers, (c.resend || {}).courier || d.courier)}</div><div><label for="rs-n">재발송 송장번호</label><input type="text" id="rs-n" value="${h((c.resend || {}).invoice || '')}" inputmode="numeric"></div></div>
+            <div class="actions static"><button class="btn sm" data-cl="resend">재발송 저장</button>${c.status === 'resent' ? '<button class="btn sm pri" data-cl="done">교환 완료</button>' : ''}</div>`
+        : c.type === 'return' && c.status === 'collected' ? '<p class="help">아래 <b>환불</b>에서 돌려줄 금액을 확인하고 환불하면 반품이 끝납니다.</p>' : '';
+      claimBody = `${dl([['진행', `<span class="tag bad">${h(c.label)}</span>`], ['사유', h(c.reason)], ['귀책', c.type === 'cancel' ? '' : c.fault === 'seller' ? '판매자 사유(배송비 잠스쿨 부담)' : '고객 사유(왕복 배송비 고객 부담)'],
+          ['접수', h(`${dt(c.requestedAt)} · ${c.by}`)], ['회수', c.pickup ? link(c.pickupTrack, `${c.pickupName} ${c.pickup.invoice || '송장 미입력'}`) : ''], ['회수 완료', c.collectedAt ? h(`${dt(c.collectedAt)}${c.note ? ' · ' + c.note : ''}`) : ''],
+          ['재발송', c.resend ? link(c.resendTrack, `${c.resendName} ${c.resend.invoice}`) : ''], ['메모', h(c.memo || '')]])}${next}
+        <details class="mini"><summary>요청 철회·거부</summary><label for="rj-n">사유</label><input type="text" id="rj-n" maxlength="200" placeholder="예: 고객이 철회함"><div class="actions static"><button class="btn sm danger" data-cl="reject">철회·거부로 닫기</button></div></details>`;
+    }
+    const claimCard = `<div class="card"><h2>취소 · 반품 · 교환</h2>${claimBody}</div>`;
+    // ── 환불 카드
+    const refunds = o.refunds || [];
+    const refundList = refunds.length ? `<table class="list"><thead><tr><th>일시</th><th class="r">금액</th><th>방법</th><th>사유</th><th>처리</th></tr></thead><tbody>${refunds.map(r => `<tr><td class="nw">${h(dt(r.at))}</td><td class="r">${won(r.amount)}</td><td>${r.via === 'pg' ? (r.part ? '결제 부분 취소' : '결제 전액 취소') : r.via === 'seed' ? '가맹점 관리자 취소' : '결제 밖 환불(기록)'}</td><td>${h(r.reason || '')}${r.check && r.check !== 'ok' ? ` <b class="o-warn">${h(r.check)}</b>` : ''}</td><td>${h(r.by || '')}</td></tr>`).join('')}</tbody></table>` : '';
+    const sg = o.suggest || { amount: o.remain, deduct: 0 };
+    const refundForm = paid ? (d.canRefund ? `<div class="fgrid"><div><label for="rf-a">환불 금액 <small>남은 결제 금액 ${won(o.remain)}${sg.deduct ? ` · ${h(sg.why)} ${won(sg.deduct)} 뺀 금액을 넣어 두었습니다` : ''}</small></label><input type="number" id="rf-a" value="${sg.amount}" min="1" max="${o.remain}"></div>
+          <div><label for="rf-r">사유 <small>카드사 취소 내역에 남음</small></label><input type="text" id="rf-r" maxlength="40" value="${h(c && c.open ? `${c.typeName} 환불` : '고객 요청 환불')}"></div></div>
+        <label class="chk"><input type="radio" name="rf-v" value="pg" checked> 씨드페이먼츠 결제 취소(카드 승인 취소 — 전액 또는 부분)</label>
+        <label class="chk"><input type="radio" name="rf-v" value="manual"> 결제 밖 환불 기록(계좌 이체 등으로 이미 돌려준 금액, 결제 취소는 하지 않음)</label>
+        <div class="actions static"><button class="btn danger" id="rf-go">환불하기</button></div>` : '<p class="help">환불(결제 취소)은 총괄 관리자가 합니다. 배송 설정 › 환불 권한에서 잠스쿨 관리자도 할 수 있게 바꿀 수 있습니다.</p>') : '';
+    const refundCard = paid || refunds.length ? `<div class="card"><h2>환불</h2><p class="h-sub">결제 ${won(o.amount)} · 환불 ${won(o.refunded)} · 남은 금액 ${won(o.remain)}</p>${refundList}${refundForm}</div>` : '';
+    v.innerHTML = `${bar}<div class="cols"><div class="card"><h2>결제</h2><p class="h-sub">주문번호 ${h(o.moid)}</p>${dl([
         ['상태', `<span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? ` ${h(o.fail.msg)}` : ''}`],
-        ['결제 금액', `<b>${won(o.amount)}</b>${o.ship ? ` (배송비 ${won(o.ship)} 포함)` : ''}`], ['결제 수단', h(o.payLabel)],
+        ['결제 금액', `<b>${won(o.amount)}</b>${o.ship ? ` (배송비 ${won(o.ship)} 포함)` : ''}${o.refunded ? ` · 환불 ${won(o.refunded)}` : ''}`], ['결제 수단', h(o.payLabel)],
         ['카드', pg.cardName ? h(`${pg.cardName} ${pg.cardNo || ''} · ${!pg.cardQuota || +pg.cardQuota === 0 ? '일시불' : +pg.cardQuota + '개월'}`) : ''],
         ['승인번호', h(pg.authCode || '')], ['거래번호(TID)', h(pg.tid || '')], ['주문 일시', h(dt(o.createdAt))], ['결제 일시', h(dt(o.paidAt))],
         ['취소', o.cancel ? h(`${dt(o.cancel.at)} · ${o.cancel.msg} · ${o.cancel.by}`) : ''],
-      ])}</div>
-      <div class="card"><h2>배송</h2><p class="h-sub">${o.status === 'paid' ? (o.fulfil && o.fulfil.status === 'shipped' ? `발송 처리함 · ${h(dt(o.fulfil.at))} ${h(o.fulfil.by || '')}` : '아직 발송 전') : '결제 완료 주문만 보냅니다'}</p>${dl([
-        ['받는 분', h(rc.name)], ['연락처', h(telFmt(rc.tel))], ['주소', h(`(${rc.zip}) ${rc.addr1} ${rc.addr2}`)], ['배송 메모', h(rc.memo || '')],
-        ['제주·도서산간', rc.jeju ? '<b>추가 배송비 안내 필요</b>' : ''], ['주문하는 분', h(`${by.name} · ${telFmt(by.tel)}${by.email ? ' · ' + by.email : ''}`)],
-      ])}</div></div>
+      ])}</div>${shipCard}</div>
       <div class="card"><h2>주문 상품</h2><table class="list"><thead><tr><th>상품</th><th>옵션</th><th class="r">수량</th><th class="r">금액</th></tr></thead><tbody>${o.items.map(x => `<tr><td>${h(x.name)}</td><td>${h(x.opt || '')}</td><td class="r">${x.qty}</td><td class="r">${won(x.price * x.qty)}</td></tr>`).join('')}</tbody></table></div>
-      ${o.status === 'paid' ? `<div class="actions static"><button class="btn pri" id="ship">${o.fulfil && o.fulfil.status === 'shipped' ? '발송 전으로 되돌리기' : '발송 처리'}</button>${canCancel ? '<button class="btn danger" id="cancel">결제 취소(전액)</button>' : ''}</div>` : ''}
-      <div class="card" style="margin-top:16px"><h2>처리 기록</h2>${dl((o.history || []).map(x => [dt(x.at), h(`${x.ev}${x.note ? ' · ' + x.note : ''}`)]))}</div>`;
-    const sb = $('#ship'), cb = $('#cancel');
-    if (sb) sb.onclick = async () => {
-      sb.disabled = true;
-      try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/fulfil`, { status: o.fulfil && o.fulfil.status === 'shipped' ? 'new' : 'shipped' }); toast('저장했습니다'); payDetail(moid); }
-      catch (e) { toast(e.message); sb.disabled = false; }
+      <div class="cols">${claimCard}${refundCard}</div>
+      ${FLOW(d.autoDays)}
+      <div class="card" style="margin-top:16px"><h2>처리 기록</h2>${dl((o.history || []).slice().reverse().map(x => [dt(x.at), h(`${x.ev}${x.note ? ' · ' + x.note : ''}`)]))}</div>`;
+    const post = async (url, body, msg) => { try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/${url}`, body); toast(msg); payDetail(moid); } catch (e) { toast(e.message, 6000); } };
+    v.querySelectorAll('[data-ful]').forEach(b => b.onclick = () => {
+      const st = b.dataset.ful;
+      if (st === 'shipped') { const inv = $('#sh-n').value.trim(); if (!inv && !confirm('송장번호 없이 발송 처리할까요? 나중에 넣을 수 있습니다.')) return; post('fulfil', { status: 'shipped', courier: $('#sh-c').value, invoice: inv }, '발송 처리했습니다'); }
+      else post('fulfil', { status: st }, st === 'prep' ? '상품 준비 중으로 바꿨습니다' : st === 'delivered' ? '배송 완료로 바꿨습니다' : '되돌렸습니다');
+    });
+    v.querySelectorAll('[data-req]').forEach(b => b.onclick = () => {
+      $('#req-form').hidden = false; $('#rq-t').value = b.dataset.req; $('#rq-fault-w').hidden = b.dataset.req === 'cancel';
+      $('#rq-r').placeholder = b.dataset.req === 'cancel' ? '예: 주소를 잘못 넣어 다시 주문' : b.dataset.req === 'return' ? '예: 단순 변심, 생각보다 단단함' : '예: 색상 교환(그레이 → 아이보리)'; $('#rq-r').focus();
+    });
+    const rq = $('#rq-go'); if (rq) rq.onclick = () => post('claim', { action: 'request', type: $('#rq-t').value, reason: $('#rq-r').value, fault: $('#rq-f').value, memo: $('#rq-m').value }, '요청을 접수했습니다');
+    v.querySelectorAll('[data-cl]').forEach(b => b.onclick = () => {
+      const a = b.dataset.cl;
+      if (a === 'pickup') post('claim', { action: 'pickup', courier: $('#pk-c').value, invoice: $('#pk-n').value }, '회수 접수를 저장했습니다');
+      else if (a === 'collected') post('claim', { action: 'collected', note: $('#cl-note').value }, '회수 완료로 바꿨습니다');
+      else if (a === 'resend') post('claim', { action: 'resend', courier: $('#rs-c').value, invoice: $('#rs-n').value }, '재발송을 저장했습니다');
+      else if (a === 'done') post('claim', { action: 'done' }, '완료했습니다');
+      else if (a === 'reject') post('claim', { action: 'reject', note: $('#rj-n').value }, '요청을 닫았습니다');
+    });
+    const rf = $('#rf-go');
+    if (rf) rf.onclick = async () => {
+      const amount = Math.round(+$('#rf-a').value), via = (v.querySelector('[name="rf-v"]:checked') || {}).value, reason = $('#rf-r').value;
+      if (!(amount >= 1 && amount <= o.remain)) { toast(`환불 금액은 1원 ~ ${won(o.remain)}`); return; }
+      const msg = via === 'manual' ? `${won(amount)}을 '결제 밖 환불'로 기록합니다(카드 취소는 하지 않음).` : `${won(amount)}을 카드 결제 취소로 돌려줍니다${amount === o.remain && !o.refunded ? '(전액 — 주문은 결제 취소가 됩니다)' : '(부분 취소)'}. 되돌릴 수 없습니다.`;
+      if (!confirm(`${msg}\n진행할까요?`)) return;
+      rf.disabled = true;
+      try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/refund`, { amount, via, reason }); toast('환불했습니다'); payDetail(moid); }
+      catch (e) { toast(e.message, 7000); rf.disabled = false; }
     };
-    if (cb) cb.onclick = async () => {
-      const reason = prompt(`${won(o.amount)} 전액을 취소합니다. 되돌릴 수 없습니다.\n취소 사유를 적어 주세요.`, '고객 요청 취소');
-      if (reason == null) return;
-      cb.disabled = true;
-      try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/cancel`, { reason }); toast('결제를 취소했습니다'); payDetail(moid); }
-      catch (e) { toast(e.message, 6000); cb.disabled = false; }
+  }
+
+  // ── 배송 설정: 발송지·회수지·택배사·출고 마감·반품 배송비·자동 배송 완료·3PL 발주서·환불 권한
+  async function shipSet() {
+    const v = shell('배송 설정', { desc: '택배 엑셀·3PL 발주서·반품 안내에 쓰는 주소와 기준입니다.', back: ['#/payments', '결제 주문'] });
+    const d = await api('GET', '/api/admin/ship-settings'), c = d.cfg;
+    const addr = (k, a, label) => `<div class="fgrid"><div><label for="${k}-name">${label} 이름</label><input type="text" id="${k}-name" value="${h(a.name || '')}"></div><div><label for="${k}-tel">전화번호</label><input type="text" id="${k}-tel" value="${h(telFmt(a.tel || ''))}" inputmode="tel"></div><div><label for="${k}-zip">우편번호</label><input type="text" id="${k}-zip" value="${h(a.zip || '')}" inputmode="numeric" maxlength="5"></div></div>
+      <div class="fgrid"><div style="grid-column:span 2"><label for="${k}-a1">주소</label><input type="text" id="${k}-a1" value="${h(a.addr1 || '')}"></div><div><label for="${k}-a2">상세 주소</label><input type="text" id="${k}-a2" value="${h(a.addr2 || '')}"></div></div>`;
+    v.innerHTML = `<div class="card"><h2>발송지(보내는 곳)</h2><p class="h-sub">택배 접수용 엑셀의 송하인으로 들어갑니다. 3PL 이 보내면 3PL 창고 주소를 넣어 주세요.</p>${addr('fr', c.from, '보내는 분')}</div>
+      <div class="card"><h2>회수지(반품·교환 받는 곳)</h2><label class="chk"><input type="checkbox" id="rt-same" ${c.ret.same ? 'checked' : ''}> 발송지와 같음</label><div id="rt-box" ${c.ret.same ? 'hidden' : ''}>${addr('rt', c.ret, '받는 분')}</div><p class="help">반품·교환 요청을 받으면 주문 상세에 이 주소가 보입니다. 회수 택배 접수 때 쓰세요.</p></div>
+      <div class="card"><h2>택배·출고</h2><div class="fgrid"><div><label for="s-cr">기본 택배사</label>${courierSel('s-cr', d.couriers, c.courier)}</div><div><label for="s-ct">신용(계약) 코드 <small>선택</small></label><input type="text" id="s-ct" value="${h(c.contract || '')}"></div><div><label for="s-co">당일 출고 마감</label><input type="time" id="s-co" value="${h(c.cutoff)}"></div></div>
+        <div class="fgrid"><div><label for="s-ad">발송 뒤 자동 배송 완료(일) <small>0 = 직접 누름</small></label><input type="number" id="s-ad" min="0" max="30" value="${c.autoDeliverDays}"></div></div></div>
+      <div class="card"><h2>반품 배송비(고객 사유)</h2><p class="h-sub">반품 환불 때 자동으로 빼는 금액입니다. 판매자 사유(불량·오배송)면 빼지 않습니다.</p><div class="fgrid"><div><label for="rf-m">매트리스 왕복</label><input type="number" id="rf-m" value="${c.returnFee.mattress}"></div><div><label for="rf-o">그 밖의 상품 왕복</label><input type="number" id="rf-o" value="${c.returnFee.other}"></div><div><label for="rf-j">제주·도서산간 추가</label><input type="number" id="rf-j" value="${c.returnFee.jeju}"></div></div></div>
+      <div class="card"><h2>3PL 발주서</h2><p class="h-sub">결제 주문 › 엑셀 '3PL 발주서'의 받는분·품목명 규칙입니다. 품목명 = 상품별 이름 + 두께형(cm)_사이즈 / 색상</p>
+        <div class="fgrid"><div><label for="t-sf">받는분 뒤 판매처 표시</label><input type="text" id="t-sf" value="${h(c.tpl.suffix)}" placeholder="(공)"></div><div><label for="t-fr">운임구분</label><input type="text" id="t-fr" value="${h(c.tpl.fare)}"></div></div>
+        <table class="list"><thead><tr><th>상품</th><th>3PL 품목명(앞부분)</th></tr></thead><tbody>${d.products.map(p => `<tr><td>${h(p.short)}</td><td><input type="text" data-tpl="${p.id}" value="${h(c.tpl.names[p.id] || p.short)}"></td></tr>`).join('')}</tbody></table></div>
+      <div class="card"><h2>환불 권한</h2>${d.owner ? `<label class="chk"><input type="radio" name="rr" value="owner" ${c.refundRole !== 'client' ? 'checked' : ''}> 총괄 관리자만 환불(결제 취소)</label><label class="chk"><input type="radio" name="rr" value="client" ${c.refundRole === 'client' ? 'checked' : ''}> 잠스쿨 관리자도 환불할 수 있음</label>` : `<p>${c.refundRole === 'client' ? '잠스쿨 관리자도 환불할 수 있습니다.' : '환불은 총괄 관리자가 합니다.'}</p>`}</div>
+      <div class="actions"><button class="btn ok" id="ss-save">저장하기</button></div>${c.at ? `<p class="help">마지막 저장 ${h(dt(c.at))} · ${h(c.by || '')}</p>` : ''}`;
+    $('#rt-same').onchange = e => { $('#rt-box').hidden = e.target.checked; };
+    const A = k => ({ name: $(`#${k}-name`).value, tel: $(`#${k}-tel`).value, zip: $(`#${k}-zip`).value, addr1: $(`#${k}-a1`).value, addr2: $(`#${k}-a2`).value });
+    $('#ss-save').onclick = async () => {
+      const names = {}; v.querySelectorAll('[data-tpl]').forEach(i => { names[i.dataset.tpl] = i.value; });
+      const body = { from: A('fr'), ret: $('#rt-same').checked ? { same: true } : { same: false, ...A('rt') }, courier: $('#s-cr').value, contract: $('#s-ct').value, cutoff: $('#s-co').value, autoDeliverDays: $('#s-ad').value,
+        returnFee: { mattress: $('#rf-m').value, other: $('#rf-o').value, jeju: $('#rf-j').value }, tpl: { suffix: $('#t-sf').value, fare: $('#t-fr').value, names } };
+      if (d.owner) body.refundRole = (v.querySelector('[name="rr"]:checked') || {}).value;
+      try { await api('POST', '/api/admin/ship-settings', body); toast('배송 설정을 저장했습니다'); shipSet(); } catch (e) { toast(e.message, 6000); }
+    };
+  }
+
+  // ── 정산: 결제 승인일 다음 영업일 정산(익일 정산), 취소·환불은 그날 기준 다음 정산금에서 차감
+  const SETF = { range: 'm0', from: '', to: '' };
+  async function settle() {
+    const v = shell('정산', { desc: '홈페이지 결제(씨드페이먼츠) 정산 예정과 환불 차감입니다. 실제 입금액은 씨드페이먼츠 가맹점 관리자 정산 내역과 맞춰 확인해 주세요.' });
+    const mStart = back => { const t = new Date(Date.now() + 9 * 3600e3); t.setUTCDate(1); t.setUTCMonth(t.getUTCMonth() - back); return t.toISOString().slice(0, 10); };
+    const mEnd = back => { const t = new Date(Date.parse(mStart(back - 1) + 'T00:00:00Z') - 864e5); return t.toISOString().slice(0, 10); };
+    const R = { m0: [mStart(0), mEnd(0)], m1: [mStart(1), mEnd(1)], d30: [kToday(29), kToday(-14)], all: ['', ''], pick: [SETF.from, SETF.to] }[SETF.range] || ['', ''];
+    const d = await api('GET', `/api/admin/settlement?from=${encodeURIComponent(R[0] || '')}&to=${encodeURIComponent(R[1] || '')}`), c = d.cfg, T = d.total;
+    const tag = r => `<span class="tag ${r.status === 'done' ? 'live' : r.status === 'check' ? 'bad' : 'draft'}">${h(r.statusName)}</span>`;
+    v.innerHTML = `<div class="box info"><b>정산 흐름</b> 결제 완료(승인일) → <b>다음 영업일</b>에 정산 입금(주말·공휴일은 그다음 영업일) · 정산 전에 취소하면 그 결제는 정산에서 빠지고, 정산 뒤 취소·환불은 <b>취소한 날 기준 다음 정산금에서 차감</b>됩니다.
+        수수료율 ${c.feeRate ? `<b>${c.feeRate}%</b>${c.vat ? '(부가세 별도)' : ''}` : '<b>미입력</b> — 아래 정산 설정에서 계약 수수료율을 넣으면 정산 예정액이 계산됩니다'} · 씨드 테스트 서버 결제는 빼고 셉니다.</div>
+      <div class="card ofbar"><div class="seg wrap" role="group" aria-label="정산일 기간">${[['m0', '이번 달'], ['m1', '지난달'], ['d30', '최근 30일·예정'], ['all', '전체'], ['pick', '날짜 고르기']].map(([k, t]) => `<a href="#" data-sr="${k}" class="${SETF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
+        <div class="ofpick" ${SETF.range === 'pick' ? '' : 'hidden'}><input type="date" id="sf-from" value="${h(SETF.from)}" aria-label="시작 정산일"> ~ <input type="date" id="sf-to" value="${h(SETF.to)}" aria-label="끝 정산일"><button class="btn sm" id="sf-go">보기</button></div>
+        <button class="btn sm" id="sf-xls">엑셀 내려받기</button></div>
+      <div class="kpis"><div class="kpi"><span>결제</span><b>${won(T.payAmt)}</b><small>${num(T.payN)}건</small></div><div class="kpi"><span>취소·환불 차감</span><b>${won(T.refAmt)}</b><small>${num(T.refN)}건</small></div>
+        <div class="kpi"><span>수수료${c.vat ? '+부가세' : ''}</span><b>${won(T.fee + T.vat)}</b><small>${c.feeRate ? `${c.feeRate}% 기준 예상` : '수수료율 미입력'}</small></div><div class="kpi"><span>정산 반영액</span><b>${won(T.net)}</b><small>정산 예정 ${won(T.plan)}${T.check ? ` · 입금 확인 필요 ${T.check}일` : ''}</small></div></div>
+      <div class="card"><h2>정산일별</h2>${d.rows.length ? `<table class="list"><thead><tr><th>정산일</th><th>상태</th><th>대상 결제·환불일</th><th class="r">결제</th><th class="r">환불 차감</th><th class="r">수수료${c.vat ? '+부가세' : ''}</th><th class="r">정산 반영액</th><th></th></tr></thead><tbody>
+        ${d.rows.map((r, i) => `<tr><td class="nw"><b>${h(dayLabel(r.date))}</b></td><td>${tag(r)}</td><td class="nw">${r.days.map(x => h(x.slice(5).replace('-', '/'))).join(', ')}</td><td class="r">${won(r.payAmt)}<br><small>${r.payN}건</small></td><td class="r">${r.refAmt ? '-' + won(r.refAmt) : '0원'}<br><small>${r.refN}건</small></td><td class="r">-${won(r.fee + r.vat)}</td><td class="r"><b>${won(r.net)}</b></td>
+          <td class="nw"><button class="btn sm" data-open="${i}">내역</button>${r.status !== 'plan' ? ` <button class="btn sm" data-chk="${h(r.date)}" data-done="${r.status === 'done' ? '' : '1'}">${r.status === 'done' ? '확인 취소' : '입금 확인'}</button>` : ''}</td></tr>
+          <tr class="sub" id="st-${i}" hidden><td colspan="8"><table class="list"><tbody>${r.list.map(e => `<tr><td class="nw">${e.kind === 'pay' ? '결제' : '<b class="o-warn">환불</b>'} ${h(e.day.slice(5).replace('-', '/'))}</td><td><a href="#/payments/${h(e.moid)}">${h(e.moid)}</a> · ${h(e.who)}</td><td>${h(e.items)}</td><td class="r">${won(e.amount)}</td><td class="r">-${won(e.fee + e.vat)}</td></tr>`).join('')}</tbody></table>${r.checked ? `<p class="help">입금 확인 ${h(dt(r.checked.at))} · ${h(r.checked.by)}${r.checked.memo ? ' · ' + h(r.checked.memo) : ''}</p>` : ''}</td></tr>`).join('')}</tbody></table>` : empty('이 기간에 정산할 결제가 없습니다.')}</div>
+      <details class="card"><summary><b>정산 설정</b> — 수수료율·부가세·정산 주기·공휴일</summary>
+        <div class="fgrid"><div><label for="sc-fee">수수료율(%) <small>씨드페이먼츠 계약서 기준, 예: 3.2</small></label><input type="number" step="0.01" min="0" max="10" id="sc-fee" value="${c.feeRate}"></div><div><label for="sc-days">정산 주기(영업일) <small>익일 정산 = 1</small></label><input type="number" min="0" max="10" id="sc-days" value="${c.days}"></div></div>
+        <label class="chk"><input type="checkbox" id="sc-vat" ${c.vat ? 'checked' : ''}> 수수료 부가세(10%) 별도 차감</label>
+        <label for="sc-hol">공휴일(은행 휴무) <small>한 줄에 하나, YYYY-MM-DD. 정부 발표가 바뀌면 고쳐 주세요</small></label><textarea id="sc-hol" rows="5">${h((c.holidays || []).join('\n'))}</textarea>
+        <div class="actions static"><button class="btn sm ok" id="sc-save">정산 설정 저장</button></div></details>`;
+    v.querySelectorAll('[data-sr]').forEach(a => a.onclick = e => { e.preventDefault(); SETF.range = a.dataset.sr; if (SETF.range === 'pick' && !SETF.from) { SETF.from = kToday(30); SETF.to = kToday(); } settle(); });
+    const go = $('#sf-go'); if (go) go.onclick = () => { SETF.from = $('#sf-from').value; SETF.to = $('#sf-to').value; settle(); };
+    v.querySelectorAll('[data-open]').forEach(b => b.onclick = () => { const t = $(`#st-${b.dataset.open}`); t.hidden = !t.hidden; });
+    v.querySelectorAll('[data-chk]').forEach(b => b.onclick = async () => {
+      const done = !!b.dataset.done, memo = done ? prompt(`${b.dataset.chk} 정산 입금을 확인했나요? 메모(선택, 예: 입금액)`, '') : '';
+      if (done && memo == null) return;
+      try { await api('POST', '/api/admin/settlement-settings', { check: { date: b.dataset.chk, done, memo } }); toast(done ? '입금 확인으로 표시했습니다' : '입금 확인을 취소했습니다'); settle(); } catch (e) { toast(e.message); }
+    });
+    $('#sf-xls').onclick = async () => { try { const name = await download('/api/admin/settlement-export', { from: R[0], to: R[1] }); toast(`${name} 을(를) 내려받았습니다`); } catch (e) { fail(e); } };
+    $('#sc-save').onclick = async () => {
+      try { await api('POST', '/api/admin/settlement-settings', { feeRate: $('#sc-fee').value, days: $('#sc-days').value, vat: $('#sc-vat').checked, holidays: $('#sc-hol').value }); toast('정산 설정을 저장했습니다'); settle(); } catch (e) { toast(e.message, 6000); }
     };
   }
 
@@ -1217,6 +1376,8 @@
       else if (a === 'orders') await orders();
       else if (a === 'payments' && b && b !== 'all') await payDetail(b);
       else if (a === 'payments') await payments();
+      else if (a === 'settle') await settle();
+      else if (a === 'shipset') await shipSet();
       else if (a === 'me') await me();
       else if (owner && a === 'settings') await settings();
       else if (owner && a === 'topics') await topics();

@@ -13,8 +13,15 @@
     </div>
 
     <div class="done-none" id="done-none" hidden>
-      <p data-edit="complete-006" class="cp-empty__t">표시할 주문 정보가 없습니다</p>
-      <p data-edit="complete-007" class="cp-empty__d">주문 완료 화면은 주문서에서 결제를 마친 직후 한 번만 보입니다.</p>
+      <p class="cp-empty__t">주문·배송 조회</p>
+      <p class="cp-empty__d">홈페이지에서 결제한 주문은 주문번호와 휴대폰 번호로 배송 현황을 볼 수 있습니다. 주문번호(JS로 시작)는 결제를 마친 뒤 보이는 주문 완료 화면에 있습니다. 모르면 고객센터로 문의해 주세요.</p>
+      <form class="lookup" id="lookup" novalidate>
+        <label class="sr-only" for="lk-no">주문번호</label><input id="lk-no" type="text" placeholder="주문번호(JS로 시작)" autocomplete="off" autocapitalize="characters" required>
+        <label class="sr-only" for="lk-tel">휴대폰 번호</label><input id="lk-tel" type="tel" inputmode="tel" placeholder="주문하신 분 또는 받는 분 휴대폰 번호" required>
+        <button class="btn btn--primary" type="submit">조회하기</button>
+        <p class="lookup__msg" id="lk-msg" role="alert"></p>
+      </form>
+      <p class="note" style="margin-top:12px">스마트스토어·공식몰(jamschool.co.kr)에서 산 주문은 그곳 주문 내역에서 확인해 주세요.</p>
       <div class="cp-empty__btns"><a data-edit="complete-008" class="btn btn--primary" href="shop.html">전체 상품 보기</a><a data-edit="complete-009" class="btn btn--line" href="index.html">홈으로</a></div>
     </div>
 
@@ -24,6 +31,14 @@
         <h1 data-edit="complete-010" class="done-head__t" id="done-t">주문이 접수되었습니다</h1>
         <p data-edit="complete-011" class="done-head__no">주문번호 <b id="done-no"></b></p>
       </header>
+
+      <section class="done-box done-track" id="done-track" aria-labelledby="done-track-t" hidden>
+        <h2 class="done-box__t" id="done-track-t">배송 현황 <span class="done-track__st" id="done-stage"></span></h2>
+        <ol class="done-steps" id="done-steps"></ol>
+        <p class="done-track__inv" id="done-inv" hidden></p>
+        <p class="done-track__claim" id="done-claim" hidden></p>
+        <p class="note">이 화면 주소를 저장해 두면 배송 현황을 다시 볼 수 있습니다. 주소를 잃어버렸다면 사이트 맨 아래 '주문·배송 조회'에서 주문번호와 휴대폰 번호로 찾을 수 있습니다.</p>
+      </section>
 
       <section class="done-box" aria-labelledby="done-pay-t">
         <h2 data-edit="complete-012" class="done-box__t" id="done-pay-t">결제 정보</h2>

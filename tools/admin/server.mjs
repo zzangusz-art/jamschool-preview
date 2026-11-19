@@ -11,6 +11,8 @@ import { ROLES, canWriteUsers, cookieHeader, hashPassword, loadUsers, login, new
 import { makeStore } from './store.mjs';
 import { summary as statsSummary, flushNow as statsFlush, forgetCache as statsForget, resetOrderStats, ordersSince } from './stats.mjs';
 import { FORMATS as SHIP_FORMATS, shipExport } from '../pay/ship-export.mjs';
+import { COURIERS } from '../pay/fulfil.mjs';
+import { xlsx } from './xlsx.mjs';
 import * as BACKUP from './backup.mjs';
 import { cleanOpts, canon } from './options.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
@@ -421,16 +423,21 @@ route('GET', '/api/admin/check', 'owner', async () => {
 });
 // ── 결제 주문(홈페이지 결제, tools/pay/seedpay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
 // 잠스쿨 관리자에게는 주문·결제 켜짐 여부만(상점 ID·결제통보·중계·알림 설정은 총괄 관리자만)
+//   배송 흐름: 신규 → 발주 확인(상품 준비 중) → 송장 입력·발송(배송 중) → 배송 완료 / 취소·반품·교환·환불은 tools/pay/fulfil.mjs
+// 환불(결제 취소)은 '배송 설정'의 환불 권한대로: 총괄 관리자만(기본) 또는 잠스쿨 관리자도
+const canRefund = user => user.role === 'owner' || PAY.shipCfg().refundRole === 'client';
+const COURIER_LIST = () => COURIERS.map(c => [c.code, c.name]);
 route('GET', '/api/admin/payments', 'client', async ({ query, user }) => {
-  const owner = user.role === 'owner', st = PAY.adminStatus();
-  const base = { enabled: st.enabled, canCancel: owner, orders: PAY.listOrders({ all: query.get('all') === '1', from: query.get('from') || '', to: query.get('to') || '' }), todo: PAY.todoCount(),
-    formats: Object.entries(SHIP_FORMATS).map(([k, f]) => [k, f.label]), since: ordersSince() };
+  const owner = user.role === 'owner', st = PAY.adminStatus(), cfg = PAY.shipCfg();
+  const base = { enabled: st.enabled, canCancel: canRefund(user), canRefund: canRefund(user), orders: PAY.listOrders({ all: query.get('all') === '1', from: query.get('from') || '', to: query.get('to') || '' }), todo: PAY.todoCount(),
+    formats: Object.entries(SHIP_FORMATS).map(([k, f]) => [k, f.label]), since: ordersSince(), couriers: COURIER_LIST(), courier: cfg.courier, autoDays: cfg.autoDeliverDays, shipReady: !!(cfg.from.addr1 && cfg.from.tel) };
   return owner ? { ...st, ...base, notify: NOTIFY.notifyStatus() } : base;
 });
-// 고른 결제 완료 주문: 발송 처리 한꺼번에 / 택배사·3PL 엑셀
-route('POST', '/api/admin/payments-ship', 'client', async ({ data, user }) => PAY.shipMany(data.moids, data.status === 'new' ? 'new' : 'shipped', user));
+// 고른 결제 완료 주문: 배송 단계 한꺼번에(발주 확인·발송 처리·배송 완료·신규로) / 택배사·3PL 엑셀 / 송장 일괄 입력
+route('POST', '/api/admin/payments-ship', 'client', async ({ data, user }) => PAY.shipMany(data.moids, ['new', 'prep', 'shipped', 'delivered'].includes(data.status) ? data.status : 'shipped', user));
+route('POST', '/api/admin/payments-invoices', 'client', async ({ data, user }) => PAY.invoiceMany(data.text, String(data.courier || ''), user));
 route('POST', '/api/admin/payments-export', 'client', async ({ data, user }) => {
-  const orders = PAY.ordersForExport(data.moids), f = shipExport(orders, String(data.format || ''));
+  const orders = PAY.ordersForExport(data.moids), f = shipExport(orders, String(data.format || ''), PAY.exportCtx());
   console.log(`[admin] 발송 엑셀 ${user.id} ${data.format} ${orders.length}건`);
   return { __file: f };
 });
@@ -446,9 +453,38 @@ route('POST', '/api/admin/payments-reset', 'owner', async ({ data, user }) => {
 route('POST', '/api/admin/payments-notify-test', 'owner', async ({ user }) => NOTIFY.notifyTest(user));
 // 결제 서버 연결 점검 — 이 서버의 나가는 IP·나라, 씨드 승인 주소가 받아 주는지(403 이면 씨드가 이 서버 IP 를 막음)
 route('GET', '/api/admin/payments-probe', 'owner', async () => PAY.pgProbe());
-route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => ({ order: PAY.getOrderAdmin(params.moid), canCancel: user.role === 'owner' }));
-route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data.status, user) }));
-route('POST', '/api/admin/payments/:moid/cancel', 'owner', async ({ params, data, user }) => ({ order: await PAY.cancelOrder(params.moid, data.reason, user) }));
+route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => {
+  const cfg = PAY.shipCfg();
+  return { order: PAY.getOrderAdmin(params.moid), canCancel: canRefund(user), canRefund: canRefund(user), couriers: COURIER_LIST(), courier: cfg.courier, ret: cfg.ret.same ? cfg.from : cfg.ret, returnFee: cfg.returnFee, autoDays: cfg.autoDeliverDays };
+});
+route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data || {}, user) }));
+route('POST', '/api/admin/payments/:moid/claim', 'client', async ({ params, data, user }) => ({ order: PAY.claimOrder(params.moid, data || {}, user) }));
+route('POST', '/api/admin/payments/:moid/refund', 'client', async ({ params, data, user }) => {
+  need(canRefund(user), 403, '환불은 총괄 관리자만 할 수 있습니다(배송 설정 › 환불 권한)');
+  return { order: await PAY.refundOrder(params.moid, data || {}, user) };
+});
+route('POST', '/api/admin/payments/:moid/cancel', 'client', async ({ params, data, user }) => {
+  need(canRefund(user), 403, '결제 취소는 총괄 관리자만 할 수 있습니다(배송 설정 › 환불 권한)');
+  return { order: await PAY.cancelOrder(params.moid, data.reason, user) };
+});
+// 배송 설정: 발송지·회수지·기본 택배사·출고 마감·반품 배송비·자동 배송 완료·3PL 발주서·환불 권한(환불 권한은 총괄 관리자만 바꿈)
+route('GET', '/api/admin/ship-settings', 'client', async ({ user }) => {
+  const { cur } = await products();
+  return { cfg: PAY.shipCfg(), couriers: COURIER_LIST(), owner: user.role === 'owner', products: cur.PRODUCTS.map(p => ({ id: p.id, short: p.short })) };
+});
+route('POST', '/api/admin/ship-settings', 'client', async ({ data, user }) => { const cfg = PAY.saveShip(data, user); console.log(`[admin] 배송 설정 ${user.id}`); return { ok: true, cfg }; });
+// 정산: 결제 승인일 다음 영업일 정산 예정, 취소·환불은 그날 기준 다음 정산에서 차감. 수수료율·공휴일·입금 확인은 정산 설정
+route('GET', '/api/admin/settlement', 'client', async ({ query }) => PAY.settleReport({ from: query.get('from') || '', to: query.get('to') || '' }));
+route('POST', '/api/admin/settlement-settings', 'client', async ({ data, user }) => { const cfg = PAY.saveSettle(data, user); console.log(`[admin] 정산 설정 ${user.id}`); return { ok: true, cfg }; });
+route('POST', '/api/admin/settlement-export', 'client', async ({ data, user }) => {
+  const r = PAY.settleReport({ from: data.from || '', to: data.to || '' });
+  const kdt = iso => iso || '';
+  const rows = [['정산일', '상태', '구분', '결제·환불일', '주문번호', '받는분', '내용', '금액', '수수료', '수수료 부가세', '정산 반영액'],
+    ...r.rows.flatMap(x => x.list.map(e => [x.date, x.statusName, e.kind === 'pay' ? '결제' : '환불', kdt(e.day), e.moid, e.who, e.items, e.amount, -e.fee, -e.vat, e.amount - e.fee - e.vat]))];
+  const stamp = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10).replace(/-/g, '');
+  console.log(`[admin] 정산 엑셀 ${user.id} ${rows.length - 1}줄`);
+  return { __file: { name: `잠스쿨_정산_${stamp}.xlsx`, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buf: xlsx('정산', rows, { widths: [12, 14, 8, 12, 24, 10, 50, 12, 10, 12, 13] }) } };
+});
 route('POST', '/api/admin/payments-settings', 'owner', async ({ data, user }) => {
   // 켜기 전에 씨드 승인 서버에 닿는지 확인 — 막혀 있으면 켜지 않는다(카드 인증 뒤 승인 실패 주문 방지)
   if (data.enabled) { const p = await PAY.pgProbe(); need(p.verdict === 'ok', 400, p.via === 'relay' ? `중계 서버 이상(${(p.relay && p.relay.error) || '응답 없음'})이라 켤 수 없습니다. '결제 서버 연결 점검'을 확인해 주세요.` : '씨드 승인 서버가 이 서버를 막고 있어(HTTP 403) 켤 수 없습니다. 한국 중계 서버(SEEDPAY_RELAY_*)를 먼저 연결해 주세요.'); }

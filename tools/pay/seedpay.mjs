@@ -17,7 +17,8 @@ import crypto from 'node:crypto';
 import https from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { clientIp } from '../client-ip.mjs';
-import { notifyOrder } from './notify.mjs';   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
+import { notifyOrder } from './notify.mjs';
+import { applyFulfil, applyClaim, addRefund, refundedOf, stageOf, fulfilNow, customerView, shipSettings, saveShipSettings, saveSettleSettings, settleSettings, settlement, tplItemName, courierName, trackUrl, claimLabel, claimOpen, refundSuggest, FulfilError, COURIERS, CLAIM_TYPE } from './fulfil.mjs';   // 배송·취소·반품·교환·환불·정산   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -348,10 +349,11 @@ async function noti(req) {
   seen.push(sig);
   if (!ok) { hist(o, '결제통보', `${str(d.resultCd)} ${str(d.resultMsg)}`); save(o); return 200; }
   if (isCancel) {
+    // 가맹점 관리자에서 한 취소·망취소(부분 포함)를 환불 기록에 더한다. 어드민에서 한 취소는 같은 취소 거래번호가 이미 있어 건너뛴다
     const full = str(d.partCanFlg) !== '1';
-    if (o.pg && o.pg.tid && otid === o.pg.tid && full && o.status !== 'cancelled') {
-      o.status = 'cancelled';
-      o.cancel = { at: nowIso(), by: 'seed', msg: st === '9' ? '망취소(결제통보)' : '가맹점 관리자 취소(결제통보)', code: '0000', cancelNum: tid };
+    if (o.pg && o.pg.tid && otid === o.pg.tid && o.status !== 'cancelled' && !(o.refunds || []).some(r => r.tid && r.tid === tid)) {
+      const amt = full ? o.amount - refundedOf(o) : toInt(d.ccAmt);
+      if (amt > 0) addRefund(o, { amount: amt, part: !full, reason: st === '9' ? '망취소(결제통보)' : '가맹점 관리자 취소(결제통보)', by: 'seed', via: 'seed', tid, ccSeq: str(d.ccSeq) });
     }
     hist(o, '결제통보 · 취소', `${toInt(d.ccAmt) >= 0 ? toInt(d.ccAmt) + '원' : ''} ${full ? '전체' : '부분'} 취소 · ${tid}`); save(o); return 200;
   }
@@ -372,6 +374,10 @@ async function noti(req) {
   return 200;
 }
 
+// 주문 조회 횟수 제한(IP 마다 10분에 10번)
+const LOOK = new Map();
+function lookLimited(ip) { const now = Date.now(), a = (LOOK.get(ip) || []).filter(t => now - t < 600e3); a.push(now); LOOK.set(ip, a); if (LOOK.size > 5000) LOOK.clear(); return a.length > 10; }
+
 // ───────── 4) 주문 완료 화면용(가린 요약)
 const mask = s => { s = String(s || ''); return s.length <= 1 ? s : s.length === 2 ? s[0] + '*' : s[0] + '*'.repeat(s.length - 2) + s[s.length - 1]; };
 function publicView(o) {
@@ -381,7 +387,7 @@ function publicView(o) {
     payLabel: o.status === 'paid' && o.pg && o.pg.cardName ? `${o.payLabel} (${o.pg.cardName} · ${QUOTA(o.pg.cardQuota)})` : o.payLabel,
     total: o.amount, sub: o.sub, ship: o.ship, items: o.items.map(({ id, name, opt, qty, price, img, cat }) => ({ id, name, opt, qty, price, img, cat })),
     name: mask(o.receiver.name), tel: `${o.receiver.tel.slice(0, 3)}-****-${o.receiver.tel.slice(-4)}`, addr: `(${o.receiver.zip}) ${o.receiver.addr1} · 상세 주소 생략`,
-    memo: o.receiver.memo, jeju: o.receiver.jeju, buyNow: o.buyNow, fail: o.status === 'paid' ? '' : (o.fail && o.fail.msg) || '',
+    memo: o.receiver.memo, jeju: o.receiver.jeju, buyNow: o.buyNow, ship: ['paid', 'cancelled'].includes(o.status) ? customerView(o, shipSettings(DIR())) : null, fail: o.status === 'paid' ? '' : (o.fail && o.fail.msg) || '',
   };
 }
 
@@ -404,6 +410,15 @@ export async function handlePay(req, res) {
       let code = 500;
       try { code = await noti(req); } catch (e) { console.error('[pay] noti', e); code = 500; }   // 200 이 아니면 씨드가 다시 보낸다
       text(res, code, code === 200 ? 'OK' : 'FAIL'); return true;
+    }
+    // 주문 조회(주문 완료 화면 주소를 잃어버린 손님): 주문번호 + 주문하신 분·받는 분 휴대폰 번호가 맞으면 조회 주소(토큰)를 돌려준다
+    if (p === '/api/pay/lookup' && req.method === 'POST') {
+      if (lookLimited(clientIp(req))) { json(res, 429, { error: '조회를 너무 많이 했습니다. 10분 뒤 다시 시도해 주세요.' }); return true; }
+      let d; try { d = JSON.parse((await readBody(req, 2048)).toString('utf8')); } catch { d = {}; }
+      const id = str(d.no).toUpperCase().replace(/\s/g, ''), tel = digits(d.tel), o = /^JS[0-9A-Z]{10,30}$/.test(id) ? load(id) : null;
+      const telOk = o && tel.length >= 10 && [o.buyer && o.buyer.tel, o.receiver && o.receiver.tel].includes(tel);
+      if (!telOk || ['ready', 'failed'].includes(o.status)) { json(res, 404, { error: '주문번호와 휴대폰 번호가 맞는 주문이 없습니다. 다시 확인해 주세요.' }); return true; }
+      json(res, 200, { o: o.moid, t: o.token }); return true;
     }
     if (p === '/api/pay/order' && req.method === 'GET') {
       const o = load(url.searchParams.get('o'));
@@ -455,27 +470,62 @@ const ktime = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(
 const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const allOrders = () => { let names = []; try { names = fs.readdirSync(DIR()).filter(f => /^JS\w+\.json$/.test(f)); } catch { names = []; } return names.map(f => load(f.slice(0, -5))).filter(Boolean); };
 export function listOrders({ all = false, from = '', to = '' } = {}) {
+  const cfg = shipSettings(DIR());
   return allOrders()
     .filter(o => all || ['paid', 'check', 'cancelled', 'approving'].includes(o.status))
     .filter(o => (!isDay(from) || kday(o.createdAt) >= from) && (!isDay(to) || kday(o.createdAt) <= to))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 1000)
-    .map(o => ({ moid: o.moid, createdAt: o.createdAt, day: kday(o.createdAt), time: ktime(o.createdAt), paidAt: o.paidAt || '', status: o.status, statusName: LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
-      items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), qty: o.items.reduce((a, x) => a + x.qty, 0), receiver: o.receiver.name, tel: o.receiver.tel, zip: o.receiver.zip,
-      addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fulfil: (o.fulfil || {}).status || 'new', shippedAt: (o.fulfil || {}).status === 'shipped' ? o.fulfil.at : '', fail: (o.fail || {}).msg || '' }));
+    .map(o => {
+      const f = fulfilNow(o, cfg), st = stageOf(o, cfg), c = o.claim;
+      return { moid: o.moid, createdAt: o.createdAt, day: kday(o.createdAt), time: ktime(o.createdAt), paidAt: o.paidAt || '', status: o.status, statusName: LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
+        items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), qty: o.items.reduce((a, x) => a + x.qty, 0), receiver: o.receiver.name, tel: o.receiver.tel, zip: o.receiver.zip,
+        addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fail: (o.fail || {}).msg || '',
+        fulfil: f.status, shippedAt: f.shippedAt || '', courier: f.invoice ? courierName(f.courier) : '', invoice: f.invoice || '', track: f.invoice ? trackUrl(f.courier, f.invoice) : '',
+        stage: st.key, stageName: st.label, stageTone: st.tone, refunded: refundedOf(o),
+        claim: c ? { type: c.type, status: c.status, open: claimOpen(c), label: claimLabel(c) } : null };
+    });
 }
-// 날짜와 상관없이 결제 완료·발송 전 주문 수(목록 위 안내)
-export const todoCount = () => allOrders().filter(o => o.status === 'paid' && (o.fulfil || {}).status !== 'shipped').length;
-// 발송용 엑셀·일괄 발송: 고른 주문 중 결제 완료만(고른 순서대로)
+// 날짜와 상관없이 결제 완료·발송 전(신규·상품 준비 중, 취소 요청 아님) 주문 수(목록 위 안내)
+export const todoCount = () => { const cfg = shipSettings(DIR()); return allOrders().filter(o => o.status === 'paid' && ['new', 'prep'].includes(fulfilNow(o, cfg).status) && !claimOpen(o.claim)).length; };
+// 발송용 엑셀·일괄 처리: 고른 주문 중 결제 완료만(고른 순서대로)
 const pickPaid = moids => { const ids = [...new Set((Array.isArray(moids) ? moids : []).map(String))].slice(0, 1000); return ids.map(load).filter(o => o && o.status === 'paid').map(o => ({ ...o, statusName: LABEL[o.status] })); };
 export function ordersForExport(moids) {
   const list = pickPaid(moids); if (!list.length) throw new PayError(400, '결제 완료된 주문을 골라 주세요');
   return list;
 }
+// 3PL 발주서 품목명·발송지 등 엑셀에 필요한 값
+export const exportCtx = () => ({ J: siteData(), cfg: shipSettings(DIR()), tplName: (x, J, cfg) => tplItemName(x, J, cfg) });
+// 고른 주문 배송 단계 한꺼번에: new(신규로) · prep(발주 확인) · shipped(발송 처리, 송장은 그대로) · delivered(배송 완료)
 export function shipMany(moids, status, user) {
   const list = pickPaid(moids); if (!list.length) throw new PayError(400, '결제 완료된 주문을 골라 주세요');
-  let n = 0; for (const o of list) { if (((o.fulfil || {}).status === 'shipped') === (status === 'shipped')) continue; setFulfil(o.moid, status, user); n++; }
-  log('ship-many', status === 'shipped' ? 'shipped' : 'new', n, user.id);
-  return { ok: true, changed: n, picked: list.length };
+  const to = ['new', 'prep', 'shipped', 'delivered'].includes(status) ? status : 'shipped';
+  let n = 0; const skipped = [];
+  for (const x of list) {
+    const o = load(x.moid); if (!o || fulfilNow(o).status === to) continue;
+    try { hist(o, '배송', applyFulfil(o, { status: to }, user)); save(o); n++; }
+    catch (e) { if (e instanceof FulfilError) skipped.push(`${o.moid} — ${e.message}`); else throw e; }
+  }
+  log('ship-many', to, n, user.id);
+  return { ok: true, changed: n, picked: list.length, skipped };
+}
+// 송장 일괄 입력: 한 줄에 주문번호와 송장번호(3PL·택배사 엑셀에서 두 열을 복사해 붙여 넣기). 같은 줄에 택배사 이름이 있으면 그 택배사
+export function invoiceMany(text, courier, user) {
+  const lines = String(text || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).slice(0, 1000);
+  if (!lines.length) throw new PayError(400, '주문번호와 송장번호를 붙여 넣어 주세요');
+  if (!COURIERS.some(c => c.code === courier)) throw new PayError(400, '택배사를 골라 주세요');
+  const done = [], errors = [];
+  for (const ln of lines) {
+    const id = ((ln.match(/JS\d{14}[0-9A-Z]{6}/i) || [])[0] || '').toUpperCase(), rest = id ? ln.replace(new RegExp(id, 'i'), ' ') : ln;
+    const inv = ((rest.match(/(?:^|\D)(\d{9,15})(?!\d)/) || [])[1]) || ((rest.match(/\d{3,6}-\d{3,6}-\d{3,6}/) || [])[0] || '').replace(/-/g, '');
+    const named = COURIERS.find(c => c.code !== 'etc' && rest.includes(c.name.replace(/택배$/, '')));
+    if (!id || !inv) { errors.push(`${ln.slice(0, 50)} — 주문번호(JS…)나 송장번호를 찾지 못했습니다`); continue; }
+    const o = load(id);
+    if (!o) { errors.push(`${id} — 없는 주문입니다`); continue; }
+    try { hist(o, '배송', applyFulfil(o, { status: 'shipped', courier: named ? named.code : courier, invoice: inv, needInvoice: true }, user)); save(o); done.push(o.moid); }
+    catch (e) { if (e instanceof FulfilError || e instanceof PayError) errors.push(`${id} — ${e.message}`); else throw e; }
+  }
+  log('invoice-many', done.length, errors.length, user.id);
+  return { ok: true, changed: done.length, lines: lines.length, errors };
 }
 // 시험 기록 정리(총괄 관리자): 주문 파일을 orders/_archive/<시각>/ 로 옮긴다(지우지 않음). 결제 켜기 설정(settings.json)은 그대로.
 //   방금 결제창을 연 주문(결제 전, 1시간 안)은 손님이 결제 중일 수 있어 남긴다
@@ -492,41 +542,76 @@ export function archiveOrders(user) {
 }
 export function getOrderAdmin(id) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
-  const { token, ...rest } = o;
-  return { ...rest, statusName: LABEL[o.status] || o.status };
+  const { token, ...rest } = o, cfg = shipSettings(DIR()), f = fulfilNow(o, cfg), c = o.claim;
+  return { ...rest, statusName: LABEL[o.status] || o.status, stage: stageOf(o, cfg), fulfilNow: f, refunded: refundedOf(o), remain: o.amount - refundedOf(o),
+    track: f.invoice ? trackUrl(f.courier, f.invoice) : '', courierName: f.invoice ? courierName(f.courier) : '',
+    claimView: c ? { ...c, label: claimLabel(c), open: claimOpen(c), typeName: CLAIM_TYPE[c.type],
+      pickupTrack: c.pickup && c.pickup.invoice ? trackUrl(c.pickup.courier, c.pickup.invoice) : '', pickupName: c.pickup ? courierName(c.pickup.courier) : '',
+      resendTrack: c.resend ? trackUrl(c.resend.courier, c.resend.invoice) : '', resendName: c.resend ? courierName(c.resend.courier) : '' } : null,
+    suggest: refundSuggest(o, cfg) };
 }
-export function setFulfil(id, status, user) {
+// 배송 단계 하나(발주 확인·송장 입력·배송 완료·되돌리기). 예전 화면은 status 글자만 보낸다
+export function setFulfil(id, d, user) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
-  if (o.status !== 'paid') throw new PayError(400, '결제 완료된 주문만 발송 처리할 수 있습니다');
-  const st = status === 'shipped' ? 'shipped' : 'new';
-  o.fulfil = { status: st, at: nowIso(), by: user.id };
-  hist(o, st === 'shipped' ? '발송 처리' : '발송 전으로', `${user.name}(${user.id})`); save(o);
+  hist(o, '배송', applyFulfil(o, typeof d === 'string' ? { status: d === 'shipped' ? 'shipped' : 'new' } : d || {}, user)); save(o);
   return getOrderAdmin(id);
 }
-export async function cancelOrder(id, reason, user) {
+// 취소·반품·교환 요청과 단계(회수 접수·회수 완료·재발송·완료·철회·메모)
+export function claimOrder(id, d, user) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
-  if (o.status !== 'paid' || !o.pg || !o.pg.tid) throw new PayError(400, '결제 완료된 주문만 취소할 수 있습니다');
+  if (BUSY.has(o.moid)) throw new PayError(409, '처리 중인 주문입니다. 잠시 뒤 다시 시도해 주세요');
+  hist(o, '클레임', applyClaim(o, d || {}, user)); save(o);
+  return getOrderAdmin(id);
+}
+// 환불: via=pg 는 씨드페이먼츠 결제 취소(전액 = 처음 한 번에 전부, 그 밖은 부분취소 partCanFlg=1 · ccAmt),
+//       via=manual 은 계좌 이체 등 결제 밖에서 돌려준 것을 기록만(결제 취소 안 함). 다 돌려주면 주문은 결제 취소
+export async function refundOrder(id, d, user) {
+  const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
+  if (o.status !== 'paid') throw new PayError(400, '결제 완료된 주문만 환불할 수 있습니다(부분 환불한 주문 포함)');
+  const refunded = refundedOf(o), remain = o.amount - refunded, amount = toInt(d && d.amount), via = d && d.via === 'manual' ? 'manual' : 'pg';
+  if (!(amount >= 1 && amount <= remain)) throw new PayError(400, `환불 금액은 1원 ~ ${remain.toLocaleString('ko-KR')}원 사이로 넣어 주세요`);
+  const reason = clean((d && d.reason) || '').slice(0, 40) || '관리자 환불', who = `${user.name}(${user.id})`;
+  if (via === 'manual') {
+    addRefund(o, { amount, part: amount < remain || refunded > 0, reason, by: user.id, via, memo: clean((d && d.memo) || '').slice(0, 100) });
+    hist(o, '환불 기록(결제 밖 환불)', `${amount}원 · ${reason} — ${who}`); save(o); log('refund-manual', o.moid, amount);
+    return getOrderAdmin(id);
+  }
+  if (!o.pg || !o.pg.tid) throw new PayError(400, '결제 거래번호가 없어 결제 취소를 할 수 없습니다(결제 밖 환불로 기록해 주세요)');
   if (!KEY()) throw new PayError(503, '가맹점 키(SEEDPAY_MERCHANT_KEY)가 없습니다');
   if (BUSY.has(o.moid)) throw new PayError(409, '처리 중인 주문입니다. 잠시 뒤 다시 시도해 주세요');
   BUSY.add(o.moid);
   try {
-    const edi = kstStamp(), msg = clean(reason || '관리자 취소').slice(0, 40) || '관리자 취소';
+    const full = amount === o.amount && !refunded, edi = kstStamp();
     let r;
     try {
-      r = await postPg(URLS().cancel, { tid: o.pg.tid, mid: MID(), ordNo: o.moid, ccMsg: msg, ccNm: clean(user.name).slice(0, 30), ccId: String(user.id || '').slice(0, 10),
-        partCanFlg: '0', ediDate: edi, hashString: sha256(MID() + edi + o.pg.tid + KEY()) });
+      r = await postPg(URLS().cancel, { tid: o.pg.tid, mid: MID(), ordNo: o.moid, ccMsg: reason, ccNm: clean(user.name).slice(0, 30), ccId: String(user.id || '').slice(0, 10),
+        partCanFlg: full ? '0' : '1', ...(full ? {} : { ccAmt: String(amount) }), ediDate: edi, hashString: sha256(MID() + edi + o.pg.tid + KEY()) });
     } catch (e) { throw new PayError(502, `취소 요청을 보내지 못했습니다(${e.message}). 씨드페이먼츠 가맹점 관리자에서 취소 여부를 확인해 주세요`); }
     if (str(r.resultCd) !== '0000') {
-      hist(o, '취소 실패', `${str(r.resultCd)} ${str(r.resultMsg)} — ${user.id}`); save(o);
-      throw new PayError(400, `취소되지 않았습니다: ${str(r.resultMsg) || str(r.resultCd)}`);
+      hist(o, '환불 실패', `${amount}원 · ${str(r.resultCd)} ${str(r.resultMsg)} — ${who}`); save(o);
+      throw new PayError(400, `환불되지 않았습니다: ${str(r.resultMsg) || str(r.resultCd)}${['2028', '2029', '2030', '2031', '2032', '2033', '2034'].includes(str(r.resultCd)) ? ' (부분취소가 막힌 거래입니다. 씨드페이먼츠에 문의하거나 전액 취소 후 다시 결제를 안내해 주세요)' : ''}`);
     }
-    const amtOk = r.ccAmt == null || str(r.ccAmt) === '' || toInt(r.ccAmt) === o.amount, tidOk = !str(r.otid) || str(r.otid) === o.pg.tid;
-    o.status = 'cancelled';
-    o.cancel = { at: nowIso(), by: user.id, msg, code: '0000', cancelNum: str(r.tid), check: amtOk && tidOk ? 'ok' : '취소 금액·원거래 불일치(가맹점 관리자에서 확인)' };
-    hist(o, 'cancelled', `${msg} — ${user.name}(${user.id})${amtOk && tidOk ? '' : ' · 응답 금액·원거래 불일치'}`); save(o);
-    log('cancelled', o.moid, str(r.tid));
+    const got = r.ccAmt == null || str(r.ccAmt) === '' ? amount : toInt(r.ccAmt), tidOk = !str(r.otid) || str(r.otid) === o.pg.tid;
+    const check = got === amount && tidOk ? 'ok' : '응답 금액·원거래 불일치(가맹점 관리자에서 확인)';
+    addRefund(o, { amount, part: !full, reason, by: user.id, via: 'pg', tid: str(r.tid), ccSeq: str(r.ccSeq), check });
+    if (o.status === 'cancelled') o.cancel = { at: nowIso(), by: user.id, msg: reason, code: '0000', cancelNum: str(r.tid), check };
+    hist(o, full ? 'cancelled' : '부분 환불', `${amount}원 · ${reason} — ${who}${check === 'ok' ? '' : ' · ' + check}`); save(o);
+    log(full ? 'cancelled' : 'refund-part', o.moid, amount, str(r.tid));
     return getOrderAdmin(id);
   } finally { BUSY.delete(o.moid); }
+}
+// 예전 '결제 취소(전액)' 버튼: 남은 금액 전부 환불
+export async function cancelOrder(id, reason, user) {
+  const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
+  return refundOrder(id, { amount: o.amount - refundedOf(o), reason: reason || '관리자 취소', via: 'pg' }, user);
+}
+// 배송 설정·정산(설정 파일은 주문과 같은 볼륨 DATA_DIR/orders)
+export const shipCfg = () => shipSettings(DIR());
+export const saveShip = (d, user) => saveShipSettings(DIR(), d || {}, user);
+export const saveSettle = (d, user) => saveSettleSettings(DIR(), d || {}, user);
+export function settleReport({ from = '', to = '' } = {}) {
+  const cfg = settleSettings(DIR());
+  return { cfg, ...settlement(allOrders().filter(o => o.paidAt), cfg, { from: isDay(from) ? from : '', to: isDay(to) ? to : '' }) };
 }
 export function setSettings({ enabled }, user) {
   if (enabled && !KEY()) throw new PayError(400, '가맹점 키(SEEDPAY_MERCHANT_KEY)가 Railway 에 없어 켤 수 없습니다');

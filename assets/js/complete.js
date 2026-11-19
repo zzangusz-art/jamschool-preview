@@ -33,6 +33,26 @@
     if (has29) flow.push(['14일 무료체험', '3단 접이식 매트리스는 받은 날부터 14일 동안 써 보고 결정할 수 있습니다(기간 한정, 반품 시 왕복 배송비 고객 부담).']);
     $('#done-flow').innerHTML = flow.map(([t, d], i) => `<li><span class="done-flow__n">${i + 1}</span><div><b>${esc(t)}</b><p>${esc(d)}</p></div></li>`).join('');
   }
+  // 배송 현황(결제 완료 주문): 결제 완료 → 상품 준비 중 → 배송 중 → 배송 완료, 택배 조회, 취소·반품·교환·환불
+  const md = iso => new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
+  const link = (u, t) => u ? `<a href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>` : esc(t);
+  function track(o) {
+    const s = o.ship; if (!s || !s.steps || !s.steps.length) return;
+    $('#done-track').hidden = false;
+    $('#done-stage').textContent = s.stage;
+    const T = { prep: '상품을 준비하고 있습니다', shipped: '배송 중입니다', delivered: '배송이 완료되었습니다', returned: '반품이 완료되었습니다', claim: s.stage };
+    if (T[s.stageKey]) $('#done-t').textContent = T[s.stageKey];
+    $('#done-steps').innerHTML = s.steps.map((x, i) => `<li class="${x.done ? 'on' : ''}"><b>${i + 1}</b><span>${esc(x.label)}</span><small>${x.at ? esc(md(x.at)) : ''}</small></li>`).join('');
+    if (s.invoice) { const el = $('#done-inv'); el.hidden = false; el.innerHTML = `${esc(s.courier)} 송장번호 <b>${esc(s.invoice)}</b> · ${link(s.track, '배송 조회')}`; }
+    const c = s.claim, bits = [];
+    if (c) {
+      bits.push(`<b>${esc(c.type)}</b> ${esc(c.label)}`);
+      if (c.pickup) bits.push(`회수 ${esc(c.pickup.courier)} ${esc(c.pickup.invoice)} · ${link(c.pickup.track, '조회')}`);
+      if (c.resend) bits.push(`재발송 ${esc(c.resend.courier)} ${esc(c.resend.invoice)} · ${link(c.resend.track, '조회')}`);
+    }
+    if (s.refunded) bits.push(`환불 ${won(s.refunded)}`);
+    if (bits.length) { const el = $('#done-claim'); el.hidden = false; el.innerHTML = bits.join('<br>'); }
+  }
   function failView(msg, retry) {
     $('#done-wait').hidden = true;
     $('#done-fail').hidden = false;
@@ -63,12 +83,12 @@
           if (!pend.buyNow) { cart.items = cart.items.filter(x => !(pend.keys || []).includes(x.key)); cart.save(); }
           try { sessionStorage.removeItem('jam_pg_pending'); } catch (e) { /* 무시 */ }
         }
-        render(o);
-        // 광고 매체 구매 전환(주문번호당 한 번)
-        if (window.jamAd && !store.get('jam_ad_' + o.no, null)) { store.set('jam_ad_' + o.no, 1); try { window.jamAd('purchase', { value: o.total, order: o.no }); } catch (e) { /* 무시 */ } }
+        render(o); track(o);
+        // 광고 매체 구매 전환(주문번호당 한 번, 주문 조회로 다시 열면 보내지 않음)
+        if (!q.get('v') && window.jamAd && !store.get('jam_ad_' + o.no, null)) { store.set('jam_ad_' + o.no, 1); try { window.jamAd('purchase', { value: o.total, order: o.no }); } catch (e) { /* 무시 */ } }
         return;
       }
-      if (o.status === 'cancelled') { failView(`취소된 주문입니다(주문번호 ${o.no}).`, 'shop.html'); return; }
+      if (o.status === 'cancelled') { failView(`${o.ship && o.ship.stage ? o.ship.stage : '취소된 주문입니다'}(주문번호 ${o.no})${o.ship && o.ship.refunded ? ` · 환불 ${won(o.ship.refunded)}` : ''}. 카드 취소는 카드사에 따라 3~7영업일 걸릴 수 있습니다.`, 'shop.html'); return; }
       if (o.status === 'check' || o.status === 'approving') { failView(`결제 결과를 확인하고 있습니다. 카드 승인 문자를 받으셨다면 고객센터로 주문번호 ${o.no}를 알려 주세요.`, retry); return; }
       failView(o.fail || '결제가 완료되지 않았습니다.', retry);
     })();
@@ -78,6 +98,21 @@
     failView(q.get('e') === 'save' ? '결제 처리 중 문제가 생겨 결제를 취소했습니다. 다시 시도해 주세요.' : '주문 정보를 확인하지 못했습니다. 카드 승인 문자를 받으셨다면 고객센터로 알려 주세요.', 'checkout.html');
     return;
   }
+
+  // ───────── 주문·배송 조회(주문번호 + 휴대폰): 맞으면 이 화면을 조회 주소로 다시 연다
+  const lf = $('#lookup');
+  if (lf) lf.addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = $('#lk-msg'), no = $('#lk-no').value.trim(), tel = $('#lk-tel').value.replace(/[^0-9]/g, '');
+    msg.textContent = '';
+    if (!/^JS/i.test(no) || tel.length < 10) { msg.textContent = '주문번호(JS로 시작)와 휴대폰 번호를 확인해 주세요.'; return; }
+    try {
+      const r = await fetch('/api/pay/lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ no, tel }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { msg.textContent = j.error || '조회하지 못했습니다.'; return; }
+      location.href = `order-complete.html?o=${encodeURIComponent(j.o)}&t=${encodeURIComponent(j.t)}&v=1`;
+    } catch (err) { msg.textContent = '조회하지 못했습니다. 잠시 뒤 다시 시도해 주세요.'; }
+  });
 
   // ───────── 예전 미리보기 요약(30분이 지난 요약은 보여 주지 않는다)
   let o = null;

@@ -293,3 +293,19 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .legal__tbl thead th { background: var(--soft); font-weight: 700; }
 .legal__tbl tbody th { width: 30%; font-weight: 600; color: var(--ink); }
 .legal__biz { margin-top: 18px; font-size: 13px !important; color: var(--sub) !important; }
+
+/* 주문·배송 조회 · 배송 현황(주문 완료 화면) */
+.lookup { margin: 18px auto 0; max-width: 420px; display: grid; gap: 8px; text-align: left; }
+.lookup input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; font-size: 16px; background: #fff; }
+.lookup__msg { min-height: 1.2em; font-size: 14px; color: #C62828; }
+.done-track { border-color: var(--ink); }
+.done-track__st { margin-left: 6px; font-size: 14px; font-weight: 700; color: var(--sky-ink); }
+.done-steps { margin: 14px 0 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.done-steps li { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: 13px; color: var(--faint); }
+.done-steps li b { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--soft); font-size: 12px; }
+.done-steps li span { font-weight: 700; }
+.done-steps li small { font-size: 11px; min-height: 1.2em; }
+.done-steps li.on { color: var(--ink); } .done-steps li.on b { background: var(--sky-btn); color: #fff; }
+.done-track__inv, .done-track__claim { margin-top: 14px; font-size: 15px; color: var(--ink); line-height: 1.7; }
+.done-track__inv a, .done-track__claim a { color: var(--sky-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.done-track .note { margin-top: 12px; }

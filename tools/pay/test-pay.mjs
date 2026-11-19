@@ -62,7 +62,7 @@ const okNet = p => ({ resultCd: '0000', resultMsg: '망취소 성공', tid: 'N' 
 let lastMoid = '';
 
 const ORDER = {
-  method: 'card', items: [{ key: '29-12-SS-gray', qty: 1 }, { key: '30', qty: 2 }],
+  method: 'card', items: [{ key: '29-12-SS-gray', qty: 1 }, { key: '43', qty: 2 }],
   buyer: { name: '김시험', tel: '010-1234-5678', email: 'test@example.com' },
   receiver: { name: '김시험', tel: '01012345678', zip: '06236', addr1: '서울 강남구 테헤란로 1', addr2: '101호', memo: '문 앞에 놓아 주세요' },
 };
@@ -89,11 +89,11 @@ const won = v => `${String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}원`;
 // 1. 설정
 { const r = await call('GET', '/api/pay/config'); assert.equal(r.json.ready, true); assert.equal(r.json.enabled, false); assert.equal(r.json.test, false);
   assert.deepEqual(r.json.methods.map(m => m.id), ['card', 'npay', 'kakaopay']); ok('설정: 키 있음 · 꺼짐 · 운영 서버 · 카드·네이버페이·카카오페이'); }
-// 2. 준비: 금액은 서버 계산(3단 바닥형 슈퍼싱글 239,000 + 떡실신 64,000×2), hashString = mid + ediDate + goodsAmt + 가맹점 키
+// 2. 준비: 금액은 서버 계산(3단 바닥형 슈퍼싱글 239,000 + 정착베개 39,900×2), hashString = mid + ediDate + goodsAmt + 가맹점 키
 let f;
 {
   const r = await readyOrder(); f = r.fields;
-  const J = PAY._test.siteData(), expect = J.OPTIONS_29.price['12-SS'] + J.PRODUCTS.find(p => p.id === 30).price * 2;
+  const J = PAY._test.siteData(), expect = J.OPTIONS_29.price['12-SS'] + J.PRODUCTS.find(p => p.id === 43).price * 2;
   assert.equal(f.goodsAmt, String(expect)); assert.equal(f.mid, MID); assert.equal(f.method, 'CARD'); assert.equal(f.ordNo, r.moid); assert.equal(f.mbsReserved, r.moid);
   assert.equal(f.hashString, sha(MID + f.ediDate + f.goodsAmt + KEY)); assert.match(f.ediDate, /^\d{14}$/);
   assert.equal(f.returnUrl, 'https://jamschool.kr/api/pay/return'); assert.equal(r.returnUrl, f.returnUrl); assert.equal(f.ordNm, '김시험'); assert.equal(f.ordTel, '01012345678');
@@ -104,7 +104,7 @@ let f;
   ok(`준비: ${f.goodsAmt}원 서버 계산 · hashString 일치 · 결제창 pgAsistant.js(REAL) · 상품명 「${f.goodsNm}」 · 키 노출 없음`);
 }
 // 3. 잘못된 주문은 거절
-for (const [why, over] of [['없는 옵션', { items: [{ key: '29-12-XL-gray', qty: 1 }] }], ['수량 0', { items: [{ key: '30', qty: 0 }] }], ['없는 상품', { items: [{ key: '999', qty: 1 }] }],
+for (const [why, over] of [['없는 옵션', { items: [{ key: '29-12-XL-gray', qty: 1 }] }], ['수량 0', { items: [{ key: '43', qty: 0 }] }], ['없는 상품', { items: [{ key: '999', qty: 1 }] }],
   ['3단을 옵션 없이', { items: [{ key: '29', qty: 1 }] }], ['결제수단', { method: 'payco' }], ['전화번호', { buyer: { ...ORDER.buyer, tel: '123' } }]]) {
   const r = await call('POST', '/api/pay/ready', { ...ORDER, ...over }); assert.equal(r.code, 400, why);
 }

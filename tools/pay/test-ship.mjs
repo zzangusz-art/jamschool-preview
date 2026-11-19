@@ -67,15 +67,21 @@ assert.equal(cr.length, 3); assert.equal(cr[0][1], '수하인명');
 const rowT = cr.find(r => r[1] === '오늘손님');
 assert.equal(rowT[2], '010-3333-4444'); assert.equal(rowT[4], '08502'); assert.equal(rowT[7], 3); assert.match(rowT[6], /거북목 경추 베개 2개, .*3단.*1개/); assert.equal(rowT[8], '경비실');
 const rowJ = cr.find(r => r[1] === '제주손님'); assert.equal(rowJ[2], '064-710-0000'); assert.equal(rowJ[3], ''); assert.equal(rowJ[9], 'Y');
-const p3 = cells(unzip(shipExport(orders, '3pl').buf)['xl/worksheets/sheet1.xml']);
-assert.equal(p3.length, 4); assert.deepEqual(p3.slice(1).map(r => r[3]).sort(), ['29-12-SS-ivory', '29-7-MS-gray', '43-0']);
-const fu = cells(unzip(shipExport(orders, 'full').buf)['xl/worksheets/sheet1.xml']);
-assert.equal(fu[0].length, 22); assert.equal(fu.find(r => r[15] === '오늘손님')[9], 214800);
-ok('택배 접수용(주문 1줄·전화 하이픈·우편번호 08502·제주 표시)·3PL(상품 1줄·상품코드)·전체 정보, 결제 완료만');
+// 3PL 발주서(업체 샘플 열): 상품 1개 = 1줄(수량 2 → 2줄), 받는분 뒤 판매처 표시, 품목명 = 상품별 이름 + 두께형(cm)_사이즈 / 색상, 운임구분 1
+const ctx = PAY.exportCtx();
+const p3 = cells(unzip(shipExport(orders, '3pl', ctx).buf)['xl/worksheets/sheet1.xml']);
+assert.deepEqual(p3[0], ['받는분', '받는분우편번호', '받는분주소(전체, 분할)', '받는분전화번호', '받는분기타연락처', '운임구분', '', '품목명', '품목명', '배송메세지1', '주문번호']);
+assert.equal(p3.length, 1 + 2 + 1 + 1);
+assert.ok(p3.slice(1).every(r => /\(공\)$/.test(r[0]) && r[5] === 1));
+assert.deepEqual(p3.slice(1).map(r => r[7]).sort(), ['3단 매트리스 바닥형(12cm)_슈퍼싱글 / 아이보리', '3단 매트리스 침대형(7cm)_멀티싱글 / 그레이', '정착베개', '정착베개']);
+const fu = cells(unzip(shipExport(orders, 'full', ctx).buf)['xl/worksheets/sheet1.xml']);
+assert.equal(fu[0].length, 25); assert.equal(fu[0][4], '배송 단계');
+const cs = cells(unzip(shipExport(orders, 'courier', ctx).buf)['xl/worksheets/sheet1.xml']); assert.equal(cs[0][10], '송하인명'); assert.equal(fu.find(r => r[15] === '오늘손님')[9], 214800);
+ok('택배 접수용(주문 1줄·전화 하이픈·우편번호 08502·제주 표시·송하인)·3PL 발주서(샘플 열·상품 1개 1줄·품목명·판매처 표시)·전체 정보(배송 단계·송장·환불), 결제 완료만');
 
 // 3) 일괄 발송·되돌리기
 const u = { id: 'tester', name: '시험' };
-assert.deepEqual(PAY.shipMany([today, jeju, cancelled], 'shipped', u), { ok: true, changed: 2, picked: 2 });
+assert.deepEqual(PAY.shipMany([today, jeju, cancelled], 'shipped', u), { ok: true, changed: 2, picked: 2, skipped: [] });
 assert.equal(PAY.todoCount(), 0);
 assert.equal(PAY.shipMany([today], 'shipped', u).changed, 0);
 assert.equal(PAY.shipMany([today], 'new', u).changed, 1); assert.equal(PAY.todoCount(), 1);
