@@ -53,6 +53,28 @@ async function egressIp() {
   try { const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(4000) }); return (await r.json()).ip || ''; } catch { return ''; }
 }
 
+// Supabase 무료 프로젝트는 일주일 동안 DB 사용이 없으면 일시정지된다 → 상태 확인 때마다 relay_ping 한 줄을 갱신한다.
+// (표 relay_ping 은 SQL 로 만들어 둠: id int primary key, at timestamptz, region text — service_role 만 쓰기)
+// jamschool.kr 서버가 6시간마다 /health 를 부르므로 결제가 없는 날에도 DB 가 쓰인다.
+function serviceKey() {
+  const legacy = env('SUPABASE_SERVICE_ROLE_KEY'); if (legacy) return legacy;
+  const raw = env('SUPABASE_SECRET_KEYS'); if (!raw) return '';
+  try { const j = JSON.parse(raw); return typeof j === 'string' ? j : (j.default || Object.values(j)[0] || ''); } catch { return raw.startsWith('sb_secret_') ? raw : ''; }
+}
+async function touchDb() {
+  const url = env('SUPABASE_URL'), key = serviceKey();
+  if (!url || !key) return { ok: false, error: 'no key' };
+  try {
+    const headers = { apikey: key, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' };
+    if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
+    const r = await fetch(`${url}/rest/v1/relay_ping?on_conflict=id`, {
+      method: 'POST', headers, signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({ id: 1, at: new Date().toISOString(), region: env('SB_REGION') || null }),
+    });
+    return r.ok ? { ok: true, status: r.status } : { ok: false, status: r.status, error: (await r.text()).slice(0, 120) };
+  } catch (e) { return { ok: false, error: String(e?.message || e).slice(0, 80) }; }
+}
+
 async function health() {
   const c = healthCache;
   if (c.data && Date.now() - c.at < (c.data.ok ? 60e3 : 15e3)) return c.data;
@@ -61,6 +83,7 @@ async function health() {
     goodsAmt: '1000', mbsReserved: '', hashString: '0'.repeat(64), payData: 'probe',
   }).toString();
   let seed;
+  const dbP = touchDb();
   try {
     const r = await forward(upstream('real') + '/payment/v1/approval', body, 'application/x-www-form-urlencoded; charset=utf-8');
     seed = { status: r.status, body: new TextDecoder().decode(r.raw).slice(0, 120) };
@@ -68,7 +91,7 @@ async function health() {
     seed = { status: 0, error: String(e?.message || e).slice(0, 120) };
   }
   const data = {
-    ok: seed.status === 200, seed, region: env('SB_REGION'), ip: await egressIp(),
+    ok: seed.status === 200, seed, db: await dbP, region: env('SB_REGION'), ip: await egressIp(),
     uptime: Math.round((Date.now() - STARTED) / 1000), stats: { ...stats }, at: new Date().toISOString(),
   };
   healthCache = { at: Date.now(), data };

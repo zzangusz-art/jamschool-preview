@@ -84,11 +84,16 @@ export async function relayHealth(force) {
   try {
     const r = await relayCall('GET', '/health', null, 8000);
     let j = {}; try { j = JSON.parse(r.text); } catch { /* 아래 */ }
-    data = { on: true, ok: r.status === 200 && !!j.ok, status: r.status, seed: j.seed || null, region: j.region || '', uptime: j.uptime ?? null, stats: j.stats || null, error: r.status === 403 ? '중계 키(SEEDPAY_RELAY_KEY)가 맞지 않음' : r.status !== 200 ? `HTTP ${r.status}` : !j.ok ? `씨드 응답 ${j.seed && (j.seed.status || j.seed.error)}` : '' };
+    data = { on: true, ok: r.status === 200 && !!j.ok, status: r.status, seed: j.seed || null, db: j.db || null, region: j.region || '', uptime: j.uptime ?? null, stats: j.stats || null, error: r.status === 403 ? '중계 키(SEEDPAY_RELAY_KEY)가 맞지 않음' : r.status !== 200 ? `HTTP ${r.status}` : !j.ok ? `씨드 응답 ${j.seed && (j.seed.status || j.seed.error)}` : '' };
   } catch (e) { data = { on: true, ok: false, error: e.message }; }
   relayHealthCache = { at: Date.now(), ok: data.ok, data };
   return data;
 }
+
+// 중계 상태를 6시간마다 확인(Supabase 무료 프로젝트는 일주일 DB 무사용이면 정지 — 중계의 상태 확인이 DB 를 한 번 쓴다).
+// 결제가 없는 날에도 돈다. 서버가 뜬 1분 뒤 한 번, 그 뒤 6시간마다. 실패해도 결제 흐름에는 영향 없음(결제창 열 때 다시 확인).
+{ const tick = () => { if (relayOn()) relayHealth(true).then(d => { if (!d.ok || (d.db && !d.db.ok)) log('relay', `중계 상태 이상: ${d.error || ''} db=${JSON.stringify(d.db)}`); }).catch(() => {}); };
+  const t1 = setTimeout(tick, 60e3), t2 = setInterval(tick, 6 * 3600e3); t1.unref?.(); t2.unref?.(); }
 
 // ───────── 공통
 class PayError extends Error { constructor(status, msg) { super(msg); this.status = status; } }

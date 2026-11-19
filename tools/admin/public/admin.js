@@ -243,7 +243,7 @@
       try {
         const r = await api('GET', '/api/admin/payments-probe');
         const a = r.approval || {}, where = [r.country, r.city, r.org].filter(Boolean).join(' · ');
-        const head = r.via === 'relay' ? (r.verdict === 'ok' ? `<b>한국 중계 서버를 거쳐 씨드 승인 서버에 정상 연결됩니다.</b> 중계 ${h(r.relayUrl)}${r.relay.region ? ` (${h(r.relay.region)})` : ''} · 처리 ${h((r.relay.stats || {}).ok ?? 0)}건(실패 ${h((r.relay.stats || {}).fail ?? 0)})` : `<b>중계 서버 이상:</b> ${h(r.relay.error || '응답 없음')} — 이 상태에서는 결제창을 열지 않고 스마트스토어 결제를 안내합니다.`)
+        const head = r.via === 'relay' ? (r.verdict === 'ok' ? `<b>한국 중계 서버를 거쳐 씨드 승인 서버에 정상 연결됩니다.</b> 중계 ${h(r.relayUrl)}${r.relay.region ? ` (${h(r.relay.region)})` : ''}${r.relay.db ? ` · 정지 방지 DB 기록 ${r.relay.db.ok ? '정상' : '실패'}` : ''} · 처리 ${h((r.relay.stats || {}).ok ?? 0)}건(실패 ${h((r.relay.stats || {}).fail ?? 0)})` : `<b>중계 서버 이상:</b> ${h(r.relay.error || '응답 없음')} — 이 상태에서는 결제창을 열지 않고 스마트스토어 결제를 안내합니다.`)
           : r.verdict === 'ok' ? '<b>씨드 승인 서버가 이 서버의 요청을 받습니다.</b>' : r.verdict === 'blocked' ? '<b>씨드 승인 서버가 이 서버를 막고 있습니다(HTTP 403).</b> 이 상태로는 카드 인증 뒤 승인이 되지 않아 주문이 \'확인 필요\'로 남습니다. 씨드페이먼츠에 아래 IP 등록(또는 해외 IP 허용)을 요청해야 합니다.' : `<b>씨드 승인 서버 응답 이상</b>(${h(a.status || a.error || '?')})`;
         $('#probe-out').innerHTML = `<div class="box ${r.verdict === 'ok' ? 'ok' : 'bad'}" style="margin-top:10px">${head}<br><small>이 서버가 나가는 IP <code>${h(r.ip || '확인 못 함')}</code>${where ? ` (${h(where)})` : ''}${r.region ? ` · Railway 지역 ${h(r.region)}` : ''} · 승인 주소 응답 ${h(a.status || a.error || '-')}${a.server ? ` (${h(a.server)})` : ''} · 결제창 스크립트 ${h(r.script.status || r.script.error)} · ${h(new Date(r.at).toLocaleString('ko-KR'))}</small></div>`;
       } catch (e) { $('#probe-out').innerHTML = ''; fail(e); }

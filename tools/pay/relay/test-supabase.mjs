@@ -17,9 +17,10 @@ execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramg
   '-addext', 'subjectAltName=IP:127.0.0.1', '-keyout', path.join(T, 'key.pem'), '-out', path.join(T, 'cert.pem')], { stdio: 'ignore' });
 const KEY = crypto.randomBytes(32).toString('hex');
 
-const got = [];
+const got = [], rest = [];
 const seed = http.createServer((req, res) => {
   let b = ''; req.on('data', c => b += c); req.on('end', () => {
+    if (req.url.startsWith('/rest/v1/')) { rest.push({ url: req.url, apikey: req.headers.apikey, auth: req.headers.authorization, prefer: req.headers.prefer, body: b }); res.writeHead(201); res.end(); return; }
     got.push({ url: req.url, ctype: req.headers['content-type'], body: b });
     res.writeHead(200, { 'Content-Type': 'application/json;charset=UTF-8' });
     res.end(JSON.stringify(req.url.endsWith('/approval') && b.includes('mid=demotest0m') ? { resultCd: '9999', resultMsg: 'FAIL' } : { resultCd: '0000', resultMsg: '정상', tid: 'T1' }));
@@ -30,6 +31,7 @@ await new Promise(r => seed.on('listening', r));
 Object.assign(process.env, {
   RELAY_UPSTREAM: `http://127.0.0.1:${seed.address().port}`, RELAY_UPSTREAM_TEST: `http://127.0.0.1:${seed.address().port}`,
   RELAY_KEY_SHA256: crypto.createHash('sha256').update(KEY).digest('hex'), SB_REGION: 'ap-northeast-2', RELAY_SKIP_IP: '1',
+  SUPABASE_URL: `http://127.0.0.1:${seed.address().port}`, SUPABASE_SERVICE_ROLE_KEY: 'eyJ.test.key',
 });
 const F = await import('./supabase/seed-relay/index.ts');
 
@@ -57,6 +59,10 @@ try {
   assert.equal(h.ok, true, JSON.stringify(h)); assert.equal(h.seed.status, 200); assert.equal(h.region, 'ap-northeast-2');
   assert.equal(seen[0].url, '/functions/v1/seed-relay/health?forceFunctionRegion=ap-northeast-2'); assert.equal(seen[0].region, 'ap-northeast-2');
   ok('상태 확인 정상 — 주소는 함수 이름 뒤에 경로, ?forceFunctionRegion 유지, x-region 헤더도 같이');
+  assert.equal(h.db && h.db.ok, true, JSON.stringify(h.db)); assert.equal(rest.length, 1);
+  assert.equal(rest[0].url, '/rest/v1/relay_ping?on_conflict=id'); assert.equal(rest[0].apikey, 'eyJ.test.key'); assert.equal(rest[0].auth, 'Bearer eyJ.test.key');
+  assert.match(rest[0].prefer, /merge-duplicates/); assert.equal(JSON.parse(rest[0].body).id, 1);
+  ok('상태 확인 때 relay_ping 한 줄 갱신(정지 방지) — 서비스 키로, 결과가 상태에 db 로 나옴');
 
   const r = await postPg(URLS().approval, { tid: 'T1', mid: 'Startz002m', goodsAmt: '12900', payData: 'p&q=1 한글', nonce: 'n' });
   assert.equal(r.resultCd, '0000');
