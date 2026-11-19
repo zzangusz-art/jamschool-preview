@@ -124,5 +124,17 @@
   function postCard(p, base = '') {
     return `<article class="post-card"><a href="${base}blog/${esc(p.slug)}.html">${p.thumb ? `<span class="post-card__img">${pic(p.thumb, 'alt="" width="1200" height="630" loading="lazy" decoding="async"')}</span>` : ''}<p class="post-card__cat">${esc(p.category)}</p><h3>${esc(p.title)}</h3><p class="post-card__desc">${esc(p.description)}</p><p class="post-card__meta"><time datetime="${esc(p.date)}">${esc(p.date.replace(/-/g, '.'))}</time> · ${p.minutes}분 읽기</p></a></article>`;
   }
-  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, reviewRollHTML, postCard, perDay, ICON };
+  // 구매평 모아 보기 카드(상품 페이지: 빌드가 미리 그린 것 + reviews.js 가 더 불러온 것). 사진은 네이버 스마트스토어 서버 주소 그대로(작은 사진 f300_300, 크게 w640 — 2026-11-19 확인: w860·w800 은 404, 원본은 수 MB)
+  const RV_PHOTO = 'https://phinf.pstatic.net/checkout.phinf/';
+  const rvPhoto = (p, size) => (/^https:/.test(p) ? p : RV_PHOTO + p) + (size ? `?type=${size}` : '');
+  const NL = String.fromCharCode(10);
+  function rvCard(x, id, hl) {
+    let body = esc(x.t);
+    if (hl) body = body.replace(hl, m => `<mark>${m}</mark>`);
+    return `<article class="rva-c"><div class="rva-c__top"><span class="stars" style="--v:${+x.s || 5}" aria-label="별점 ${+x.s || 5}점"></span>${x.b ? '<span class="rva-c__tag rva-c__tag--best">BEST</span>' : ''}${x.m ? '<span class="rva-c__tag">한 달 사용</span>' : ''}<span class="rva-c__meta">${esc(x.i || '')} · ${esc(String(x.d || '').replace(/-/g, '.'))}</span></div>`
+      + `<div class="rva-c__body">${x.p ? `<button class="rva-c__ph" type="button" data-ph="${esc(rvPhoto(x.p, 'w640'))}" aria-label="구매평 사진 크게 보기"><img src="${esc(rvPhoto(x.p, 'f300_300'))}" alt="" width="88" height="88" loading="lazy" decoding="async" referrerpolicy="no-referrer"></button>` : ''}`
+      + `<div class="rva-c__txt"><p class="rv__text" id="${esc(id)}">${body.split(NL).join('<br>')}</p><button class="rv__more" type="button" aria-expanded="false" aria-controls="${esc(id)}">더보기</button>`
+      + `${x.r ? `<p class="rva-c__prev"><b>처음 쓴 구매평</b> ${esc(x.r)}</p>` : ''}</div></div></article>`;
+  }
+  G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, reviewRollHTML, postCard, perDay, ICON, rvCard, rvPhoto };
 })(typeof window !== 'undefined' ? window : globalThis);

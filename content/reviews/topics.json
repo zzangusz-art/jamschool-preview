@@ -1,0 +1,42 @@
+{
+  "_설명": "구매평 주제 분류 — 구매평 글에 이 말이 들어 있으면 그 주제로 묶는다(tools/reviews/import-ss.py 가 분류, 상품 페이지는 이름·개수만 보여 줌). re 는 파이썬·자바스크립트 공용 정규식(역슬래시 없이). sets: 상품 종류별로 보여 줄 주제와 순서, products: 상품 번호 → 종류",
+  "topics": {
+    "back": { "label": "허리", "re": "허리" },
+    "neck": { "label": "목·어깨", "re": "목이|목에|목을|목도|목이랑|목 ?통증|목 ?디스크|거북목|일자목|경추|어깨" },
+    "swell": { "label": "붓기·순환", "re": "붓[기고는다지]|부[어었]|부종|하지정맥|순환|저림|저리" },
+    "pain": { "label": "통증·결림", "re": "통증|아프[지던다고]|안 ?아파|결림|결리|뻐근|찌뿌|쑤시|디스크" },
+    "sleep": { "label": "숙면", "re": "숙면|꿀잠|푹 ?자|푹 ?잤|잘 ?자[요고게네서]|잘 ?잤|깊게 ?자|깊이 ?자|잠이 ?잘|잠을 ?잘|개운|기절" },
+    "firm": { "label": "단단함·지지력", "re": "단단|탄탄|딱딱|꺼지지|안 ?꺼|잡아 ?주|받쳐 ?주|지지력" },
+    "soft": { "label": "푹신함·쿠션감", "re": "푹신|폭신|부드럽|부드러|말랑|포근|쿠션감|푹푹" },
+    "thick": { "label": "두께", "re": "두께|두껍|두꺼|두툼|도톰|얇" },
+    "height": { "label": "높이", "re": "높이|높[아고은다네지]|낮[아고은다네지]" },
+    "fold": { "label": "접이식·보관", "re": "접[어었는기을히고]|접이식|보관|펼[쳐치친]|펴[서고면]|옮기|가볍|가벼|무게" },
+    "floor": { "label": "바닥에서", "re": "바닥" },
+    "bed": { "label": "침대 위에서", "re": "침대 ?(위|에|프레임)|프레임|매트리스 ?위" },
+    "sofa": { "label": "소파·침대에서", "re": "쇼파|소파|침대" },
+    "read": { "label": "책·TV 볼 때", "re": "책|독서|티비|TV|tv|영상|핸드폰|휴대폰|게임|드라마" },
+    "preg": { "label": "임산부", "re": "임산부|임신|만삭|출산|산모" },
+    "cool": { "label": "시원함", "re": "시원|차갑|차가|냉감|쿨|열대야|더[워운위울]|여름|땀" },
+    "wrist": { "label": "손목", "re": "손목" },
+    "wear": { "label": "착용감", "re": "착용|착 ?감|끼[고우워]|조[여이]|헐렁|답답" },
+    "work": { "label": "운동·일할 때", "re": "운동|헬스|테니스|골프|요가|육아|일할|업무|마우스" },
+    "size": { "label": "크기", "re": "크기|사이즈|넓[어고은게네]|넓직|좁|길이|큼직|커서|작[아은고]" },
+    "cover": { "label": "커버·세탁", "re": "커버|세탁|지퍼|빨래|빨[아았]" },
+    "smell": { "label": "냄새", "re": "냄새|악취" },
+    "delivery": { "label": "배송·포장", "re": "배송|포장|택배|도착|압축|빨리 ?왔|빨리 ?받" },
+    "value": { "label": "가격·가성비", "re": "가성비|가격|저렴|싸[고게서요네]|비싸|할인" },
+    "again": { "label": "재구매·추천", "re": "재구매|또 ?(샀|사|구매|주문)|추가 ?(구매|주문)|하나 ?더|두 ?개째|세 ?개째|[2-9] ?개째|번째 ?구매|추천" },
+    "family": { "label": "가족·선물", "re": "부모님|엄마|아빠|어머니|아버지|시어머니|친정|장모|시댁|아이[가는를들랑도한]|아기|애기|딸[이은을래]|아들|남편|신랑|와이프|아내|선물|할머니|할아버지" },
+    "guest": { "label": "손님용·자취", "re": "손님|자취|원룸|이사|기숙사|게스트" },
+    "camp": { "label": "캠핑·차박", "re": "캠핑|차박|텐트|글램핑" }
+  },
+  "sets": {
+    "mattress": ["back", "pain", "sleep", "firm", "soft", "thick", "fold", "floor", "bed", "size", "cover", "smell", "delivery", "value", "again", "family", "guest", "camp"],
+    "legpillow": ["swell", "back", "pain", "sleep", "preg", "height", "firm", "soft", "size", "cover", "delivery", "value", "again", "family"],
+    "pillow": ["neck", "pain", "sleep", "height", "firm", "soft", "size", "cover", "smell", "delivery", "value", "again", "family"],
+    "cushion": ["back", "pain", "sofa", "read", "firm", "soft", "size", "cover", "delivery", "value", "again", "family"],
+    "cool": ["cool", "sleep", "size", "cover", "delivery", "value", "again", "family"],
+    "wrist": ["wrist", "wear", "work", "pain", "size", "delivery", "value", "again"]
+  },
+  "products": { "29": "mattress", "30": "mattress", "39": "mattress", "40": "mattress", "36": "legpillow", "37": "pillow", "43": "pillow", "38": "cushion", "44": "cool", "41": "wrist" }
+}

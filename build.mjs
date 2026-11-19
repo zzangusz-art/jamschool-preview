@@ -359,12 +359,38 @@ function specBase(p) {
     ['원산지', MADE_KR.has(p.id) ? '대한민국' : '상품 상세·제공고시 참조'], ['판매원', '잠스쿨']];
   return `<table class="info-tbl"><tbody>${rows.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>`;
 }
+// 구매평 모아 보기(content/reviews — tools/reviews/import-ss.py): 상품 페이지에 개수·이야기(주제)·추천 6개를 미리 그리고,
+//   나머지는 손님 화면(assets/js/reviews.js)이 /api/reviews 로 불러온다. 별점·리뷰 구조화 데이터는 넣지 않는다(productLD 주석)
+const RV = (() => {
+  const j = f => { try { return JSON.parse(rd(`content/reviews/${f}`)); } catch { return null; } };
+  return { sum: (j('summary.json') || { products: {} }).products, topics: (j('topics.json') || { topics: {} }).topics, top: id => (j(`${id}.json`) || []).slice(0, 6) };
+})();
+const rvYM = d => d.slice(0, 7).replace('-', '.');
+function rvAllHTML(p) {
+  const S = RV.sum[p.id]; if (!S || !S.total) return '';
+  const fmt = n => n.toLocaleString('ko-KR');
+  const T = S.topics.slice(0, 12).map(([k, n]) => ({ k, n, label: (RV.topics[k] || {}).label || k, re: (RV.topics[k] || {}).re || '' }));
+  const tabs = [['all', '전체'], ['photo', S.photo ? `포토 ${fmt(S.photo)}` : ''], ['month', S.month ? `한 달 사용 ${fmt(S.month)}` : ''], ['best', S.best ? `BEST ${fmt(S.best)}` : '']].filter(x => x[1]);
+  return `<section class="rva" id="rva" aria-labelledby="rva-t" data-pid="${p.id}" data-topics="${esc(JSON.stringify(T.map(t => [t.k, t.re])))}">
+    <h3 class="pd-h3" id="rva-t">구매평 모아 보기</h3>
+    <p class="rva__lead">네이버 스마트스토어 구매평 <b>${fmt(S.total)}건</b> (${rvYM(S.from)}~${rvYM(S.to)}) · 포토 ${fmt(S.photo)} · 한 달 사용 ${fmt(S.month)}</p>
+    ${T.length ? `<p class="rva__sum">구매평에서 많이 나온 이야기: ${T.slice(0, 6).map(t => `${esc(t.label)} ${fmt(t.n)}건`).join(' · ')}</p>
+    <div class="rva__topics" role="group" aria-label="이야기별로 보기"><button type="button" data-k="" aria-pressed="true">전체</button>${T.map(t => `<button type="button" data-k="${esc(t.k)}" aria-pressed="false">${esc(t.label)} <b>${fmt(t.n)}</b></button>`).join('')}</div>` : ''}
+    <div class="rva__bar"><div class="rva__tabs" role="group" aria-label="구매평 종류">${tabs.map(([f, t], i) => `<button type="button" data-f="${f}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
+      <select class="rva__sort" aria-label="정렬"><option value="rec">추천순</option><option value="new">최신순</option></select>
+      <form class="rva__search" role="search"><label class="sr-only" for="rva-q">구매평에서 찾기</label><input id="rva-q" type="search" maxlength="20" placeholder="구매평에서 찾기(예: 퀸, 냄새)"><button class="btn btn--line btn--sm" type="submit">찾기</button></form></div>
+    <p class="rva__info" aria-live="polite"></p>
+    <div class="rva__list">${RV.top(p.id).map((x, i) => R.rvCard(x, `rva-s${i}`)).join('')}</div>
+    <button class="btn btn--line rva__more" type="button" hidden>구매평 더 보기</button>
+    <p class="note rva__src">구매평 원문은 네이버 스마트스토어에 남긴 그대로이며, 아이디는 스마트스토어에서 가린 그대로 보여 드립니다.</p>
+  </section>`;
+}
 function reviewsHTMLp(p) {
   const sum = `<div class="rv-sum"><p class="rv-sum__score">${p.rating.toFixed(2)}</p><div class="rv-sum__meta"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><p>구매평 <b>${p.reviews.toLocaleString('ko-KR')}</b>건</p><p class="note">${esc(JAM.REVIEW_BASIS)}</p></div><a class="btn btn--line btn--sm" href="${esc(p.mall)}#prod_detail_review">공식몰 구매평 보기</a></div>`;
   // 그 상품 구매평·포토 구매평만(어드민 '구매평'에서 상품별로 고침)
   const mine = REVIEWS.filter(r => +r.pid === p.id), photos = JAM.PHOTOS.filter(x => +x.pid === p.id);
-  if (!mine.length && !photos.length) return sum;
-  return sum + (photos.length ? '<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div>' : '') + (mine.length ? `<div class="rv-list rv-list--pd">${R.reviewsHTML(mine)}</div>` : '');
+  if (!mine.length && !photos.length) return sum + rvAllHTML(p);
+  return sum + (photos.length ? '<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div>' : '') + (mine.length ? `<div class="rv-list rv-list--pd">${R.reviewsHTML(mine)}</div>` : '') + rvAllHTML(p);
 }
 function qnaHTML(p) {
   const list = p.id === 29 ? FAQ : FAQ.filter(f => f.c === 'ship');
@@ -662,6 +688,9 @@ wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 - 이런 분께: 허리에 부담 없는 탄탄한(하드) 매트리스를 찾는 분, 원룸·자취방에서 1인용(멀티싱글·슈퍼싱글)으로 바닥·침대 겸용할 매트리스나 토퍼를 찾는 분.
 - 구매평: ${P29.reviews.toLocaleString('ko-KR')}건, 평균 ${P29.rating.toFixed(2)}점 (공식몰).
 - 상세: ${SITE}product-29.html
+
+## 구매평에서 많이 나온 이야기 (네이버 스마트스토어 구매평, 상품별)
+${PRODUCTS.filter(p => RV.sum[p.id] && RV.sum[p.id].topics.length).map(p => { const S = RV.sum[p.id]; return `- ${p.short}: 구매평 ${S.total.toLocaleString('ko-KR')}건(${rvYM(S.from)}~${rvYM(S.to)}, 포토 ${S.photo.toLocaleString('ko-KR')}) — ${S.topics.slice(0, 6).map(([k, n]) => `${(RV.topics[k] || {}).label || k} ${n.toLocaleString('ko-KR')}건`).join(', ')}. ${SITE}product-${p.id}.html#rva`; }).join(String.fromCharCode(10))}
 
 ## 구매 조건
 - 14일 무료체험(반품 시 왕복 배송비 고객 부담), 2년 내 폼 꺼짐 시 폼 무상 교체.

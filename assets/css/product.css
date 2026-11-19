@@ -146,3 +146,46 @@
 .buybar { grid-template-columns: 52px auto 1fr; }
 .buybar__rv { display: grid; place-items: center; align-content: center; min-width: 76px; padding: 0 10px; border: 1px solid var(--line); border-radius: 14px; font-size: 12px; color: var(--sub); line-height: 1.25; }
 .buybar__rv b { font-size: 15px; color: var(--ink); }
+
+/* 구매평 모아 보기(네이버 스마트스토어 구매평, assets/js/reviews.js) */
+.rva { margin-top: 34px; padding-top: 26px; border-top: 1px solid var(--line); }
+.rva__lead { margin-top: 6px; font-size: 15px; color: var(--body); }
+.rva__lead b { color: var(--ink); }
+.rva__sum { margin-top: 6px; font-size: 14px; color: var(--sub); line-height: 1.6; }
+.rva__topics { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px; }
+.rva__topics button, .rva__tabs button { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; font-size: 14px; font-weight: 600; color: var(--body); }
+.rva__topics button b { margin-left: 3px; font-weight: 700; color: var(--sub); font-size: 12px; }
+.rva__topics button[aria-pressed="true"], .rva__tabs button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.rva__topics button[aria-pressed="true"] b { color: rgba(255, 255, 255, .75); }
+.rva__bar { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rva__tabs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 auto; }
+.rva__sort { min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-size: 14px; }
+.rva__search { display: flex; gap: 6px; flex: 1 1 260px; }
+.rva__search input { flex: 1; min-width: 0; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; }
+.rva__info { margin-top: 10px; min-height: 1.2em; font-size: 14px; color: var(--sub); }
+.rva__list { margin-top: 6px; display: grid; gap: 10px; transition: opacity .2s; }
+.rva.is-busy .rva__list { opacity: .5; }
+.rva.is-static .rva__topics, .rva.is-static .rva__bar { display: none; }
+.rva__more { margin: 14px auto 0; display: flex; }
+.rva__empty { padding: 26px 0; text-align: center; color: var(--sub); }
+.rva__src { margin-top: 12px; }
+.rva-c { padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
+.rva-c__top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+.rva-c__top .stars { font-size: 14px; }
+.rva-c__tag { padding: 2px 8px; border-radius: 999px; background: var(--soft); color: var(--body); font-size: 12px; font-weight: 700; }
+.rva-c__tag--best { background: var(--sky-50); color: var(--sky-ink); }
+.rva-c__meta { margin-left: auto; color: var(--faint); }
+.rva-c__body { margin-top: 10px; display: flex; gap: 12px; align-items: flex-start; }
+.rva-c__ph { flex: none; width: 88px; height: 88px; border-radius: 10px; overflow: hidden; background: var(--soft); }
+.rva-c__ph img { width: 100%; height: 100%; object-fit: cover; }
+.rva-c__txt { min-width: 0; flex: 1; }
+.rva-c .rv__text { margin-top: 0; -webkit-line-clamp: 4; font-size: 15px; }
+.rva-c .rv__text mark { background: #FFF1B8; color: inherit; border-radius: 3px; padding: 0 1px; }
+.rva-c__prev { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--soft); font-size: 13px; color: var(--sub); line-height: 1.6; }
+.rva-c__prev b { margin-right: 4px; color: var(--body); }
+@media (max-width: 560px) {
+  .rva-c__ph { width: 72px; height: 72px; } .rva__search { flex-basis: 100%; }
+  .rva__topics, .rva__tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -16px; padding-right: 16px; }
+  .rva__topics::-webkit-scrollbar, .rva__tabs::-webkit-scrollbar { display: none; }
+  .rva__topics button, .rva__tabs button { flex: none; }
+}
