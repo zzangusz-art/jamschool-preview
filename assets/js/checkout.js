@@ -101,7 +101,8 @@
   }));
 
   // ───────── 주소 검색: 다음(카카오) 우편번호 서비스. 누를 때만 불러오고, 못 불러오면 직접 입력으로 바꾼다
-  const POSTCODE = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+  //   스크립트 주소는 t1.kakaocdn.net(t1.daumcdn.net 은 2026-11-30 종료 — 카카오 공지, 2026-11-19 바꿈)
+  const POSTCODE = 'https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
   let pcLoading = null;
   const loadPostcode = () => pcLoading || (pcLoading = new Promise((ok, no) => {
     if (window.daum && daum.Postcode) { ok(); return; }

@@ -31,7 +31,7 @@ BACKUP.ensureMarker();   // 볼륨이 처음 쓰인 시각(재배포 뒤에도 �
 const MAX_BODY = 40 * 1024 * 1024, MAX_FILE = 10 * 1024 * 1024;
 const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
-const CSP = "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+const CSP = "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' https://t1.kakaocdn.net; frame-src postcode.map.daum.net postcode.map.kakao.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
 
 class HttpError extends Error { constructor(status, msg, extra) { super(msg); this.status = status; this.extra = extra; } }
 const need = (cond, status, msg, extra) => { if (!cond) throw new HttpError(status, msg, extra); };
@@ -424,8 +424,8 @@ route('GET', '/api/admin/check', 'owner', async () => {
 // ── 결제 주문(홈페이지 결제, tools/pay/seedpay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
 // 잠스쿨 관리자에게는 주문·결제 켜짐 여부만(상점 ID·결제통보·중계·알림 설정은 총괄 관리자만)
 //   배송 흐름: 신규 → 발주 확인(상품 준비 중) → 송장 입력·발송(배송 중) → 배송 완료 / 취소·반품·교환·환불은 tools/pay/fulfil.mjs
-// 환불(결제 취소)은 '배송 설정'의 환불 권한대로: 총괄 관리자만(기본) 또는 잠스쿨 관리자도
-const canRefund = user => user.role === 'owner' || PAY.shipCfg().refundRole === 'client';
+// 환불(결제 취소)은 로그인한 관리자 모두 할 수 있다
+const canRefund = () => true;   // 환불(결제 취소)은 로그인한 관리자 모두(총괄·잠스쿨 관리자, 2026-11-19 요청)
 const COURIER_LIST = () => COURIERS.map(c => [c.code, c.name]);
 route('GET', '/api/admin/payments', 'client', async ({ query, user }) => {
   const owner = user.role === 'owner', st = PAY.adminStatus(), cfg = PAY.shipCfg();
@@ -467,7 +467,7 @@ route('POST', '/api/admin/payments/:moid/cancel', 'client', async ({ params, dat
   need(canRefund(user), 403, '결제 취소는 총괄 관리자만 할 수 있습니다(배송 설정 › 환불 권한)');
   return { order: await PAY.cancelOrder(params.moid, data.reason, user) };
 });
-// 배송 설정: 발송지·회수지·기본 택배사·출고 마감·반품 배송비·자동 배송 완료·3PL 발주서·환불 권한(환불 권한은 총괄 관리자만 바꿈)
+// 배송 설정: 발송지·회수지(주소 찾기·직접 입력)·기본 택배사·출고 마감·반품 배송비·자동 배송 완료·3PL 발주서
 route('GET', '/api/admin/ship-settings', 'client', async ({ user }) => {
   const { cur } = await products();
   return { cfg: PAY.shipCfg(), couriers: COURIER_LIST(), owner: user.role === 'owner', products: cur.PRODUCTS.map(p => ({ id: p.id, short: p.short })) };

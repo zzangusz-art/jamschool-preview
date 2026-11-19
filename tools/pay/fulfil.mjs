@@ -188,8 +188,7 @@ export const SHIP_DEFAULT = {
   returnFee: { mattress: 36000, other: 6000, jeju: 7000 },                          // 고객 사유 반품 왕복 배송비(공식몰 안내 기준)
   autoDeliverDays: 7,                                                               // 발송 뒤 이 날이 지나면 배송 완료로 보기(0 = 안 함)
   tpl: { suffix: '(공)', fare: '1', names: { 29: '3단 매트리스', 30: '떡실신 매트리스', 39: '양면 매트리스', 40: '엄마품 토퍼', 36: '다리베개', 37: '경추베개', 38: '삼각등쿠션', 43: '정착베개', 44: '듀라론 쿨매트', 41: '하픽 손목보호대' } },
-  refundRole: 'owner',                                                              // 환불 실행: owner(총괄만) | client(잠스쿨 관리자도)
-};
+};   // 환불(결제 취소)은 로그인한 관리자 모두(2026-11-19 요청) — 권한 설정 없음
 const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 const writeJson = (f, v) => { fs.mkdirSync(path.dirname(f), { recursive: true }); const tmp = `${f}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify(v, null, 1)); fs.renameSync(tmp, f); };
 const merge = (a, b) => { const o = { ...a }; for (const [k, v] of Object.entries(b || {})) o[k] = v && typeof v === 'object' && !Array.isArray(v) && a[k] && typeof a[k] === 'object' ? merge(a[k], v) : v; return o; };
@@ -199,7 +198,7 @@ const addr = (a, label, need) => {
   const any = o.tel || o.zip || o.addr1;
   if (need || any) {
     if (o.zip && o.zip.length !== 5) bad(`${label}: 우편번호 5자리`);
-    if (o.tel && !/^0\d{8,11}$/.test(o.tel)) bad(`${label}: 전화번호를 확인해 주세요`);
+    if (o.tel && !/^(0\d{8,11}|1[5-9]\d{6})$/.test(o.tel)) bad(`${label}: 전화번호를 확인해 주세요(예: 02-123-4567, 010-1234-5678, 1588-1234)`);
   }
   return o;
 };
@@ -216,7 +215,6 @@ export function saveShipSettings(dir, d, user) {
     const names = {}; for (const [k, v] of Object.entries(d.tpl.names || {})) { if (/^\d{1,4}$/.test(k) && line(v, 40)) names[k] = line(v, 40); }
     n.tpl = { suffix: line(d.tpl.suffix, 12), fare: line(d.tpl.fare, 4) || '1', names: { ...cur.tpl.names, ...names } };
   }
-  if (d.refundRole != null) { if (user.role !== 'owner') bad('환불 권한은 총괄 관리자만 바꿀 수 있습니다', 403); n.refundRole = d.refundRole === 'client' ? 'client' : 'owner'; }
   n.at = nowIso(); n.by = user.id;
   writeJson(path.join(dir, 'ship.json'), n);
   return shipSettings(dir);
@@ -244,12 +242,13 @@ export const HOLIDAYS = [   // 은행 휴무(공휴일·대체공휴일·근로�
   '2027-01-01', '2027-02-05', '2027-02-08', '2027-03-01', '2027-05-05', '2027-05-13', '2027-08-16', '2027-09-14', '2027-09-15', '2027-09-16',
   '2027-10-04', '2027-10-11', '2027-12-27',
 ];
-export const SETTLE_DEFAULT = { feeRate: 0, vat: true, days: 1, holidays: HOLIDAYS, checks: {} };
-export const settleSettings = dir => ({ ...SETTLE_DEFAULT, ...readJson(path.join(dir, 'settle.json'), {}) });
+// 수수료: 씨드페이먼츠 계약 2.2%, 부가세 별도(2026-11-19 사용자). 정산 설정에서 직접 저장한 적이 없으면(feeSet 없음) 이 기본값을 쓴다
+export const SETTLE_DEFAULT = { feeRate: 2.2, vat: true, days: 1, holidays: HOLIDAYS, checks: {} };
+export const settleSettings = dir => { const s = readJson(path.join(dir, 'settle.json'), {}); if (!s.feeSet) { delete s.feeRate; delete s.vat; } return { ...SETTLE_DEFAULT, ...s }; };
 export function saveSettleSettings(dir, d, user) {
   const cur = settleSettings(dir), n = { ...cur };
-  if (d.feeRate != null) { const v = Number(d.feeRate); if (!(v >= 0 && v <= 10)) bad('수수료율은 0~10(%)'); n.feeRate = Math.round(v * 1000) / 1000; }
-  if (d.vat != null) n.vat = !!d.vat;
+  if (d.feeRate != null) { const v = Number(d.feeRate); if (!(v >= 0 && v <= 10)) bad('수수료율은 0~10(%)'); n.feeRate = Math.round(v * 1000) / 1000; n.feeSet = true; }
+  if (d.vat != null) { n.vat = !!d.vat; n.feeSet = true; }
   if (d.days != null) { const v = toInt(d.days); if (!(v >= 0 && v <= 10)) bad('정산 주기는 0~10 영업일'); n.days = v; }
   if (d.holidays != null) {
     const list = (Array.isArray(d.holidays) ? d.holidays : String(d.holidays).split(/[\s,]+/)).map(s => String(s).trim()).filter(Boolean);

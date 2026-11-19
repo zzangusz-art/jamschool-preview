@@ -659,7 +659,7 @@
           <div><label for="rf-r">사유 <small>카드사 취소 내역에 남음</small></label><input type="text" id="rf-r" maxlength="40" value="${h(c && c.open ? `${c.typeName} 환불` : '고객 요청 환불')}"></div></div>
         <label class="chk"><input type="radio" name="rf-v" value="pg" checked> 씨드페이먼츠 결제 취소(카드 승인 취소 — 전액 또는 부분)</label>
         <label class="chk"><input type="radio" name="rf-v" value="manual"> 결제 밖 환불 기록(계좌 이체 등으로 이미 돌려준 금액, 결제 취소는 하지 않음)</label>
-        <div class="actions static"><button class="btn danger" id="rf-go">환불하기</button></div>` : '<p class="help">환불(결제 취소)은 총괄 관리자가 합니다. 배송 설정 › 환불 권한에서 잠스쿨 관리자도 할 수 있게 바꿀 수 있습니다.</p>') : '';
+        <div class="actions static"><button class="btn danger" id="rf-go">환불하기</button></div>` : '<p class="help">환불 권한이 없습니다.</p>') : '';
     const refundCard = paid || refunds.length ? `<div class="card"><h2>환불</h2><p class="h-sub">결제 ${won(o.amount)} · 환불 ${won(o.refunded)} · 남은 금액 ${won(o.remain)}</p>${refundList}${refundForm}</div>` : '';
     v.innerHTML = `${bar}<div class="cols"><div class="card"><h2>결제</h2><p class="h-sub">주문번호 ${h(o.moid)}</p>${dl([
         ['상태', `<span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? ` ${h(o.fail.msg)}` : ''}`],
@@ -703,11 +703,34 @@
     };
   }
 
-  // ── 배송 설정: 발송지·회수지·택배사·출고 마감·반품 배송비·자동 배송 완료·3PL 발주서·환불 권한
+  // 주소 찾기: 다음(카카오) 우편번호 서비스(주문서와 같은 것). 누를 때만 불러오고, 못 불러오면 직접 입력
+  const POSTCODE = 'https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+  let pcLoad = null;
+  const loadPostcode = () => pcLoad || (pcLoad = new Promise((ok, no) => {
+    if (window.daum && window.daum.Postcode) { ok(); return; }
+    const s = document.createElement('script'); s.src = POSTCODE; s.async = true;
+    s.onload = () => (window.daum && window.daum.Postcode ? ok() : no(new Error('postcode')));
+    s.onerror = () => { pcLoad = null; no(new Error('postcode')); };
+    document.head.appendChild(s);
+  }));
+  async function findZip(k) {
+    const box = $(`#${k}-zipbox`); box.hidden = false; box.innerHTML = '<p class="help" style="padding:12px">주소 검색을 불러오는 중…</p>';
+    try {
+      await loadPostcode(); box.innerHTML = '';
+      new window.daum.Postcode({ width: '100%', height: '100%', oncomplete(d) {
+        let extra = '';
+        if (d.userSelectedType === 'R') { if (d.bname && /[동로가]$/.test(d.bname)) extra += d.bname; if (d.buildingName && d.apartment === 'Y') extra += (extra ? ', ' : '') + d.buildingName; }
+        $(`#${k}-zip`).value = d.zonecode; $(`#${k}-a1`).value = (d.userSelectedType === 'R' ? d.roadAddress : d.jibunAddress) + (extra ? ` (${extra})` : '');
+        box.hidden = true; box.innerHTML = ''; $(`#${k}-a2`).focus(); dirty = true;
+      } }).embed(box);
+    } catch (e) { box.hidden = true; toast('주소 검색을 불러오지 못했습니다. 우편번호와 주소를 직접 입력해 주세요.', 6000); $(`#${k}-zip`).focus(); }
+  }
+  // ── 배송 설정: 발송지·회수지(주소 찾기 또는 직접 입력)·택배사·출고 마감·반품 배송비·자동 배송 완료·3PL 발주서
   async function shipSet() {
     const v = shell('배송 설정', { desc: '택배 엑셀·3PL 발주서·반품 안내에 쓰는 주소와 기준입니다.', back: ['#/payments', '결제 주문'] });
     const d = await api('GET', '/api/admin/ship-settings'), c = d.cfg;
-    const addr = (k, a, label) => `<div class="fgrid"><div><label for="${k}-name">${label} 이름</label><input type="text" id="${k}-name" value="${h(a.name || '')}"></div><div><label for="${k}-tel">전화번호</label><input type="text" id="${k}-tel" value="${h(telFmt(a.tel || ''))}" inputmode="tel"></div><div><label for="${k}-zip">우편번호</label><input type="text" id="${k}-zip" value="${h(a.zip || '')}" inputmode="numeric" maxlength="5"></div></div>
+    const addr = (k, a, label) => `<div class="fgrid"><div><label for="${k}-name">${label} 이름</label><input type="text" id="${k}-name" value="${h(a.name || '')}"></div><div><label for="${k}-tel">전화번호</label><input type="text" id="${k}-tel" value="${h(telFmt(a.tel || ''))}" inputmode="tel"></div><div><label for="${k}-zip">우편번호</label><div style="display:flex;gap:6px"><input type="text" id="${k}-zip" value="${h(a.zip || '')}" inputmode="numeric" maxlength="5" style="flex:1;min-width:0"><button class="btn sm" type="button" data-zip="${k}">주소 찾기</button></div></div></div>
+      <div class="zipbox" id="${k}-zipbox" hidden></div>
       <div class="fgrid"><div style="grid-column:span 2"><label for="${k}-a1">주소</label><input type="text" id="${k}-a1" value="${h(a.addr1 || '')}"></div><div><label for="${k}-a2">상세 주소</label><input type="text" id="${k}-a2" value="${h(a.addr2 || '')}"></div></div>`;
     v.innerHTML = `<div class="card"><h2>발송지(보내는 곳)</h2><p class="h-sub">택배 접수용 엑셀의 송하인으로 들어갑니다. 3PL 이 보내면 3PL 창고 주소를 넣어 주세요.</p>${addr('fr', c.from, '보내는 분')}</div>
       <div class="card"><h2>회수지(반품·교환 받는 곳)</h2><label class="chk"><input type="checkbox" id="rt-same" ${c.ret.same ? 'checked' : ''}> 발송지와 같음</label><div id="rt-box" ${c.ret.same ? 'hidden' : ''}>${addr('rt', c.ret, '받는 분')}</div><p class="help">반품·교환 요청을 받으면 주문 상세에 이 주소가 보입니다. 회수 택배 접수 때 쓰세요.</p></div>
@@ -717,16 +740,16 @@
       <div class="card"><h2>3PL 발주서</h2><p class="h-sub">결제 주문 › 엑셀 '3PL 발주서'의 받는분·품목명 규칙입니다. 품목명 = 상품별 이름 + 두께형(cm)_사이즈 / 색상</p>
         <div class="fgrid"><div><label for="t-sf">받는분 뒤 판매처 표시</label><input type="text" id="t-sf" value="${h(c.tpl.suffix)}" placeholder="(공)"></div><div><label for="t-fr">운임구분</label><input type="text" id="t-fr" value="${h(c.tpl.fare)}"></div></div>
         <table class="list"><thead><tr><th>상품</th><th>3PL 품목명(앞부분)</th></tr></thead><tbody>${d.products.map(p => `<tr><td>${h(p.short)}</td><td><input type="text" data-tpl="${p.id}" value="${h(c.tpl.names[p.id] || p.short)}"></td></tr>`).join('')}</tbody></table></div>
-      <div class="card"><h2>환불 권한</h2>${d.owner ? `<label class="chk"><input type="radio" name="rr" value="owner" ${c.refundRole !== 'client' ? 'checked' : ''}> 총괄 관리자만 환불(결제 취소)</label><label class="chk"><input type="radio" name="rr" value="client" ${c.refundRole === 'client' ? 'checked' : ''}> 잠스쿨 관리자도 환불할 수 있음</label>` : `<p>${c.refundRole === 'client' ? '잠스쿨 관리자도 환불할 수 있습니다.' : '환불은 총괄 관리자가 합니다.'}</p>`}</div>
       <div class="actions"><button class="btn ok" id="ss-save">저장하기</button></div>${c.at ? `<p class="help">마지막 저장 ${h(dt(c.at))} · ${h(c.by || '')}</p>` : ''}`;
     $('#rt-same').onchange = e => { $('#rt-box').hidden = e.target.checked; };
+    v.querySelectorAll('[data-zip]').forEach(b => b.onclick = () => findZip(b.dataset.zip));
+    v.addEventListener('input', () => { dirty = true; });
     const A = k => ({ name: $(`#${k}-name`).value, tel: $(`#${k}-tel`).value, zip: $(`#${k}-zip`).value, addr1: $(`#${k}-a1`).value, addr2: $(`#${k}-a2`).value });
     $('#ss-save').onclick = async () => {
       const names = {}; v.querySelectorAll('[data-tpl]').forEach(i => { names[i.dataset.tpl] = i.value; });
       const body = { from: A('fr'), ret: $('#rt-same').checked ? { same: true } : { same: false, ...A('rt') }, courier: $('#s-cr').value, contract: $('#s-ct').value, cutoff: $('#s-co').value, autoDeliverDays: $('#s-ad').value,
         returnFee: { mattress: $('#rf-m').value, other: $('#rf-o').value, jeju: $('#rf-j').value }, tpl: { suffix: $('#t-sf').value, fare: $('#t-fr').value, names } };
-      if (d.owner) body.refundRole = (v.querySelector('[name="rr"]:checked') || {}).value;
-      try { await api('POST', '/api/admin/ship-settings', body); toast('배송 설정을 저장했습니다'); shipSet(); } catch (e) { toast(e.message, 6000); }
+      try { await api('POST', '/api/admin/ship-settings', body); dirty = false; toast('배송 설정을 저장했습니다'); shipSet(); } catch (e) { toast(e.message, 6000); }
     };
   }
 
@@ -740,7 +763,7 @@
     const d = await api('GET', `/api/admin/settlement?from=${encodeURIComponent(R[0] || '')}&to=${encodeURIComponent(R[1] || '')}`), c = d.cfg, T = d.total;
     const tag = r => `<span class="tag ${r.status === 'done' ? 'live' : r.status === 'check' ? 'bad' : 'draft'}">${h(r.statusName)}</span>`;
     v.innerHTML = `<div class="box info"><b>정산 흐름</b> 결제 완료(승인일) → <b>다음 영업일</b>에 정산 입금(주말·공휴일은 그다음 영업일) · 정산 전에 취소하면 그 결제는 정산에서 빠지고, 정산 뒤 취소·환불은 <b>취소한 날 기준 다음 정산금에서 차감</b>됩니다.
-        수수료율 ${c.feeRate ? `<b>${c.feeRate}%</b>${c.vat ? '(부가세 별도)' : ''}` : '<b>미입력</b> — 아래 정산 설정에서 계약 수수료율을 넣으면 정산 예정액이 계산됩니다'} · 씨드 테스트 서버 결제는 빼고 셉니다.</div>
+        수수료 <b>${c.feeRate}%${c.vat ? ' + 부가세(수수료의 10%)' : ''}</b>${c.feeSet ? '' : '(계약 기준 기본값)'} · 씨드 테스트 서버 결제는 빼고 셉니다.</div>
       <div class="card ofbar"><div class="seg wrap" role="group" aria-label="정산일 기간">${[['m0', '이번 달'], ['m1', '지난달'], ['d30', '최근 30일·예정'], ['all', '전체'], ['pick', '날짜 고르기']].map(([k, t]) => `<a href="#" data-sr="${k}" class="${SETF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
         <div class="ofpick" ${SETF.range === 'pick' ? '' : 'hidden'}><input type="date" id="sf-from" value="${h(SETF.from)}" aria-label="시작 정산일"> ~ <input type="date" id="sf-to" value="${h(SETF.to)}" aria-label="끝 정산일"><button class="btn sm" id="sf-go">보기</button></div>
         <button class="btn sm" id="sf-xls">엑셀 내려받기</button></div>

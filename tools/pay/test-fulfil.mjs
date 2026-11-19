@@ -138,13 +138,17 @@ ok('주문 조회: 주문번호(대소문자 무관)·휴대폰 일치 → 조�
 const s1 = PAY.saveShip({ from: { name: '잠스쿨 물류', tel: '02-123-4567', zip: '08502', addr1: '서울 금천구 가산디지털2로 95', addr2: '904호' }, ret: { same: true }, courier: 'daesin', tpl: { suffix: '(홈)', names: { 30: '떡실신 매트리스' } } }, client);
 assert.equal(s1.from.tel, '021234567'); assert.equal(s1.courier, 'daesin'); assert.equal(s1.tpl.suffix, '(홈)'); assert.equal(s1.tpl.names[29], '3단 매트리스');
 assert.throws(() => PAY.saveShip({ from: { zip: '123' } }, client), /우편번호/);
-assert.throws(() => PAY.saveShip({ refundRole: 'client' }, client), /총괄 관리자만/);
-assert.equal(PAY.saveShip({ refundRole: 'client' }, owner).refundRole, 'client');
-ok('배송 설정: 발송지·회수지(발송지와 같음)·기본 택배사·3PL 판매처 표시·상품별 이름, 우편번호 검사, 환불 권한은 총괄 관리자만');
+assert.equal(PAY.saveShip({ ret: { same: false, name: '반품센터', tel: '1588-1234', zip: '10881', addr1: '경기 파주시 회동길 1', addr2: '물류동' } }, client).ret.tel, '15881234');
+assert.throws(() => PAY.saveShip({ from: { tel: '12-34' } }, client), /전화번호/);
+assert.equal(PAY.saveShip({ refundRole: 'owner' }, client).refundRole, undefined, '환불 권한 설정은 없음');
+ok('배송 설정: 발송지·회수지(직접 입력·대표번호 1588)·기본 택배사·3PL 판매처 표시·상품별 이름, 우편번호·전화 검사, 환불 권한 설정 없음(관리자 모두)');
 
 // 8) 정산: 결제 다음 영업일(주말·공휴일 건너뜀), 취소·환불은 그날 기준 다음 정산에서 차감, 수수료·부가세, 테스트 서버 주문 제외, 입금 확인
 assert.equal(F.bizDay('2026-11-20', 1, F.HOLIDAYS), '2026-11-23'); assert.equal(F.bizDay('2026-12-24', 1, F.HOLIDAYS), '2026-12-28'); assert.equal(F.bizDay('2026-09-23', 1, F.HOLIDAYS), '2026-09-28');
 mk({ pgEnv: 'test' });
+assert.equal(PAY.settleReport({}).cfg.feeRate, 2.2); assert.equal(PAY.settleReport({}).cfg.vat, true);
+PAY.saveSettle({ check: { date: '2026-11-20', done: true } }, client); assert.equal(PAY.settleReport({}).cfg.feeRate, 2.2, '입금 확인만 저장해도 기본 수수료 유지');
+const r22 = PAY.settleReport({}).rows.flatMap(x => x.list).find(x => x.kind === 'pay'); assert.equal(r22.fee, Math.round(r22.amount * 0.022)); assert.equal(r22.vat, Math.round(r22.fee * 0.1));
 PAY.saveSettle({ feeRate: 3.3, vat: true }, client);
 const rep = PAY.settleReport({});
 const d23 = rep.rows.find(x => x.date === '2026-11-23');
@@ -158,7 +162,7 @@ const s2 = PAY.saveSettle({ check: { date: '2026-11-23', done: true, memo: '입�
 assert.ok(s2.checks['2026-11-23']);
 assert.throws(() => PAY.saveSettle({ feeRate: 50 }, client), /0~10/);
 assert.throws(() => PAY.saveSettle({ holidays: '2026/12/25' }, client), /날짜 형식/);
-ok(`정산: 다음 영업일(금→월, 성탄절·추석 건너뜀)·환불 차감·수수료 3.3%+부가세·테스트 서버 주문 제외·입금 확인 · 정산 예정 ${rep.rows.length}일`);
+ok(`정산: 기본 수수료 2.2%+부가세(입금 확인만 저장해도 유지)·다음 영업일(금→월, 성탄절·추석 건너뜀)·환불 차감·수수료율 바꾸기·테스트 서버 주문 제외·입금 확인 · 정산 예정 ${rep.rows.length}일`);
 
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(`\n배송·클레임·환불·정산 시험 ${n}개 통과`);
