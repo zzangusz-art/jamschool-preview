@@ -20,8 +20,97 @@
       "store": "https://smartstore.naver.com/healingq/products/4673889625"
     }
   },
-  "options29": {},
   "opts": {
+    "29": {
+      "groups": [
+        {
+          "id": "t",
+          "name": "두께",
+          "note": "침대 위엔 7cm, 바닥엔 12cm",
+          "price": true,
+          "values": [
+            {
+              "id": "7",
+              "label": "침대형",
+              "sub": "7cm"
+            },
+            {
+              "id": "12",
+              "label": "바닥형",
+              "sub": "12cm"
+            }
+          ]
+        },
+        {
+          "id": "s",
+          "name": "사이즈",
+          "note": "폭 × 길이 200(cm)",
+          "price": true,
+          "values": [
+            {
+              "id": "MS",
+              "label": "멀티싱글",
+              "sub": "75 × 200(cm)"
+            },
+            {
+              "id": "SS",
+              "label": "슈퍼싱글",
+              "sub": "110 × 200(cm)"
+            },
+            {
+              "id": "Q",
+              "label": "퀸",
+              "sub": "150 × 200(cm)"
+            }
+          ]
+        },
+        {
+          "id": "c",
+          "name": "색상",
+          "note": "",
+          "price": false,
+          "values": [
+            {
+              "id": "gray",
+              "label": "그레이",
+              "hex": "#7D8187"
+            },
+            {
+              "id": "ivory",
+              "label": "아이보리",
+              "hex": "#EEE8DC",
+              "img": 8
+            }
+          ]
+        }
+      ],
+      "prices": {
+        "7-MS": {
+          "price": 109000,
+          "list": 269000
+        },
+        "7-SS": {
+          "price": 189000,
+          "list": 339000
+        },
+        "7-Q": {
+          "price": 208000,
+          "list": 369000
+        },
+        "12-MS": {
+          "price": 159000,
+          "list": 309000
+        },
+        "12-SS": {
+          "price": 208000,
+          "list": 369000
+        },
+        "12-Q": {
+          "price": 218000,
+          "list": 399000
+        }
+      }
+    },
     "30": {
       "groups": [
         {
