@@ -1,5 +1,14 @@
 {
   "_설명": "관리자 어드민이 고친 값(처음 값과 다른 것만). 빌드가 원래 값 위에 덮어쓴다 — products·options29: 상품 기본 정보·사진·평점·3단 옵션 가격 / blocks: 홈 화면·구매평·자주 묻는 질문·기본 정보 목록(data.js, tools/admin/blocks.mjs) / text·img: 페이지 문구·사진(src 템플릿의 data-edit 칸, tools/admin/edits.mjs) / notice: 상품정보 제공고시. 보통은 어드민에서.",
-  "products": {},
+  "products": {
+    "29": {
+      "points": [
+        "14일 무료체험.",
+        "2년 폼 무상 교체",
+        "100% 국내 생산",
+        "밀도 31kg/m³"
+      ]
+    }
+  },
   "options29": {}
 }
