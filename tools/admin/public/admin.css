@@ -247,3 +247,15 @@ details.tbl{margin-top:10px}details.tbl summary{cursor:pointer;color:var(--sub);
 }
 .thumbs figcaption .btn{padding:3px 8px;min-width:0;white-space:nowrap;min-height:30px}
 @media (max-width:820px){.obar{top:62px}}
+td.ell{max-width:0;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 홈 최근 결제 주문: 휴대폰은 한 주문을 두 줄로(일시·상태 / 상품·금액) */
+@media (max-width:820px){
+  table.rtbl thead{display:none}
+  table.rtbl tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px 0;border-bottom:1px solid var(--line-2)}
+  table.rtbl tr:last-child{border-bottom:0}
+  table.rtbl td{border:0;padding:0}
+  table.rtbl td:nth-child(1){grid-column:1;grid-row:1;font-size:12.5px;color:var(--sub)}
+  table.rtbl td:nth-child(4){grid-column:2;grid-row:1;text-align:right}
+  table.rtbl td:nth-child(2){grid-column:1;grid-row:2;max-width:none;width:auto;min-width:0}
+  table.rtbl td:nth-child(3){grid-column:2;grid-row:2}
+}

@@ -134,19 +134,69 @@
   const pageName = (p, s) => { const m = p.match(/^\/product-(\d+)$/); return h(PAGE_NAME[p] || (m && s.names[m[1]] ? `상품 · ${s.names[m[1]]}` : '') || (s.titles[p] ? `글 · ${s.titles[p]}` : '') || p) + ` <small class="sub">${h(p)}</small>`; };
   const persistNote = s => s.persistent || ME.user.role !== 'owner' ? '' : '<div class="box warn">Railway 볼륨(DATA_DIR)이 아직 없어 방문 숫자가 메모리에만 있습니다. 다시 배포하면 0부터 셉니다.</div>';
 
-  // ── 홈
+  // ── 홈: 방문·결제만 간단히(숫자 4개 · 14일 방문자 선 그래프 · 14일 결제 금액 막대 · 최근 결제 주문 · 유입 상위 5)
+  // 막대 그래프(한 계열): vals[i] 값, extra(i) 말풍선에 더할 줄. 막대마다 마우스·키보드로 그날 숫자
+  function barChart(box, dates, vals, opt = {}) {
+    const draw = () => {
+      box.textContent = '';
+      const W = Math.max(300, box.clientWidth), H = W < 520 ? 210 : 250, L = 50, R = 8, T = 14, B = 28, n = dates.length;   // 선 그래프와 같은 높이
+      const max = nice(Math.max(opt.min || 1, ...vals)), bw = (W - L - R) / n, w = Math.max(3, Math.min(26, bw * .6));
+      const y = v => T + (H - T - B) * (1 - v / max), fmtA = opt.axis || (v => num(v));
+      const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'lc', role: 'img', 'aria-label': opt.label || '막대 그래프' });
+      for (const f of [0, .5, 1]) {
+        svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: y(max * f), y2: y(max * f), class: f ? 'grid' : 'base' }));
+        const t = svgEl('text', { x: L - 8, y: y(max * f) + 4, 'text-anchor': 'end' }); t.textContent = fmtA(max * f); svg.appendChild(t);
+      }
+      const every = Math.ceil(n / (W < 520 ? 5 : 8));
+      dates.forEach((d, i) => {
+        if (i % every && i !== n - 1) return; if (i !== n - 1 && n - 1 - i < every / 2) return;
+        const t = svgEl('text', { x: L + i * bw + bw / 2, y: H - 8, 'text-anchor': 'middle' }); t.textContent = md(d); svg.appendChild(t);
+      });
+      vals.forEach((v, i) => {
+        const x0 = L + i * bw + (bw - w) / 2, y0 = y(v), hh = H - B - y0, r = Math.min(4, w / 2, hh);
+        if (v > 0) svg.appendChild(svgEl('path', { d: `M${x0},${H - B} V${y0 + r} Q${x0},${y0} ${x0 + r},${y0} H${x0 + w - r} Q${x0 + w},${y0} ${x0 + w},${y0 + r} V${H - B} Z`, fill: opt.color || C1, class: 'bar-m' }));
+        const hit = svgEl('rect', { x: L + i * bw, y: T, width: bw, height: H - T - B, fill: 'transparent', tabindex: 0, class: 'hit', 'aria-label': `${dates[i]} ${opt.name} ${opt.fmt ? opt.fmt(v) : num(v)}` });
+        const show = e => { hit.setAttribute('fill', 'rgba(21,24,28,.04)'); showTip(e, [[opt.color || C1, opt.name, opt.fmt ? opt.fmt(v) : num(v)], ...(opt.extra ? opt.extra(i) : [])], `${dates[i]} (${WD[wdOf(dates[i])]})`); };
+        const hide = () => { hit.setAttribute('fill', 'transparent'); hideTip(); };
+        hit.addEventListener('pointerenter', show); hit.addEventListener('pointermove', show); hit.addEventListener('focus', show);
+        hit.addEventListener('pointerleave', hide); hit.addEventListener('blur', hide);
+        svg.appendChild(hit);
+      });
+      box.appendChild(svg);
+    };
+    draw();
+    return draw;
+  }
+  // 표에 쓸 짧은 상품 이름: '잠스쿨 '·옵션 괄호 빼고 × 수량만
+  const shortItem = t => String(t || '').replace(/^잠스쿨\s*/, '').replace(/\s*\([^)]*\)/, '');
   async function dashboard() {
-    const v = shell(`${ME.user.name}님, 안녕하세요`, { desc: '저장한 내용은 약 2분 뒤 사이트에 반영됩니다. 반영 상태는 오른쪽 위에 보입니다.' });
-    const [d, s] = await Promise.all([api('GET', '/api/admin/dashboard'), api('GET', '/api/admin/stats?days=7').catch(() => null)]);
-    const st = d.status && d.status.state;
-    const today = s ? s.days[s.days.length - 1] : null;
-    v.innerHTML = `${s ? `<div class="kpis"><div class="kpi"><span>오늘 방문자</span><b>${num(today.uv)}</b><small>페이지 ${num(today.pv)}번 열림</small></div>
-        <div class="kpi"><span>7일 방문자</span><b>${num(s.total.uv)}</b><small>하루 평균 ${num(Math.round(s.total.uv / 7))}명</small></div>
-        <div class="kpi"><span>7일 구매 버튼 클릭</span><b>${num((s.total.events.buy_click || 0) + (s.total.events.cart_click || 0) + (s.total.events.store_click || 0))}</b><small>구매·장바구니·스마트스토어</small></div>
-        <div class="kpi"><span>7일 페이지 열림</span><b>${num(s.total.pv)}</b><small>방문자 1명당 ${s.total.uv ? (s.total.pv / s.total.uv).toFixed(1) : '-'}쪽</small></div></div>` : ''}
-      <div class="cols"><div class="card"><h2>바로 가기</h2><p class="h-sub">자주 하는 일</p><div class="actions static"><a class="btn pri" href="#/site/home">홈 화면 고치기</a><a class="btn" href="#/texts">페이지 문구·사진</a><a class="btn" href="#/products">상품·상세페이지</a><a class="btn" href="#/blog/new">새 블로그 글</a><a class="btn" href="#/traffic">방문·유입</a><a class="btn" href="#/payments">결제 주문</a></div></div>
-        <div class="card"><h2>사이트 반영 상태</h2><p class="h-sub">마지막으로 저장한 내용이 사이트에 올라갔는지</p><p>${st === 'success' ? '<span class="tag live">최근 변경까지 반영 완료</span>' : st === 'pending' ? '<span class="tag draft">반영 중</span>' : st === 'failure' || st === 'error' ? '<span class="tag bad">반영 실패 — 관리자 확인 필요</span>' : st === 'local' ? '<span class="tag">로컬 저장 모드</span>' : '<span class="tag">확인 중</span>'}</p></div></div>
-      <div class="card"><h2>최근 변경</h2><p class="h-sub">누가 무엇을 고쳤는지(최근 순)</p><table class="list"><thead><tr><th>시간</th><th>내용</th><th>누가</th></tr></thead><tbody>${d.recent.length ? '' : '<tr><td colspan="3" class="empty">아직 기록이 없습니다.</td></tr>'}${d.recent.map(c => `<tr><td class="nw">${h(new Date(c.date).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }))}</td><td>${h(c.message.split('\n')[0].replace(/^어드민: /, ''))}</td><td class="nw">${h(c.author)}</td></tr>`).join('')}</tbody></table></div>`;
+    const v = shell(`${ME.user.name}님, 안녕하세요`, { desc: '오늘 방문과 결제를 한눈에 봅니다. 자세한 내용은 각 그래프의 \'자세히\'에서 봅니다.' });
+    const from = new Date(Date.now() + 9 * 3600e3 - 13 * 864e5).toISOString().slice(0, 10);
+    const [s, p] = await Promise.all([api('GET', '/api/admin/stats?days=14').catch(() => null), api('GET', `/api/admin/payments?from=${from}`).catch(() => null)]);
+    const days = s ? s.days : [], dates = days.map(d => d.date);
+    const today = days[days.length - 1] || { uv: 0, pv: 0 }, yday = days[days.length - 2] || { uv: 0 };
+    const last7 = days.slice(-7), prev7 = days.slice(-14, -7), u7 = last7.reduce((a, d) => a + d.uv, 0), up7 = prev7.reduce((a, d) => a + d.uv, 0);
+    const orders = p ? p.orders : [], paid = orders.filter(o => o.status === 'paid'), tday = dates[dates.length - 1] || new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    const paidToday = paid.filter(o => o.day === tday);
+    const payBy = dates.map(dt => paid.filter(o => o.day === dt)), paySum = payBy.map(l => l.reduce((a, o) => a + o.amount, 0));
+    const src7 = sumObj(last7.map(d => d.sources)), ent7 = last7.reduce((a, d) => a + d.entries, 0);
+    const recent = orders.slice(0, 5);
+    v.innerHTML = `${s ? persistNote(s) : ''}<div class="kpis">
+        <div class="kpi"><span>오늘 방문자</span><b>${num(today.uv)}명</b><small>${delta(today.uv, yday.uv)} 어제 ${num(yday.uv)}명</small></div>
+        <div class="kpi"><span>최근 7일 방문자</span><b>${num(u7)}명</b><small>${delta(u7, up7)} 직전 7일 ${num(up7)}명</small></div>
+        <div class="kpi"><span>오늘 결제</span><b>${num(paidToday.length)}건</b><small>${won(paidToday.reduce((a, o) => a + o.amount, 0))}</small></div>
+        <div class="kpi"><span>발송 전 주문</span><b>${num(p ? p.todo : 0)}건</b><small>${p && p.todo ? '<a href="#/payments" id="go-todo">보낼 주문 보기 →</a>' : '보낼 주문 없음'}</small></div></div>
+      <div class="cols"><div class="card"><div class="ch"><div><h2>방문자</h2><p class="h-sub">최근 14일 · 마우스를 올리면 그날 숫자</p></div><a class="btn sm" href="#/traffic/30">자세히</a></div><div class="lcbox" id="d-visit">${s ? '' : empty('방문 기록을 불러오지 못했습니다.')}</div></div>
+        <div class="card"><div class="ch"><div><h2>결제 금액</h2><p class="h-sub">최근 14일 결제 완료(취소 제외) · 14일 합계 ${won(paySum.reduce((a, b) => a + b, 0))}</p></div><a class="btn sm" href="#/payments">자세히</a></div><div class="lcbox" id="d-pay"></div></div></div>
+      <div class="cols"><div class="card"><div class="ch"><div><h2>최근 결제 주문</h2><p class="h-sub">최근 14일 중 최신 5건</p></div><a class="btn sm" href="#/payments">결제 주문</a></div>
+          ${recent.length ? `<table class="list rtbl"><thead><tr><th>일시</th><th>상품</th><th class="r">금액</th><th>상태</th></tr></thead><tbody>${recent.map(o => `<tr><td class="nw">${h(md(o.day))} ${h(o.time)}</td><td class="ell"><a href="#/payments/${h(o.moid)}" title="${h(o.items.join(', '))}">${h(shortItem(o.items[0]))}${o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ''}</a></td><td class="r nw">${won(o.amount)}</td><td class="nw"><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.status === 'paid' ? ` <span class="tag ${o.fulfil === 'shipped' ? 'live' : 'draft'}">${o.fulfil === 'shipped' ? '발송함' : '발송 전'}</span>` : ''}</td></tr>`).join('')}</tbody></table>` : empty('최근 14일 결제 주문이 없습니다.')}</div>
+        <div class="card"><div class="ch"><div><h2>어디서 왔나</h2><p class="h-sub">최근 7일 · 들어온 경로 상위 5</p></div><a class="btn sm" href="#/traffic/7">자세히</a></div>${bars(top(src7, 5), ent7)}</div></div>`;
+    const gt = $('#go-todo'); if (gt) gt.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = 'todo'; location.hash = '#/payments'; };
+    const draws = [];
+    if (s) draws.push(lineChart($('#d-visit'), dates, [{ name: '방문자', color: C1, area: true, on: true, values: days.map(d => d.uv) }], { label: '최근 14일 방문자 선 그래프' }));
+    draws.push(barChart($('#d-pay'), dates, paySum, { name: '결제 금액', label: '최근 14일 결제 금액 막대 그래프', fmt: won, axis: x => x >= 10000 ? `${Math.round(x / 1000) / 10}만` : num(x), min: 100000, extra: i => [[CG, '결제 건수', `${payBy[i].length}건`]] }));
+    const here = location.hash;
+    let rt; window.onresize = () => { clearTimeout(rt); rt = setTimeout(() => { if (location.hash !== here) { window.onresize = null; return; } draws.forEach(f => f()); }, 150); };
   }
 
   // ── 방문·유입(움직이는 그래프): 날짜별 선 그래프(마우스를 올리면 그날 숫자, 누르면 그날만 보기) · 유입 경로 레이더 · 요일 레이더 · 기기 도넛
