@@ -105,6 +105,21 @@ export function countEvent(req, body) {
   touch();
 }
 
+// 주문 흐름 새로 시작(어드민 '결제 주문' → 시험 기록 정리, 총괄 관리자): 이 날짜 전의 클릭·주문서·상품 조회는 집계에서 뺀다.
+//   날짜 파일은 그대로 두고(되돌리려면 _orders-since.json 삭제), 오늘 것은 정리 시각까지의 숫자를 _before-reset-*.json 에 남기고 0 으로
+const SINCE = () => DIR ? path.join(DIR, '_orders-since.json') : '';
+let since = (() => { try { return JSON.parse(fs.readFileSync(SINCE(), 'utf8')).since || ''; } catch { return ''; } })();
+export const ordersSince = () => since;
+export function resetOrderStats(by) {
+  const d = day(), date = kst(), at = new Date().toISOString();
+  if (DIR) { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(path.join(DIR, `_before-reset-${Date.now()}.json`), JSON.stringify({ date, at, by, events: d.events, products: d.products, orders: d.orders })); }
+  d.events = {}; d.products = {}; d.orders = { n: 0, sum: 0, items: {}, pay: {} };
+  since = date;
+  if (DIR) fs.writeFileSync(SINCE(), JSON.stringify({ since: date, at, by }));
+  dirty = true; flush();
+  return { since };
+}
+
 // 어드민 조회: 최근 n일 합계 + 날짜별(유입 경로·기기도 날짜별로 — 그래프에서 날짜를 누르면 그날 것만 본다)
 //   offset: 며칠 앞으로 밀어서(지난 기간 비교: summary(7, 7) = 그 전 7일)
 export function summary(n = 7, offset = 0) {
@@ -113,6 +128,7 @@ export function summary(n = 7, offset = 0) {
     const date = kst(Date.now() - i * 864e5);
     let d = days.get(date);
     if (!d && DIR) { const f = path.join(DIR, `${date}.json`); if (fs.existsSync(f)) try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* 무시 */ } }
+    if (d && since && date < since) d = { ...d, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} } };   // 주문 흐름 시작 전(시험 기록)
     list.push(d || { date, pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} } });
   }
   const add = (a, b) => { for (const [k, v] of Object.entries(b || {})) a[k] = (a[k] || 0) + v; return a; };
@@ -123,5 +139,5 @@ export function summary(n = 7, offset = 0) {
     for (const [id, p] of Object.entries(d.products || {})) { tot.products[id] = tot.products[id] || { views: 0, buy: 0 }; tot.products[id].views += p.views; tot.products[id].buy += p.buy; }
     tot.orders.n += d.orders.n; tot.orders.sum += d.orders.sum; add(tot.orders.items, d.orders.items); add(tot.orders.pay, d.orders.pay);
   }
-  return { days: list.map(d => ({ date: d.date, pv: d.pv, uv: d.uv, entries: d.entries, ai: Object.values(d.ai || {}).reduce((a, b) => a + b, 0), orders: d.orders.n, events: d.events, sources: d.sources || {}, devices: d.devices || {} })), total: tot, persistent: persistent() };
+  return { days: list.map(d => ({ date: d.date, pv: d.pv, uv: d.uv, entries: d.entries, ai: Object.values(d.ai || {}).reduce((a, b) => a + b, 0), orders: d.orders.n, events: d.events, sources: d.sources || {}, devices: d.devices || {} })), total: tot, persistent: persistent(), ordersSince: since };
 }

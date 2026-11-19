@@ -66,14 +66,17 @@ export const BLOCKS = {
       { k: 'bands', t: 'table', label: '유형별 가격 범위', cols: [{ k: 'k', label: '유형', max: 16 }, { k: 'sub', label: '두께', max: 12 }, { k: 'lo', label: '최저(원)', t: 'num' }, { k: 'hi', label: '최고(원)', t: 'num' }], maxItems: 6 },
       { k: 'ours', t: 'table', label: '잠스쿨 위치', one: true, cols: [{ k: 'k', label: '이름', max: 20 }, { k: 'sub', label: '두께', max: 12 }, { k: 'v', label: '가격(원)', t: 'num' }] },
     ] },
-  REVIEWS: { menu: 'reviews', label: 'BEST 구매평', desc: '홈 리뷰 롤링 윗줄과 3단 상품 페이지 구매평에 보입니다. 원문 그대로 옮기고, 아이디는 가려서(예: osy6***) 적어 주세요.', list: true, min: 1, max: 30, title: 'text', anchor: '/#review',
+  REVIEWS: { menu: 'reviews', label: 'BEST 구매평', desc: '홈 리뷰 롤링 윗줄(전체 상품)과 그 상품 페이지의 구매평에 보입니다. 원문 그대로 옮기고, 아이디는 가려서(예: osy6***) 적어 주세요.', list: true, min: 1, max: 60, title: 'text', anchor: '/#review', byProduct: true,
     fields: [
+      { k: 'pid', t: 'product', label: '상품', need: true },
       { k: 'id', t: 'text', label: '아이디(가림)', max: 20 },
       { k: 'opt', t: 'text', label: '옵션(선택)', max: 30, optional: true },
       { k: 'text', t: 'area', label: '구매평', max: 1200 },
     ] },
-  SHORT_REVIEWS: { menu: 'reviews', label: '짧은 구매평', desc: '홈 리뷰 롤링 아랫줄에 흐르는 한두 문장 구매평입니다.', list: true, min: 1, max: 40, prim: { t: 'area', max: 200 }, anchor: '/#review' },
-  PHOTOS: { menu: 'reviews', label: '포토 구매평 사진', desc: '리뷰 아래 작은 사진 줄입니다. 누르면 크게 보입니다.', list: true, min: 1, max: 30, prim: { t: 'image', ratio: 1, maxW: 1000 }, anchor: '/#review' },
+  SHORT_REVIEWS: { menu: 'reviews', label: '짧은 구매평', desc: '홈 리뷰 롤링 아랫줄에 흐르는 한두 문장 구매평입니다(전체 상품).', list: true, min: 1, max: 80, title: 'text', anchor: '/#review', byProduct: true,
+    fields: [{ k: 'pid', t: 'product', label: '상품', need: true }, { k: 'text', t: 'area', label: '구매평', max: 200 }] },
+  PHOTOS: { menu: 'reviews', label: '포토 구매평 사진', desc: '홈 리뷰 아래 사진 줄(전체 상품)과 그 상품 페이지에 보입니다. 누르면 크게 보입니다.', list: true, min: 1, max: 80, anchor: '/#review', byProduct: true, grid: true,
+    fields: [{ k: 'pid', t: 'product', label: '상품', need: true }, { k: 'src', t: 'image', label: '사진', ratio: 1, maxW: 1000 }] },
   REVIEW_BASIS: { menu: 'reviews', label: '구매평 수 기준', desc: '홈 리뷰 제목 옆 「3단 접이식 매트리스, …」 뒤에 붙는 기준 문구입니다. 구매평 수·평점은 상품 정보에서 고칩니다.', scalar: { t: 'text', max: 60 }, anchor: '/#review' },
   FAQ: { menu: 'faq', label: '자주 묻는 질문', desc: '홈 FAQ, 3단 상품 페이지 Q&A(배송·반품 질문은 모든 상품 페이지)에 보이고, 검색엔진에도 질문·답으로 알려집니다.', list: true, min: 1, max: 40, title: 'q', anchor: '/#faq',
     fields: [
@@ -112,7 +115,7 @@ async function field(f, v, ctx, where) {
     case 'check': return !!v;
     case 'select': { const s = line(v); if (!f.opts.some(([k]) => k === s)) bad(`${label}: 고를 수 없는 값`); return s; }
     case 'icon': { const s = line(v); if (!ICONS.some(([k]) => k === s)) bad(`${label}: 고를 수 없는 아이콘`); return s; }
-    case 'product': { if (v === '' || v == null) return undefined; const id = +v; if (!ctx.products.includes(id)) bad(`${label}: 없는 상품`); return id; }
+    case 'product': { if (v === '' || v == null) { if (f.need) bad(`${label}: 상품을 골라 주세요`); return undefined; } const id = +v; if (!ctx.products.includes(id)) bad(`${label}: 없는 상품`); return id; }
     case 'num': { const n = Math.round(+v); if (!Number.isFinite(n) || (f.min != null && n < f.min) || (f.max != null && n > f.max)) bad(`${label}: 숫자 범위를 확인해 주세요`); return n; }
     case 'image': return ctx.image(v, f, label);
     case 'table': {

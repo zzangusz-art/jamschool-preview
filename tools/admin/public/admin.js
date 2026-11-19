@@ -373,7 +373,7 @@
     const views = Object.values(t.products).reduce((a, p) => a + p.views, 0), buy = (e.buy_click || 0) + (e.cart_click || 0), sent = (e.store_click || 0) + (e.checkout_submit || 0);
     const step = (label, val, base, note) => `<div><span>${label}</span><b>${num(val)}</b><small>${base == null ? note : `${note} · ${pct(val, base)}`}</small></div>`;
     const rows = Object.entries(t.products).map(([id, p]) => [id, p, t.orders.items[id] || 0]).sort((a, b) => b[1].views - a[1].views);
-    v.innerHTML = `${persistNote(s)}<div class="box info"><b>주문서까지 온 흐름입니다.</b> 홈페이지 결제로 실제 결제된 주문은 <a href="#/payments">결제 주문</a>에서 봅니다. 홈페이지 결제가 꺼져 있을 때는 '결제하기'를 누르면 같은 상품의 잠스쿨 스마트스토어로 넘어가 거기서 결제합니다. 실제 결제·배송은 <a href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어 판매자센터</a>에서 확인하세요.</div>
+    v.innerHTML = `${persistNote(s)}${ME.user.role === 'owner' ? `<div class="box info"><b>주문서까지 온 흐름입니다.</b> 홈페이지 결제로 실제 결제된 주문은 <a href="#/payments">결제 주문</a>에서 봅니다. 홈페이지 결제가 꺼져 있을 때는 '결제하기'를 누르면 같은 상품의 잠스쿨 스마트스토어로 넘어가 거기서 결제합니다. 실제 결제·배송은 <a href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어 판매자센터</a>에서 확인하세요.${s.ordersSince ? ` <br><small>주문 흐름은 ${h(s.ordersSince)}부터 셉니다(그 전은 시험 기록).</small>` : ''}</div>` : ''}
       <div class="funnel">${step('상품 페이지 조회', views, null, '상품 상세를 연 수')}${step('구매·장바구니 클릭', buy, views, '조회 대비')}${step('주문서 제출', t.orders.n, buy || null, buy ? '클릭 대비' : '주문서에서 결제하기')}${step('스마트스토어로 이동', sent, null, 'N Pay·스마트스토어 버튼 포함')}</div>
       <div class="kpis"><div class="kpi"><span>주문서 금액 합계</span><b>${won(t.orders.sum)}</b><small>참고용 — 실제 결제 금액 아님</small></div>
         <div class="kpi"><span>공식몰로 이동</span><b>${num(e.mall_click)}</b><small>jamschool.co.kr</small></div>
@@ -390,32 +390,101 @@
   const PST = { paid: 'live', cancelled: '', check: 'bad', failed: 'draft', approving: 'draft', ready: '' };
   const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
   const telFmt = t => String(t || '').replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
+  // 결제 주문 화면 상태(자세히 보고 돌아와도 그대로): 기간·상태
+  const PAYF = { range: '30', from: '', to: '', st: 'paid' };
+  const RANGES = [['0', '오늘'], ['1', '어제'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체 기간'], ['pick', '날짜 고르기']];
+  const OST = [['todo', '발송 전'], ['paid', '결제 완료 전체'], ['shipped', '발송함'], ['issue', '취소·확인 필요'], ['tries', '결제 시도 전체']];
+  const kToday = (back = 0) => new Date(Date.now() + 9 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
+  const WDK = ['일', '월', '화', '수', '목', '금', '토'];
+  const dayLabel = s => `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일 (${WDK[new Date(s + 'T00:00:00Z').getUTCDay()]})${s === kToday() ? ' · 오늘' : s === kToday(1) ? ' · 어제' : ''}`;
+  const rangeDates = () => { const r = PAYF.range; if (r === 'pick') return [PAYF.from, PAYF.to]; if (r === 'all') return ['', '']; if (r === '0') return [kToday(), kToday()]; if (r === '1') return [kToday(1), kToday(1)]; return [kToday(+r - 1), kToday()]; };
+  const stOk = (o, st) => st === 'todo' ? o.status === 'paid' && o.fulfil !== 'shipped' : st === 'paid' ? o.status === 'paid' : st === 'shipped' ? o.status === 'paid' && o.fulfil === 'shipped' : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : true;
+  // 서버가 준 엑셀 파일을 내려받기(이름은 Content-Disposition 의 filename*)
+  async function download(url, data) {
+    const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-Jam-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `오류(${res.status})`); }
+    const cd = res.headers.get('content-disposition') || '', name = decodeURIComponent((cd.match(/filename\*=UTF-8''([^;]+)/) || [])[1] || 'jamschool.xlsx');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(await res.blob()); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    return name;
+  }
   async function payments() {
-    const all = route()[1] === 'all';
-    const v = shell('결제 주문', { desc: '홈페이지에서 카드로 결제된 주문입니다. 배송지를 확인하고 보낸 뒤 \'발송 처리\'를 눌러 주세요.',
-      tool: `<div class="seg"><a href="#/payments" class="${all ? '' : 'on'}">결제된 주문</a><a href="#/payments/all" class="${all ? 'on' : ''}">결제 시도 전체</a></div>` });
-    const d = await api('GET', `/api/admin/payments${all ? '?all=1' : ''}`);
     const owner = ME.user.role === 'owner';
-    const state = !d.keySet ? '<div class="box bad"><b>상점키가 없습니다.</b> Railway 변수 SEEDPAY_MERCHANT_KEY 를 넣어야 결제할 수 있습니다.</div>'
-      : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
-        · 상점 ID ${h(d.mid)}${d.test ? ' · <b>씨드페이먼츠 테스트 서버(devpay)</b>' : ''}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
-        <br><small>결제통보 URL <code>${h(d.notiUrl)}</code> — 씨드페이먼츠 가맹점 관리자(mms.seedpayments.co.kr) → 가맹점정보 → 결제환경 설정 → 결제결과 통보관리에 신용카드용으로 등록하면, 가맹점 관리자에서 한 취소도 여기 반영됩니다.</small>
-        ${owner && d.relay ? `<br><small>한국 중계 ${d.relay.on ? `켜짐 <code>${h(d.relay.url)}</code>` : '꺼짐(Railway 변수 SEEDPAY_RELAY_URL 없음)'} · 중계 키 해시(중계 쪽 RELAY_KEY_SHA256 에 넣는 값, 비밀 아님) <code>${h(d.relay.keyHash || '-')}</code></small>` : ''}
-        ${owner ? `<div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button> <button class="btn sm" id="pay-probe">결제 서버 연결 점검</button></div><div id="probe-out"></div>` : ''}</div>`;
-    const nt = d.notify || {}, on = nt.token && nt.chats;
-    const notify = `<div class="box ${on ? 'ok' : 'info'}"><b>주문 알림(텔레그램) ${on ? `켜짐 · 대화방 ${nt.chats}곳` : nt.token ? '대화방 ID 필요' : '꺼짐'}</b>
-        ${on ? '결제 완료·확인 필요 주문이 들어오면 텔레그램으로 바로 알려 줍니다.' : nt.token ? '텔레그램에서 봇에게 아무 말이나 보낸 뒤 \'대화방 ID 찾기\'를 누르고, 찾은 ID 를 Railway 변수 NOTIFY_TELEGRAM_CHAT_ID 에 넣어 주세요.'
-          : 'Railway 변수 NOTIFY_TELEGRAM_TOKEN(봇 토큰)과 NOTIFY_TELEGRAM_CHAT_ID(대화방 ID)를 넣으면 결제 완료·확인 필요 주문을 텔레그램으로 알려 줍니다.'}
-        ${nt.badChats ? `<br><b>NOTIFY_TELEGRAM_CHAT_ID 에 형식이 맞지 않는 값이 ${nt.badChats}개 있습니다(숫자 ID 를 쉼표로 구분).</b>` : ''}
-        ${owner && nt.token ? `<div class="actions static"><button class="btn sm" id="notify-test">${on ? '시험 알림 보내기' : '대화방 ID 찾기'}</button></div>` : ''}</div>`;
-    const rows = d.orders;
-    v.innerHTML = `${state}${notify}<div class="card"><h2>${all ? '결제 시도 전체' : '결제된 주문'}</h2><p class="h-sub">${all ? '결제 창을 열었다가 닫았거나 실패한 주문까지 모두(최근 500건)' : '결제 완료·취소·확인 필요 주문(최근 순)'}</p>
-      ${rows.length ? `<table class="list"><thead><tr><th>주문 일시</th><th>상품</th><th class="r">금액</th><th>상태</th><th>발송</th><th>받는 분</th><th></th></tr></thead><tbody>${rows.map(o => `<tr>
-        <td class="nw">${h(dt(o.createdAt))}<br><small>${h(o.moid)}</small></td><td>${o.items.map(h).join('<br>')}</td><td class="r nw">${won(o.amount)}</td>
-        <td><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? `<br><small>${h(o.fail)}</small>` : ''}</td>
-        <td>${o.status === 'paid' ? (o.fulfil === 'shipped' ? '<span class="tag live">발송함</span>' : '<span class="tag draft">발송 전</span>') : ''}</td>
-        <td>${h(o.receiver)}</td><td class="nw"><a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></td></tr>`).join('')}</tbody></table>`
-        : empty(all ? '아직 결제 시도가 없습니다.' : '아직 결제된 주문이 없습니다.')}</div>`;
+    const v = shell('결제 주문', { desc: '홈페이지에서 결제된 주문입니다. 날짜별로 보고, 보낼 주문을 골라 택배 엑셀을 내려받은 뒤 \'발송 처리\'를 눌러 주세요.' });
+    const [from, to] = rangeDates();
+    const d = await api('GET', `/api/admin/payments?${PAYF.st === 'tries' ? 'all=1&' : ''}from=${encodeURIComponent(from || '')}&to=${encodeURIComponent(to || '')}`);
+    // ── 총괄 관리자만: 결제 켜기·상점·결제통보·중계·알림·시험 기록 정리
+    let ownerBox = '';
+    if (owner) {
+      const state = !d.keySet ? '<div class="box bad"><b>상점키가 없습니다.</b> Railway 변수 SEEDPAY_MERCHANT_KEY 를 넣어야 결제할 수 있습니다.</div>'
+        : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
+          · 상점 ID ${h(d.mid)}${d.test ? ' · <b>씨드페이먼츠 테스트 서버(devpay)</b>' : ''}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
+          <br><small>결제통보 URL <code>${h(d.notiUrl)}</code> — 씨드페이먼츠 가맹점 관리자(mms.seedpayments.co.kr) → 가맹점정보 → 결제환경 설정 → 결제결과 통보관리에 신용카드용으로 등록하면, 가맹점 관리자에서 한 취소도 여기 반영됩니다.</small>
+          ${d.relay ? `<br><small>한국 중계 ${d.relay.on ? `켜짐 <code>${h(d.relay.url)}</code>` : '꺼짐(Railway 변수 SEEDPAY_RELAY_URL 없음)'} · 중계 키 해시(중계 쪽 RELAY_KEY_SHA256 에 넣는 값, 비밀 아님) <code>${h(d.relay.keyHash || '-')}</code></small>` : ''}
+          <div class="actions static"><button class="btn ${d.enabled ? '' : 'pri'} sm" id="pay-toggle">${d.enabled ? '홈페이지 결제 끄기' : '홈페이지 결제 켜기'}</button> <button class="btn sm" id="pay-probe">결제 서버 연결 점검</button></div><div id="probe-out"></div></div>`;
+      const nt = d.notify || {}, on = nt.token && nt.chats;
+      const notify = `<div class="box ${on ? 'ok' : 'info'}"><b>주문 알림(텔레그램) ${on ? `켜짐 · 대화방 ${nt.chats}곳` : nt.token ? '대화방 ID 필요' : '꺼짐'}</b>
+          ${on ? '결제 완료·확인 필요 주문이 들어오면 텔레그램으로 바로 알려 줍니다.' : nt.token ? '텔레그램에서 봇에게 아무 말이나 보낸 뒤 \'대화방 ID 찾기\'를 누르고, 찾은 ID 를 Railway 변수 NOTIFY_TELEGRAM_CHAT_ID 에 넣어 주세요.'
+            : 'Railway 변수 NOTIFY_TELEGRAM_TOKEN(봇 토큰)과 NOTIFY_TELEGRAM_CHAT_ID(대화방 ID)를 넣으면 결제 완료·확인 필요 주문을 텔레그램으로 알려 줍니다.'}
+          ${nt.badChats ? `<br><b>NOTIFY_TELEGRAM_CHAT_ID 에 형식이 맞지 않는 값이 ${nt.badChats}개 있습니다(숫자 ID 를 쉼표로 구분).</b>` : ''}
+          ${nt.token ? `<div class="actions static"><button class="btn sm" id="notify-test">${on ? '시험 알림 보내기' : '대화방 ID 찾기'}</button></div>` : ''}</div>`;
+      ownerBox = `<details class="ownbox"><summary>총괄 관리자 전용 · 결제 설정·알림·시험 기록 정리 <span class="tag ${d.enabled ? 'live' : ''}">결제 ${d.enabled ? '켜짐' : '꺼짐'}</span></summary>${state}${notify}
+        <div class="box info"><b>시험 기록 정리</b> 지금까지의 결제 주문을 보관 폴더(볼륨 orders/_archive)로 옮기고, '주문 흐름' 숫자를 오늘부터 새로 셉니다. 방문·유입 숫자와 결제 켜기 설정은 그대로입니다.${d.since ? ` <br><small>지금은 ${h(d.since)}부터 셉니다.</small>` : ''}
+          <div class="actions static" id="reset-box"><button class="btn sm danger" type="button" id="reset-1">시험 기록 정리하기</button></div></div></details>`;
+    }
+    // ── 이 기간 숫자
+    const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => o.fulfil !== 'shipped');
+    const list = d.orders.filter(o => stOk(o, PAYF.st));
+    const days = []; for (const o of list) { let g = days.find(x => x.day === o.day); if (!g) days.push(g = { day: o.day, list: [] }); g.list.push(o); }
+    const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}">
+        <input type="checkbox" data-sel="${h(o.moid)}" ${o.status === 'paid' ? '' : 'disabled'} aria-label="${h(o.receiver)} 주문 고르기">
+        <div class="o-time">${h(o.time)}</div>
+        <div class="o-main"><p class="o-items">${o.items.map(h).join('<br>')}</p>
+          <p class="o-to"><b>${h(o.receiver)}</b> · ${h(telFmt(o.tel))} · (${h(o.zip)}) ${h(o.addr)}${o.jeju ? ' · <b class="o-warn">제주·도서산간</b>' : ''}</p>
+          ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${h(o.fail)}</p>` : ''}
+          <p class="o-id">${h(o.moid)} · ${h(o.payLabel || '')}</p></div>
+        <div class="o-side"><b>${won(o.amount)}</b><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.status === 'paid' ? (o.fulfil === 'shipped' ? `<span class="tag live">발송함 ${h(dt(o.shippedAt))}</span>` : '<span class="tag draft">발송 전</span>') : ''}<a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></div></div>`;
+    v.innerHTML = `${ownerBox}
+      <div class="card ofbar"><div class="seg wrap" role="group" aria-label="기간">${RANGES.map(([k, t]) => `<a href="#" data-range="${k}" class="${PAYF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
+        <div class="ofpick" ${PAYF.range === 'pick' ? '' : 'hidden'}><input type="date" id="of-from" value="${h(PAYF.from)}" aria-label="시작 날짜"> ~ <input type="date" id="of-to" value="${h(PAYF.to)}" aria-label="끝 날짜"><button class="btn sm" type="button" id="of-go">보기</button></div>
+        <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}</a>`).join('')}</div></div>
+      <div class="kpis k3"><div class="kpi"><span>결제 완료</span><b>${num(paidIn.length)}건</b><small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
+        <div class="kpi"><span>발송 전</span><b>${num(todoIn.length)}건</b><small>${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
+        <div class="kpi"><span>발송함</span><b>${num(paidIn.length - todoIn.length)}건</b><small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div></div>
+      <div class="obar"><label class="chk"><input type="checkbox" id="o-all"> 보이는 결제 완료 주문 모두 고르기</label><span class="o-n" id="o-n">0건 고름</span>
+        <select id="o-fmt" aria-label="엑셀 양식">${(d.formats || []).map(([k, t]) => `<option value="${h(k)}">${h(t)}</option>`).join('')}</select>
+        <button class="btn sm pri" type="button" id="o-xls" disabled>엑셀 내려받기</button><button class="btn sm" type="button" id="o-ship" disabled>발송 처리</button><button class="btn sm" type="button" id="o-unship" disabled>발송 전으로</button></div>
+      ${days.length ? days.map(g => { const pd = g.list.filter(o => o.status === 'paid'); return `<section class="oday"><h3>${h(dayLabel(g.day))}<small>${g.list.length}건${pd.length ? ` · 결제 완료 ${pd.length}건 ${won(pd.reduce((a, o) => a + o.amount, 0))}` : ''}</small></h3>${g.list.map(row).join('')}</section>`; }).join('')
+        : `<div class="card">${empty(PAYF.st === 'todo' ? '이 기간에 보낼 주문이 없습니다.' : '이 기간에 주문이 없습니다.')}</div>`}
+      <p class="help">엑셀: '택배 접수용'은 주문 1건이 1줄(로젠 iLOGEN 등 복수건 접수 화면에서 열과 항목을 한 번 맞춰 엑셀 타입으로 저장해 두면 계속 쓸 수 있습니다), '3PL 출고용'은 상품 1개가 1줄입니다. 손님 이름·연락처·주소가 들어 있으니 접수 뒤에는 PC 에서 지워 주세요.</p>`;
+    // 고르기
+    const sel = new Set();
+    const sync = () => {
+      $('#o-n').textContent = `${sel.size}건 고름`;
+      ['#o-xls', '#o-ship', '#o-unship'].forEach(k => { $(k).disabled = !sel.size; });
+      const boxes = [...v.querySelectorAll('[data-sel]:not(:disabled)')]; $('#o-all').checked = boxes.length > 0 && boxes.every(b => b.checked);
+    };
+    v.querySelectorAll('[data-sel]').forEach(b => b.onchange = () => { if (b.checked) sel.add(b.dataset.sel); else sel.delete(b.dataset.sel); b.closest('.orow').classList.toggle('picked', b.checked); sync(); });
+    $('#o-all').onchange = e => { v.querySelectorAll('[data-sel]:not(:disabled)').forEach(b => { b.checked = e.target.checked; if (b.checked) sel.add(b.dataset.sel); else sel.delete(b.dataset.sel); b.closest('.orow').classList.toggle('picked', b.checked); }); sync(); };
+    sync();
+    // 기간·상태
+    v.querySelectorAll('[data-range]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.range = a.dataset.range; if (PAYF.range === 'pick') { if (!PAYF.from) { PAYF.from = kToday(6); PAYF.to = kToday(); } } payments(); });
+    v.querySelectorAll('[data-st]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.st = a.dataset.st; payments(); });
+    const go = $('#of-go'); if (go) go.onclick = () => { PAYF.from = $('#of-from').value; PAYF.to = $('#of-to').value; if (PAYF.from && PAYF.to && PAYF.from > PAYF.to) [PAYF.from, PAYF.to] = [PAYF.to, PAYF.from]; payments(); };
+    const at = $('#all-todo'); if (at) at.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = 'todo'; payments(); };
+    // 엑셀·발송 처리
+    $('#o-xls').onclick = async () => {
+      $('#o-xls').disabled = true;
+      try { const name = await download('/api/admin/payments-export', { moids: [...sel], format: $('#o-fmt').value }); toast(`${name} 을(를) 내려받았습니다. 택배 접수가 끝나면 '발송 처리'를 눌러 주세요.`, 6000); }
+      catch (e) { fail(e); } finally { $('#o-xls').disabled = !sel.size; }
+    };
+    const ship = status => async () => {
+      try { const r = await api('POST', '/api/admin/payments-ship', { moids: [...sel], status }); toast(status === 'shipped' ? `${r.changed}건 발송 처리했습니다` : `${r.changed}건을 발송 전으로 돌렸습니다`); payments(); }
+      catch (e) { fail(e); }
+    };
+    $('#o-ship').onclick = ship('shipped'); $('#o-unship').onclick = ship('new');
+    if (!owner) return;
+    // ── 총괄 관리자 버튼
     const nb = $('#notify-test');
     if (nb) nb.onclick = async () => {
       nb.disabled = true;
@@ -445,6 +514,16 @@
       tg.disabled = true;
       try { await api('POST', '/api/admin/payments-settings', { enabled: on }); toast(on ? '홈페이지 결제를 켰습니다' : '홈페이지 결제를 껐습니다'); payments(); }
       catch (e) { toast(e.message); tg.disabled = false; }
+    };
+    // 시험 기록 정리: 브라우저 확인 창 대신 화면 안에서 한 번 더 묻는다
+    $('#reset-1').onclick = () => {
+      $('#reset-box').innerHTML = `<p style="margin:0 0 8px"><b>정말 정리할까요?</b> 지금 있는 결제 주문 기록이 목록에서 빠지고(보관 폴더에 남음), 주문 흐름은 ${h(kToday())}부터 다시 셉니다.</p><button class="btn sm danger" type="button" id="reset-2">정리하기</button> <button class="btn sm" type="button" id="reset-no">그만두기</button>`;
+      $('#reset-no').onclick = () => payments();
+      $('#reset-2').onclick = async () => {
+        $('#reset-2').disabled = true;
+        try { const r = await api('POST', '/api/admin/payments-reset', { confirm: '정리' }); toast(`정리했습니다: 주문 ${r.archived}건 보관${r.keptReady ? `(결제 중일 수 있는 ${r.keptReady}건은 남김)` : ''}, 주문 흐름은 ${r.since}부터`, 7000); payments(); }
+        catch (e) { fail(e); $('#reset-2').disabled = false; }
+      };
     };
   }
   async function payDetail(moid) {
@@ -586,7 +665,7 @@
       <label for="p-points">특징 <small>한 줄에 하나씩, 상품 카드·상세 위에 보입니다</small></label><textarea id="p-points" style="min-height:110px">${h(p.points.join('\n'))}</textarea></div>
       ${o ? `<div class="card"><h2>옵션별 가격(3단 접이식)</h2><table class="opt"><tr><th>옵션</th><th>판매가</th><th>정가</th></tr>${keys.map(([k, t]) => `<tr><td>${h(t)}</td><td><input type="number" data-op="price" data-k="${k}" value="${o.price[k]}"></td><td><input type="number" data-op="list" data-k="${k}" value="${o.list[k]}"></td></tr>`).join('')}</table><p class="help">가장 싼 옵션의 가격이 '~원부터'로 보입니다.</p></div>` : ''}
       <div class="card"><h2>상품 사진</h2><p class="h-sub">첫 번째 사진이 대표 사진입니다. 화살표로 순서를 바꾸세요. 정사각형(1000×1000)이 가장 잘 보입니다.</p><div class="thumbs" id="imgs"></div><div class="actions static"><button class="btn sm" id="p-add" type="button">사진 추가</button></div></div>
-      <div class="actions"><button class="btn ok" id="p-save">저장하기</button><a class="btn" href="#/products/${p.id}/detail">상세페이지 고치기</a><a class="btn" href="/product-${p.id}.html" target="_blank" rel="noopener">상품 페이지 보기 ↗</a></div>`;
+      <div class="actions"><button class="btn ok" id="p-save">저장하기</button><a class="btn" href="#/products/${p.id}/detail">상세페이지 고치기</a><a class="btn" href="#/site/reviews/REVIEWS/${p.id}">이 상품 구매평</a><a class="btn" href="/product-${p.id}.html" target="_blank" rel="noopener">상품 페이지 보기 ↗</a></div>`;
     const drawImgs = () => {
       $('#imgs').innerHTML = imgs.map((x, i) => `<figure class="${i ? '' : 'first'}"><img src="${h(x.data || site(x.src))}" alt=""><figcaption><button class="btn sm" data-mv="${i}" data-d="-1" ${i ? '' : 'disabled'}>←</button><button class="btn sm danger" data-rm="${i}">삭제</button><button class="btn sm" data-mv="${i}" data-d="1" ${i < imgs.length - 1 ? '' : 'disabled'}>→</button></figcaption></figure>`).join('');
       $('#imgs').querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const i = +b.dataset.mv, j = i + +b.dataset.d; [imgs[i], imgs[j]] = [imgs[j], imgs[i]]; dirty = true; drawImgs(); });
@@ -670,7 +749,7 @@
       case 'check': return `<label class="chk"><input type="checkbox" ${dp} ${val ? 'checked' : ''}> ${h(f.label)}</label>`;
       case 'select': return `${lab}<select id="${id}" ${dp}>${f.opts.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
       case 'icon': return `${lab}<select id="${id}" ${dp}>${P.icons.map(([k, t]) => `<option value="${h(k)}" ${k === val ? 'selected' : ''}>${h(t)}</option>`).join('')}</select>`;
-      case 'product': return `${lab}<select id="${id}" ${dp} data-num="1"><option value="">상품 없음(회원 혜택 배너)</option>${P.products.map(p => `<option value="${p.id}" ${p.id === +val ? 'selected' : ''}>${h(p.short)}</option>`).join('')}</select>`;
+      case 'product': return `${lab}<select id="${id}" ${dp} data-num="1">${f.need ? '' : '<option value="">상품 없음(회원 혜택 배너)</option>'}${P.products.map(p => `<option value="${p.id}" ${p.id === +val ? 'selected' : ''}>${h(p.short)}</option>`).join('')}</select>`;
       case 'num': return `${lab}<input type="number" id="${id}" ${dp} data-num="1" value="${h(val ?? '')}">`;
       case 'image': return `${lab}<div class="imgf">${val ? `<img src="${h(imgSrc(val, f.base))}" alt="">` : '<span class="noimg">사진 없음</span>'}<div><button class="btn sm" type="button" data-act="img" data-p="${path}" data-maxw="${f.maxW || 1600}" data-ratio="${f.ratio || ''}">사진 바꾸기</button>${val && typeof val === 'object' && val.data ? '<p class="help">새 사진(저장하면 올라갑니다)</p>' : ''}</div></div>`;
       case 'table': {
@@ -686,30 +765,41 @@
     for (const f of def.fields) o[f.k] = f.t === 'lines' ? [] : f.t === 'pair' ? (f.optional ? undefined : ['', '']) : f.t === 'color' ? '#F5F0EA' : f.t === 'check' ? false : f.t === 'select' ? f.opts[0][0] : f.t === 'icon' ? 'i-check' : f.t === 'table' ? (f.tuple ? [['', '']] : []) : f.t === 'image' || f.t === 'product' ? '' : f.t === 'num' ? 0 : '';
     return o;
   };
-  async function siteBlocks(menu, name) {
+  async function siteBlocks(menu, name, pf) {
     if (!MENU_FIRST[menu]) { location.replace('#/site/home'); return; }
     name = name || MENU_FIRST[menu];
     const v = shell(MENU_TITLE[menu], { desc: MENU_DESC[menu] });
     const d = await api('GET', `/api/admin/blocks/${encodeURIComponent(name)}`);
     const def = d.def, P = { products: d.products, icons: d.icons };
     let S = clone(d.value);
-    const open = new Set(def.list && !def.prim && S.length <= 3 ? S.map((_, i) => i) : []);
+    // 상품별 보기(byProduct): pf = 고른 상품 번호(없으면 전체). 저장은 언제나 전체 목록
+    const PF = def.byProduct ? +pf || 0 : 0;
+    const visIdx = () => S.map((_, i) => i).filter(i => !PF || +(S[i] || {}).pid === PF);
+    const open = new Set(def.list && !def.prim && visIdx().length <= 3 ? visIdx() : []);
     const prodName = id => (P.products.find(x => x.id === +id) || {}).short;
-    const sumOf = (it, i) => name === 'HERO_SLIDES' ? `${prodName(it.id) || '회원 혜택 배너'} · ${plainSum(it.title)}` : plainSum(def.title ? it[def.title] : it) || `${i + 1}번`;
+    const sumOf = (it, i) => name === 'HERO_SLIDES' ? `${prodName(it.id) || '회원 혜택 배너'} · ${plainSum(it.title)}` : `${def.byProduct && !PF ? `${prodName(it.pid) || '상품 없음'} · ` : ''}${plainSum(def.title ? it[def.title] : it) || `${i + 1}번`}`;
     const imgField = !def.prim && def.list ? def.fields.find(f => f.t === 'image') : null;
-    const ctl = (i, n) => `<span class="bi-ctl"><button class="btn sm" type="button" data-act="up" data-p="${i}" ${i ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${i < n - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${n > (def.min || 0) ? '' : 'disabled'}>빼기</button></span>`;
+    // k = 보이는 순서(0부터), n = 보이는 개수 — 위·아래는 보이는 것끼리 바꾼다
+    const ctl = (i, n, k = i) => `<span class="bi-ctl"><button class="btn sm" type="button" data-act="up" data-p="${i}" ${k ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${k < n - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${S.length > (def.min || 0) ? '' : 'disabled'}>빼기</button></span>`;
+    const pfBar = () => def.byProduct ? `<div class="pfbar" role="group" aria-label="상품으로 보기"><a href="#/site/${menu}/${name}" class="${PF ? '' : 'on'}">전체 <b>${S.length}</b></a>${P.products.map(x => { const c = S.filter(it => +it.pid === x.id).length; return `<a href="#/site/${menu}/${name}/${x.id}" class="${PF === x.id ? 'on' : ''}${c ? '' : ' zero'}">${h(x.short)} <b>${c}</b></a>`; }).join('')}</div>` : '';
+    const none = () => PF && !visIdx().length ? `<p class="empty">「${h(prodName(PF) || '')}」 ${h(def.label)}이 아직 없습니다. 아래 버튼으로 넣어 주세요.</p>` : '';
     const counts = () => v.querySelectorAll('[data-cnt]').forEach(c => { const inp = v.querySelector(`[data-p="${c.dataset.cnt}"]`), k = len(inp ? inp.value : ''); c.textContent = `${k}자 / ${c.dataset.max}자까지`; c.classList.toggle('over', k > +c.dataset.max); });
     const draw = () => {
       let body;
       if (def.scalar) body = `<div class="card">${fieldHTML({ ...def.scalar, label: def.label }, S, '', P)}</div>`;
       else if (!def.list) body = `<div class="card">${def.fields.map(f => fieldHTML(f, S[f.k], f.k, P)).join('')}</div>`;
+      else if (def.grid) {
+        const vi = visIdx(), imf = def.fields.find(f => f.t === 'image'), pf2 = def.fields.find(f => f.k === 'pid');
+        body = `${pfBar()}<div class="card">${none()}<div class="thumbs">${vi.map((i, k) => `<figure><img src="${h(imgSrc(S[i][imf.k], imf.base))}" alt=""><div class="fsel">${fieldHTML({ ...pf2, label: '' }, S[i].pid, `${i}.pid`, P)}</div><figcaption><button class="btn sm" type="button" data-act="up" data-p="${i}" ${k ? '' : 'disabled'} aria-label="앞으로">←</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${S.length > (def.min || 0) ? '' : 'disabled'}>빼기</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${k < vi.length - 1 ? '' : 'disabled'} aria-label="뒤로">→</button></figcaption></figure>`).join('')}</div>
+          <div class="actions static"><button class="btn sm" type="button" data-act="add-img" data-maxw="${imf.maxW || 1000}" data-ratio="${imf.ratio || ''}">사진 추가${PF ? `(${h(prodName(PF) || '')})` : ''}</button></div></div>`;
+      }
       else if (def.prim && def.prim.t === 'image') body = `<div class="card"><div class="thumbs">${S.map((x, i) => `<figure><img src="${h(imgSrc(x))}" alt=""><figcaption><button class="btn sm" type="button" data-act="up" data-p="${i}" ${i ? '' : 'disabled'} aria-label="앞으로">←</button><button class="btn sm danger" type="button" data-act="del" data-p="${i}" ${S.length > (def.min || 0) ? '' : 'disabled'}>빼기</button><button class="btn sm" type="button" data-act="down" data-p="${i}" ${i < S.length - 1 ? '' : 'disabled'} aria-label="뒤로">→</button></figcaption></figure>`).join('')}</div>
           <div class="actions static"><button class="btn sm" type="button" data-act="add-img" data-maxw="${def.prim.maxW || 1000}" data-ratio="${def.prim.ratio || ''}">사진 추가</button></div></div>`;
       else if (def.prim) body = `<div class="card"><div class="plist">${S.map((x, i) => `<div class="pl"><span class="bi-no">${i + 1}</span><textarea data-p="${i}" rows="2" style="min-height:0" aria-label="${i + 1}번">${h(x)}</textarea>${ctl(i, S.length)}</div>`).join('')}</div>
           <div class="actions static"><button class="btn sm" type="button" data-act="add" ${def.max && S.length >= def.max ? 'disabled' : ''}>추가</button></div></div>`;
-      else body = `<div class="bis">${S.map((it, i) => `<details class="bi" data-i="${i}" ${open.has(i) ? 'open' : ''}><summary><span class="bi-no">${i + 1}</span>${imgField && it[imgField.k] ? `<img class="bi-img" src="${h(imgSrc(it[imgField.k], imgField.base))}" alt="">` : ''}<span class="bi-t" data-sum="${i}">${h(sumOf(it, i))}</span>${ctl(i, S.length)}</summary>
+      else body = `${pfBar()}${none()}<div class="bis">${visIdx().map((i, k, vi) => [S[i], i, k, vi.length]).map(([it, i, k, vn]) => `<details class="bi" data-i="${i}" ${open.has(i) ? 'open' : ''}><summary><span class="bi-no">${k + 1}</span>${imgField && it[imgField.k] ? `<img class="bi-img" src="${h(imgSrc(it[imgField.k], imgField.base))}" alt="">` : ''}<span class="bi-t" data-sum="${i}">${h(sumOf(it, i))}</span>${ctl(i, vn, k)}</summary>
           <div class="bi-body">${def.fields.map(f => `<div class="fd">${fieldHTML(f, it[f.k], `${i}.${f.k}`, P)}</div>`).join('')}</div></details>`).join('')}</div>
-          <div class="actions static"><button class="btn sm" type="button" data-act="add" ${def.max && S.length >= def.max ? 'disabled' : ''}>새 항목 추가</button>${S.length > 3 ? '<button class="btn sm" type="button" data-act="openall">모두 펼치기</button>' : ''}</div>`;
+          <div class="actions static"><button class="btn sm" type="button" data-act="add" ${def.max && S.length >= def.max ? 'disabled' : ''}>새 항목 추가</button>${visIdx().length > 3 ? '<button class="btn sm" type="button" data-act="openall">모두 펼치기</button>' : ''}</div>`;
       v.innerHTML = `<nav class="ptabs scroll" aria-label="${h(MENU_TITLE[menu])}">${d.siblings.map(x => `<a href="#/site/${menu}/${x.name}" class="${x.name === name ? 'on' : ''}">${h(x.label)}${x.changed ? '<i class="dot" title="처음 값과 다르게 고친 항목"></i>' : ''}</a>`).join('')}</nav>
         <div class="box info">${h(def.desc)}${def.anchor ? ` <a href="${h(def.anchor)}" target="_blank" rel="noopener">사이트에서 보기 ↗</a>` : ''}${d.changed ? '<br><small>지금은 처음 값과 다르게 고친 상태입니다.</small>' : ''}</div>
         ${body}
@@ -735,6 +825,7 @@
       if (!p.length) S = val; else setP(S, p, val);
       if (el.type === 'color' && el.nextElementSibling) el.nextElementSibling.textContent = val;
       dirty = true; counts();
+      if (def.byProduct && p[1] === 'pid') { draw(); return; }   // 상품을 바꾸면 칩 숫자·보이는 목록 다시
       if (def.list && !def.prim && typeof p[0] === 'number') { const t = v.querySelector(`[data-sum="${p[0]}"]`); if (t) t.textContent = sumOf(S[p[0]], p[0]); }
     });
     v.addEventListener('toggle', e => { const dd = e.target; if (dd.matches && dd.matches('details.bi')) { if (dd.open) open.add(+dd.dataset.i); else open.delete(+dd.dataset.i); } }, true);
@@ -744,13 +835,13 @@
       const act = b.dataset.act, p = pathOf(b.dataset.p ?? '');
       try {
         if (act === 'up' || act === 'down') {
-          const i = p[0], j = i + (act === 'up' ? -1 : 1); if (j < 0 || j >= S.length) return;
+          const vi = visIdx(), pos = vi.indexOf(p[0]), i = p[0], j = vi[pos + (act === 'up' ? -1 : 1)]; if (j == null) return;
           [S[i], S[j]] = [S[j], S[i]]; const oi = open.has(i), oj = open.has(j); open.delete(i); open.delete(j); if (oi) open.add(j); if (oj) open.add(i);
         } else if (act === 'del') { S.splice(p[0], 1); const next = new Set(); for (const k of open) if (k < p[0]) next.add(k); else if (k > p[0]) next.add(k - 1); open.clear(); next.forEach(k => open.add(k)); }
-        else if (act === 'add') { S.push(blankOf(def)); open.add(S.length - 1); }
-        else if (act === 'openall') { S.forEach((_, i) => open.add(i)); }
+        else if (act === 'add') { const it = blankOf(def); if (def.byProduct) it.pid = PF || 29; S.push(it); open.add(S.length - 1); }
+        else if (act === 'openall') { visIdx().forEach(i => open.add(i)); }
         else if (act === 'img') { const [f] = await pickFiles(false); if (!f) return; const x = await prepImage(f, +b.dataset.maxw || 1600, +b.dataset.ratio || 0); setP(S, p, { data: x.data, w: x.w, h: x.h }); }
-        else if (act === 'add-img') { for (const f of await pickFiles(true)) { const x = await prepImage(f, +b.dataset.maxw || 1000, +b.dataset.ratio || 0); S.push({ data: x.data, w: x.w, h: x.h }); } }
+        else if (act === 'add-img') { for (const f of await pickFiles(true)) { const x = await prepImage(f, +b.dataset.maxw || 1000, +b.dataset.ratio || 0), img = { data: x.data, w: x.w, h: x.h }; S.push(def.grid ? { pid: PF || 29, src: img } : img); } }
         else if (act === 'row-add') { const arr = getP(S, p) || []; arr.push(b.dataset.tuple ? ['', ''] : {}); setP(S, p, arr); }
         else if (act === 'row-del') { const arr = getP(S, p.slice(0, -1)); arr.splice(p[p.length - 1], 1); }
         else return;
@@ -986,7 +1077,7 @@
       else if (a === 'blog') await blogList();
       else if (a === 'products' && b && route()[2] === 'detail') await detailEdit(b);
       else if (a === 'products' && b && route()[2] === 'notice') await noticeEdit(b);
-      else if (a === 'site') await siteBlocks(b, route()[2]);
+      else if (a === 'site') await siteBlocks(b, route()[2], route()[3]);
       else if (a === 'texts') await texts(b);
       else if (a === 'products' && b) await productEdit(b);
       else if (a === 'products') await productList();

@@ -111,9 +111,11 @@
     return `<div class="chk"><div class="chk__head" aria-hidden="true"><span>확인할 것</span><span>잠스쿨</span><span>시중 제품 볼 때</span></div>${list.map(c => `<div class="chk__row"><p class="chk__q">${esc(c.q)}</p><p class="chk__a"><b>${esc(c.a)}</b><span>${esc(c.s)}</span></p><p class="chk__m">${esc(c.m)}</p></div>`).join('')}</div>`;
   }
   // ── 롤링 후기 (두 줄, 반대 방향). 복제본은 보조기기에서 숨긴다
-  function reviewRollHTML(best, shorts) {
-    const card1 = (r, i, dup) => `<button class="roll-card" type="button" data-rv="${i}"${dup ? ' tabindex="-1" aria-hidden="true"' : ''}><span class="roll-card__top"><span class="stars" style="--v:5" aria-hidden="true"></span><span class="rv__best">BEST</span></span><span class="roll-card__text">${esc(r.text)}</span><span class="roll-card__foot">${esc(r.id)}${r.opt ? ` · ${esc(r.opt)}` : ''} · 스마트스토어 구매평</span></button>`;
-    const card2 = (t, dup) => `<p class="roll-quote"${dup ? ' aria-hidden="true"' : ''}>“${esc(t)}”<span>공식몰 포토 구매평</span></p>`;
+  // names: 상품 번호 → 짧은 이름(3단 말고 다른 상품 구매평이면 카드에 상품 이름을 붙인다)
+  function reviewRollHTML(best, shorts, names = {}) {
+    const pn = r => r.pid && +r.pid !== 29 && names[r.pid] ? `${esc(names[r.pid])} · ` : '';
+    const card1 = (r, i, dup) => `<button class="roll-card" type="button" data-rv="${i}"${dup ? ' tabindex="-1" aria-hidden="true"' : ''}><span class="roll-card__top"><span class="stars" style="--v:5" aria-hidden="true"></span><span class="rv__best">BEST</span></span><span class="roll-card__text">${esc(r.text)}</span><span class="roll-card__foot">${pn(r)}${esc(r.id)}${r.opt ? ` · ${esc(r.opt)}` : ''} · 스마트스토어 구매평</span></button>`;
+    const card2 = (t, dup) => `<p class="roll-quote"${dup ? ' aria-hidden="true"' : ''}>“${esc(typeof t === 'string' ? t : t.text)}”<span>${typeof t === 'object' ? pn(t) : ''}공식몰 포토 구매평</span></p>`;
     const row1 = best.map((r, i) => card1(r, i)).join('') + best.map((r, i) => card1(r, i, true)).join('');
     const row2 = shorts.map(t => card2(t)).join('') + shorts.map(t => card2(t, true)).join('');
     return `<div class="roll" aria-label="구매평 롤링"><div class="roll__row"><div class="roll__track">${row1}</div></div><div class="roll__row roll__row--rev"><div class="roll__track">${row2}</div></div></div>`;

@@ -31,7 +31,7 @@ function walk(root, rel = '') {
   }
   return out;
 }
-const group = p => p === 'admin-users.json' ? 'users' : p === 'orders/settings.json' ? 'settings' : p.startsWith('orders/') ? 'orders' : p.startsWith('analytics/') ? 'analytics' : 'other';
+const group = p => p === 'admin-users.json' ? 'users' : p === 'orders/settings.json' ? 'settings' : /^orders\/JS\w+\.json$/.test(p) ? 'orders' : /^analytics\/\d{4}-\d{2}-\d{2}\.json$/.test(p) ? 'analytics' : 'other';   // 보관한 시험 주문·집계 정리 기록은 기타
 
 const ENV = [
   ['DATA_DIR', '볼륨 경로(/data) — 없으면 주문·계정·집계가 재배포 때 사라짐'],

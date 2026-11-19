@@ -32,7 +32,9 @@ await rejects('HERO_SLIDES', [{ ...J.HERO_SLIDES[0], sub: '가'.repeat(41) }], /
 await rejects('TRUST', [{ icon: 'i-nope', text: '문구' }], /아이콘/);
 await rejects('TRUST', [], /1개 이상/);
 await rejects('REVIEWS', 'x', /형식/);
-ok('빈 칸·없는 분류·색 형식·없는 상품·사이트 밖 사진·글자 수·없는 아이콘·빈 목록 거절');
+await rejects('REVIEWS', [{ id: 'a***', text: '좋아요' }], /상품을 골라/);
+await rejects('PHOTOS', [{ pid: 29, src: 'https://evil.example/x.jpg' }], /사진/);
+ok('빈 칸·없는 분류·색 형식·없는 상품·사이트 밖 사진·글자 수·없는 아이콘·빈 목록·상품 안 고른 구매평 거절');
 
 // 3) 사진 올리기: 슬라이드 크기(size) 기록, 상품 없음 = 회원 혜택 배너, 띄어쓰기
 const slide = (await cleanBlock('HERO_SLIDES', [{ ...J.HERO_SLIDES[0], id: '', img: { data: 'data:image/jpeg;base64,AA==', w: 900, h: 900 }, title: ['새 제목', '강조'] }], ctx))[0];
@@ -50,6 +52,9 @@ assert.deepEqual(J2.FAQ, [{ c: 'ship', q: '새 질문', a: ['첫 문단', '둘�
 assert.equal(J2.CS.tel, '02-123-4567'); assert.equal(J2.CS.telHref, 'tel:021234567'); assert.equal(J2.CS.mail, J.CS.mail);
 assert.equal(J2.REVIEW_BASIS, '새 기준'); assert.deepEqual(J2.NOTICE[43], [['소재', ['면 100%']]]); assert.deepEqual(J2.NOTICE[30], J.NOTICE[30]);
 assert.equal(J2.HERO_SLIDES.length, J.HERO_SLIDES.length);
-ok('data.js 가 고친 목록·고객센터(전화 링크 자동)·기준 문구·제공고시를 쓰고, 나머지는 그대로');
+assert.ok(J.REVIEWS.every(r => r.pid === 29) && J.SHORT_REVIEWS.every(r => r.pid === 29 && r.text) && J.PHOTOS.every(x => x.pid === 29 && x.src));
+const J3 = jam({ blocks: { PHOTOS: ['assets/img/reviews/r01.jpg', { pid: 43, src: 'assets/img/up/a.jpg' }], SHORT_REVIEWS: ['옛 형식'] } });
+assert.deepEqual(J3.PHOTOS, [{ pid: 29, src: 'assets/img/reviews/r01.jpg' }, { pid: 43, src: 'assets/img/up/a.jpg' }]); assert.deepEqual(J3.SHORT_REVIEWS, [{ pid: 29, text: '옛 형식' }]);
+ok('data.js 가 고친 목록·고객센터(전화 링크 자동)·기준 문구·제공고시를 쓰고, 구매평은 상품별(예전 형식은 3단으로), 나머지는 그대로');
 
 console.log(`\n목록 편집 시험 ${n}개 통과`);

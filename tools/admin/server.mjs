@@ -9,7 +9,8 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { ROLES, canWriteUsers, cookieHeader, hashPassword, loadUsers, login, newPassword, ready, saveUsers, sessionUser } from './auth.mjs';
 import { makeStore } from './store.mjs';
-import { summary as statsSummary, flushNow as statsFlush, forgetCache as statsForget } from './stats.mjs';
+import { summary as statsSummary, flushNow as statsFlush, forgetCache as statsForget, resetOrderStats, ordersSince } from './stats.mjs';
+import { FORMATS as SHIP_FORMATS, shipExport } from '../pay/ship-export.mjs';
 import * as BACKUP from './backup.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
@@ -402,7 +403,28 @@ route('GET', '/api/admin/check', 'owner', async () => {
   return { warn, posts: posts.length, todo: todo.length, last };
 });
 // ── 결제 주문(홈페이지 결제, tools/pay/seedpay.mjs) — 주문은 DATA_DIR 에 있고 GitHub 저장소와 상관없다
-route('GET', '/api/admin/payments', 'client', async ({ query, user }) => ({ ...PAY.adminStatus(), ...(user.role === 'owner' ? {} : { relay: undefined }), notify: NOTIFY.notifyStatus(), canCancel: user.role === 'owner', orders: PAY.listOrders({ all: query.get('all') === '1' }) }));
+// 잠스쿨 관리자에게는 주문·결제 켜짐 여부만(상점 ID·결제통보·중계·알림 설정은 총괄 관리자만)
+route('GET', '/api/admin/payments', 'client', async ({ query, user }) => {
+  const owner = user.role === 'owner', st = PAY.adminStatus();
+  const base = { enabled: st.enabled, canCancel: owner, orders: PAY.listOrders({ all: query.get('all') === '1', from: query.get('from') || '', to: query.get('to') || '' }), todo: PAY.todoCount(),
+    formats: Object.entries(SHIP_FORMATS).map(([k, f]) => [k, f.label]), since: ordersSince() };
+  return owner ? { ...st, ...base, notify: NOTIFY.notifyStatus() } : base;
+});
+// 고른 결제 완료 주문: 발송 처리 한꺼번에 / 택배사·3PL 엑셀
+route('POST', '/api/admin/payments-ship', 'client', async ({ data, user }) => PAY.shipMany(data.moids, data.status === 'new' ? 'new' : 'shipped', user));
+route('POST', '/api/admin/payments-export', 'client', async ({ data, user }) => {
+  const orders = PAY.ordersForExport(data.moids), f = shipExport(orders, String(data.format || ''));
+  console.log(`[admin] 발송 엑셀 ${user.id} ${data.format} ${orders.length}건`);
+  return { __file: f };
+});
+// 시험 기록 정리(총괄 관리자): 결제 주문은 보관 폴더로, 주문 흐름은 오늘부터 새로
+route('POST', '/api/admin/payments-reset', 'owner', async ({ data, user }) => {
+  need(data.confirm === '정리', 400, '확인 문구가 맞지 않습니다');
+  statsFlush();
+  const a = PAY.archiveOrders(user), s = resetOrderStats(user.id);
+  console.log(`[admin] 시험 기록 정리 ${user.id}: 주문 ${a.archived}건 보관, 주문 흐름 ${s.since}부터`);
+  return { ok: true, ...a, ...s };
+});
 // 주문 알림(텔레그램) 시험 — 대화방 ID 가 없으면 봇에게 말을 건 대화방을 찾아 준다(tools/pay/notify.mjs)
 route('POST', '/api/admin/payments-notify-test', 'owner', async ({ user }) => NOTIFY.notifyTest(user));
 // 결제 서버 연결 점검 — 이 서버의 나가는 IP·나라, 씨드 승인 주소가 받아 주는지(403 이면 씨드가 이 서버 IP 를 막음)
@@ -472,7 +494,12 @@ export async function handleAdmin(req, res) {
       if (req.method !== 'GET') need(req.headers['x-jam-admin'] === '1', 403, '잘못된 요청');
       if (r.role && req.method !== 'GET' && !p.startsWith('/api/admin/me') && p !== '/api/admin/preview' && p !== '/api/admin/users' && !p.startsWith('/api/admin/payments') && !p.startsWith('/api/admin/data')) need(store.ready(), 503, '저장소(GitHub) 연결이 안 되어 있습니다 — Railway 변수 GITHUB_TOKEN');
       const data = req.method === 'GET' ? {} : await body(req);
-      send(res, 200, await r.fn({ req, user, data, params: m.groups || {}, query: url.searchParams }) || { ok: true }); return true;
+      const out = await r.fn({ req, user, data, params: m.groups || {}, query: url.searchParams }) || { ok: true };
+      if (out.__file) {   // 내려받을 파일(발송 엑셀)
+        res.writeHead(200, { 'Content-Type': out.__file.type, 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(out.__file.name)}`, 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow' });
+        res.end(out.__file.buf); return true;
+      }
+      send(res, 200, out); return true;
     }
     send(res, 404, { error: '없는 요청' }); return true;
   } catch (e) {

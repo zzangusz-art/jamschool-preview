@@ -202,7 +202,7 @@ idx = fill(idx, 'uses-tabs', uses.tabs);
 idx = fill(idx, 'uses-panel', uses.panel);
 idx = fill(idx, 'faq', R.faqHTML(FAQ));
 idx = fill(idx, 'features', R.featuresHTML(FEATURES));
-idx = fill(idx, 'roll', R.reviewRollHTML(REVIEWS, SHORT_REVIEWS));
+idx = fill(idx, 'roll', R.reviewRollHTML(REVIEWS, SHORT_REVIEWS, Object.fromEntries(PRODUCTS.map(p => [p.id, p.short]))));
 const price = R.priceHTML(O);
 idx = fill(idx, 'price-tabs', price.tabs);
 idx = fill(idx, 'price-panels', price.panels);
@@ -339,8 +339,10 @@ function specBase(p) {
 }
 function reviewsHTMLp(p) {
   const sum = `<div class="rv-sum"><p class="rv-sum__score">${p.rating.toFixed(2)}</p><div class="rv-sum__meta"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><p>구매평 <b>${p.reviews.toLocaleString('ko-KR')}</b>건</p><p class="note">${esc(JAM.REVIEW_BASIS)}</p></div><a class="btn btn--line btn--sm" href="${esc(p.mall)}#prod_detail_review">공식몰 구매평 보기</a></div>`;
-  if (p.id !== 29) return sum;
-  return sum + `<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div><div class="rv-list rv-list--pd">${R.reviewsHTML(REVIEWS)}</div>`;
+  // 그 상품 구매평·포토 구매평만(어드민 '구매평'에서 상품별로 고침)
+  const mine = REVIEWS.filter(r => +r.pid === p.id), photos = JAM.PHOTOS.filter(x => +x.pid === p.id);
+  if (!mine.length && !photos.length) return sum;
+  return sum + (photos.length ? '<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div>' : '') + (mine.length ? `<div class="rv-list rv-list--pd">${R.reviewsHTML(mine)}</div>` : '');
 }
 function qnaHTML(p) {
   const list = p.id === 29 ? FAQ : FAQ.filter(f => f.c === 'ship');

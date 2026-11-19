@@ -448,13 +448,46 @@ export function adminStatus() {
   const k = KEY(), host = (process.env.CANONICAL_HOST || 'jamschool.kr').trim();
   return { keySet: !!k, mid: MID(), enabled: settings().enabled, dataDir: !!process.env.DATA_DIR, methods: k ? pgMethods() : [], test: TEST(), notiUrl: `https://${host}/api/pay/noti`, relay: { on: relayOn(), url: RELAY().replace(/^(https:\/\/[^/:]+).*/, '$1'), keyHash: relayKeyHash() } };
 }
-export function listOrders({ all = false } = {}) {
-  let names = []; try { names = fs.readdirSync(DIR()).filter(f => /^JS\w+\.json$/.test(f)); } catch { names = []; }
-  return names.map(f => load(f.slice(0, -5))).filter(Boolean)
+// 주문 날짜(한국 시각): from·to = YYYY-MM-DD(주문 일시 기준, 둘 다 포함)
+const kday = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10);
+const ktime = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(11, 16);
+const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
+const allOrders = () => { let names = []; try { names = fs.readdirSync(DIR()).filter(f => /^JS\w+\.json$/.test(f)); } catch { names = []; } return names.map(f => load(f.slice(0, -5))).filter(Boolean); };
+export function listOrders({ all = false, from = '', to = '' } = {}) {
+  return allOrders()
     .filter(o => all || ['paid', 'check', 'cancelled', 'approving'].includes(o.status))
-    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 500)
-    .map(o => ({ moid: o.moid, createdAt: o.createdAt, paidAt: o.paidAt || '', status: o.status, statusName: LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
-      items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), receiver: o.receiver.name, fulfil: (o.fulfil || {}).status || 'new', fail: (o.fail || {}).msg || '' }));
+    .filter(o => (!isDay(from) || kday(o.createdAt) >= from) && (!isDay(to) || kday(o.createdAt) <= to))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 1000)
+    .map(o => ({ moid: o.moid, createdAt: o.createdAt, day: kday(o.createdAt), time: ktime(o.createdAt), paidAt: o.paidAt || '', status: o.status, statusName: LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
+      items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), qty: o.items.reduce((a, x) => a + x.qty, 0), receiver: o.receiver.name, tel: o.receiver.tel, zip: o.receiver.zip,
+      addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fulfil: (o.fulfil || {}).status || 'new', shippedAt: (o.fulfil || {}).status === 'shipped' ? o.fulfil.at : '', fail: (o.fail || {}).msg || '' }));
+}
+// 날짜와 상관없이 결제 완료·발송 전 주문 수(목록 위 안내)
+export const todoCount = () => allOrders().filter(o => o.status === 'paid' && (o.fulfil || {}).status !== 'shipped').length;
+// 발송용 엑셀·일괄 발송: 고른 주문 중 결제 완료만(고른 순서대로)
+const pickPaid = moids => { const ids = [...new Set((Array.isArray(moids) ? moids : []).map(String))].slice(0, 1000); return ids.map(load).filter(o => o && o.status === 'paid').map(o => ({ ...o, statusName: LABEL[o.status] })); };
+export function ordersForExport(moids) {
+  const list = pickPaid(moids); if (!list.length) throw new PayError(400, '결제 완료된 주문을 골라 주세요');
+  return list;
+}
+export function shipMany(moids, status, user) {
+  const list = pickPaid(moids); if (!list.length) throw new PayError(400, '결제 완료된 주문을 골라 주세요');
+  let n = 0; for (const o of list) { if (((o.fulfil || {}).status === 'shipped') === (status === 'shipped')) continue; setFulfil(o.moid, status, user); n++; }
+  log('ship-many', status === 'shipped' ? 'shipped' : 'new', n, user.id);
+  return { ok: true, changed: n, picked: list.length };
+}
+// 시험 기록 정리(총괄 관리자): 주문 파일을 orders/_archive/<시각>/ 로 옮긴다(지우지 않음). 결제 켜기 설정(settings.json)은 그대로.
+//   방금 결제창을 연 주문(결제 전, 1시간 안)은 손님이 결제 중일 수 있어 남긴다
+export function archiveOrders(user) {
+  if (BUSY.size) throw new PayError(409, '승인 처리 중인 결제가 있습니다. 잠시 뒤 다시 해 주세요');
+  const d = DIR(), rel = `_archive/${kstStamp()}-${String(user.id || '').replace(/\W/g, '')}`, dest = path.join(d, ...rel.split('/'));
+  const recent = Date.now() - 3600e3; let n = 0, kept = 0;
+  for (const o of allOrders()) {
+    if (o.status === 'ready' && Date.parse(o.createdAt) > recent) { kept++; continue; }
+    fs.mkdirSync(dest, { recursive: true }); fs.renameSync(fileOf(o.moid), path.join(dest, `${o.moid}.json`)); n++;
+  }
+  log('archive', n, kept, user.id);
+  return { archived: n, keptReady: kept, keptIn: n ? `orders/${rel}` : '' };
 }
 export function getOrderAdmin(id) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');

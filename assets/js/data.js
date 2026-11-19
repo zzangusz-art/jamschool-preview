@@ -355,6 +355,10 @@
   if (B.CS) { Object.assign(CS, B.CS); CS.telHref = 'tel:' + String(CS.tel).replace(/\D/g, ''); }
   if (B.MARKET) Object.assign(MARKET, B.MARKET);
   for (const [id, rows] of Object.entries(OV.notice || {})) if (Array.isArray(rows)) NOTICE[id] = rows;
+  // 구매평은 상품별(pid = 상품 번호). 예전 형식(구매평 글만·사진 주소만)은 3단(29) 것으로 본다
+  REVIEWS.forEach(r => { if (r.pid == null) r.pid = 29; });
+  SHORT_REVIEWS.splice(0, SHORT_REVIEWS.length, ...SHORT_REVIEWS.map(t => typeof t === 'string' ? { pid: 29, text: t } : t));
+  PHOTOS.splice(0, PHOTOS.length, ...PHOTOS.map(s => typeof s === 'string' ? { pid: 29, src: s } : s));
   { // 3단 대표 가격 = 가장 싼 옵션의 판매가·정가
     const p29 = PRODUCTS.find(p => p.id === 29), cheap = Object.keys(OPTIONS_29.price).sort((a, b) => OPTIONS_29.price[a] - OPTIONS_29.price[b])[0];
     if (p29) { p29.price = OPTIONS_29.price[cheap]; p29.list = OPTIONS_29.list[cheap]; }

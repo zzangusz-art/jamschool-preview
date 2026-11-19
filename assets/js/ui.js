@@ -302,9 +302,12 @@
   // ── 포토 구매평 스트립 + 리뷰 더보기
   function photoStrip(el) {
     if (!el) return;
-    const ph = JAM.PHOTOS;
-    el.innerHTML = ph.map((s, i) => `<button type="button" aria-label="포토 구매평 ${i + 1} 크게 보기">${RENDER.pic(s, 'alt="" width="160" height="160" loading="lazy"')}</button>`).join('');
-    $$('button', el).forEach((b, i) => b.addEventListener('click', () => lightbox(ph.map((s, k) => ({ src: s, alt: `포토 구매평 ${k + 1}`, cap: '3단 접이식 매트리스 포토 구매평' })), i)));
+    // 상품 페이지는 그 상품 사진만, 홈은 전체(PHOTOS 항목 = { pid: 상품 번호, src })
+    const pid = (location.pathname.match(/product-(\d+)/) || [])[1];
+    const ph = JAM.PHOTOS.map(x => typeof x === 'string' ? { pid: 29, src: x } : x).filter(x => !pid || String(x.pid) === pid);
+    const cap = id => `${(JAM.PRODUCTS.find(p => String(p.id) === String(id)) || { short: '잠스쿨' }).short} 포토 구매평`;
+    el.innerHTML = ph.map((x, i) => `<button type="button" aria-label="포토 구매평 ${i + 1} 크게 보기">${RENDER.pic(x.src, 'alt="" width="160" height="160" loading="lazy"')}</button>`).join('');
+    $('button', el).forEach((b, i) => b.addEventListener('click', () => lightbox(ph.map((x, k) => ({ src: x.src, alt: `포토 구매평 ${k + 1}`, cap: cap(x.pid) })), i)));
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('.rv__more'); if (!b) return;
