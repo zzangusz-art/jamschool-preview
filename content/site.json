@@ -244,7 +244,7 @@
           "id": "gnt4xf",
           "name": "색상",
           "note": "",
-          "price": true,
+          "price": false,
           "values": [
             {
               "id": "v62ued",
@@ -260,27 +260,15 @@
         }
       ],
       "prices": {
-        "vcr5rq-v62ued": {
+        "vcr5rq": {
           "price": 42600,
           "list": 70000
         },
-        "vcr5rq-vv84nt": {
-          "price": 42600,
-          "list": 70000
-        },
-        "vxf9yj-v62ued": {
+        "vxf9yj": {
           "price": 50600,
           "list": 78000
         },
-        "vxf9yj-vv84nt": {
-          "price": 50600,
-          "list": 78000
-        },
-        "vrlg5v-v62ued": {
-          "price": 63600,
-          "list": 91000
-        },
-        "vrlg5v-vv84nt": {
+        "vrlg5v": {
           "price": 63600,
           "list": 91000
         }
