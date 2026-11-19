@@ -413,6 +413,7 @@ function publicView(o) {
   const QUOTA = q => !q || +q === 0 ? '일시불' : `${+q}개월`;
   return {
     no: o.moid, status: o.status, mode: 'pg', pay: o.method,
+    canReview: o.status === 'paid' && ['shipped', 'delivered'].includes(fulfilNow(o, shipSettings(DIR())).status),   // 보낸 뒤부터 구매평(반품·교환 요청 중이어도)
     payLabel: o.status === 'paid' && o.pg && o.pg.cardName ? `${o.payLabel} (${o.pg.cardName} · ${QUOTA(o.pg.cardQuota)})` : o.payLabel,
     total: o.amount, sub: o.sub, ship: o.ship, items: o.items.map(({ id, name, opt, qty, price, img, cat }) => ({ id, name, opt, qty, price, img, cat })),
     name: mask(o.receiver.name), tel: `${o.receiver.tel.slice(0, 3)}-****-${o.receiver.tel.slice(-4)}`, addr: `(${o.receiver.zip}) ${o.receiver.addr1} · 상세 주소 생략`,
@@ -543,6 +544,19 @@ export function taskCounts() {
     if (isLate(o, cfg, hol)) t.late++;
   }
   return t;
+}
+// 구매평 쓰기용 구매 확인(tools/reviews/api.mjs): 조회 주소(o·t) 또는 주문번호+휴대폰. 보낸 뒤(배송 중·배송 완료)부터 쓸 수 있다
+export function reviewOrder({ o, t, no, tel } = {}) {
+  let x = null;
+  if (o && t) { x = load(str(o)); if (!x || !same(t, x.token)) return null; }
+  else {
+    const id = str(no).toUpperCase().replace(/\s/g, ''), d = digits(tel);
+    x = /^JS[0-9A-Z]{10,30}$/.test(id) ? load(id) : null;
+    if (!x || d.length < 10 || ![x.buyer && x.buyer.tel, x.receiver && x.receiver.tel].includes(d)) return null;
+  }
+  if (!['paid', 'cancelled'].includes(x.status)) return null;
+  const f = fulfilNow(x, shipSettings(DIR()));
+  return { moid: x.moid, token: x.token, buyerName: x.buyer ? x.buyer.name : '', items: x.items.map(i => ({ id: i.id, name: i.name, opt: i.opt || '' })), can: x.status === 'paid' && ['shipped', 'delivered'].includes(f.status) };
 }
 // 관리자 메모(주문마다 하나, 손님에게는 안 보임)
 export function setMemo(id, memo, user) {

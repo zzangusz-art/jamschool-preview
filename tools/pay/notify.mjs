@@ -64,6 +64,16 @@ export function notifyClaim(o, typeName, reason) {
   INFLIGHT.add(p); p.finally(() => INFLIGHT.delete(p));
   return p;
 }
+// 손님이 홈페이지에서 쓴 새 구매평(승인 대기면 처리해 달라고)
+export function notifyReview(r) {
+  if (!TOKEN() || !CHATS().length) return Promise.resolve({ sent: 0, skipped: true });
+  const link = `https://${HOST()}/admin#/reviewsmgr`;
+  const text = [`<b>${r.status === 'pending' ? '📝 [잠스쿨] 새 구매평 — 승인 대기' : '⭐ [잠스쿨] 새 구매평'}</b>`, `${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)} · 상품 ${esc(r.pid)}${r.photos && r.photos.length ? ` · 사진 ${r.photos.length}장` : ''}`,
+    esc(String(r.text || '').slice(0, 120)), `<a href="${esc(link)}">구매평 관리에서 보기</a>`].join(String.fromCharCode(10));
+  const p = sendAll(text).then(rs => ({ sent: rs.filter(x => x.status === 'fulfilled').length })).catch(() => ({ sent: 0 }));
+  INFLIGHT.add(p); p.finally(() => INFLIGHT.delete(p));
+  return p;
+}
 export const settled = () => Promise.allSettled([...INFLIGHT]);   // 시험용: 보내는 중인 알림이 끝날 때까지
 
 // ───────── 관리자 어드민: 상태 · 시험 알림(대화방 ID 가 없으면 봇에게 말을 건 대화방을 찾아 준다)

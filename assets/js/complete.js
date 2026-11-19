@@ -54,6 +54,10 @@
     if (bits.length) { const el = $('#done-claim'); el.hidden = false; el.innerHTML = bits.join('<br>'); }
     if (s.due) { const el = $('#done-due'); el.hidden = false; el.innerHTML = `<b>${esc(s.due)}</b> · 오후 1시 이전 결제는 당일 출고합니다(주말·공휴일 제외).`; }
     request(o, s);
+    // 보낸 뒤부터(반품·교환 요청 중이어도): 상품마다 '구매평 쓰기'(상품 페이지에서 구매 확인 없이 바로 쓰기 창이 열린다)
+    if (o.canReview && q.get('o') && q.get('t')) {
+      UI.$$('#done-items .co-item').forEach((li, i) => { const x = o.items[i]; if (!x || !x.id) return; li.lastElementChild.insertAdjacentHTML('beforeend', `<a class="btn btn--line btn--sm co-item__rv" href="product-${encodeURIComponent(x.id)}.html?write=1&o=${encodeURIComponent(q.get('o'))}&t=${encodeURIComponent(q.get('t'))}#rva">구매평 쓰기</a>`); });
+    }
   }
   // 손님 요청: 발송 전 = 주문 취소 요청, 받은 뒤 7일 안 = 반품·교환 요청. 보낸 뒤에는 화면을 다시 불러 진행 상황을 보여 준다
   const REQ = {

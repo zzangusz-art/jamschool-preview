@@ -333,3 +333,12 @@
 @media (prefers-reduced-motion: reduce) { .bt, .bt img, .bt__bg, .bt__meter i { transition: none; } }
 .blog-hero p.blog-hero__more { margin-top: 6px; font-size: 15px; }
 .blog-hero__more a { color: #038C40; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+
+/* 홈: 상품별 구매평 모아 보기 바로가기 */
+.rv-all { margin-top: 22px; padding: 18px 20px; border-radius: var(--r); background: #fff; border: 1px solid var(--line); }
+.rv-all__t { font-size: 15px; color: var(--body); }
+.rv-all__t b { color: var(--ink); }
+.rv-all__chips { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.rv-all__chips a { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--body); text-decoration: none; }
+.rv-all__chips a b { margin-left: 3px; color: var(--sky-ink); font-size: 13px; }
+.rv-all__chips a:hover { border-color: var(--ink); color: var(--ink); }

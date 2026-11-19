@@ -126,15 +126,19 @@
   }
   // 구매평 모아 보기 카드(상품 페이지: 빌드가 미리 그린 것 + reviews.js 가 더 불러온 것). 사진은 네이버 스마트스토어 서버 주소 그대로(작은 사진 f300_300, 크게 w640 — 2026-11-19 확인: w860·w800 은 404, 원본은 수 MB)
   const RV_PHOTO = 'https://phinf.pstatic.net/checkout.phinf/';
-  const rvPhoto = (p, size) => (/^https:/.test(p) ? p : RV_PHOTO + p) + (size ? `?type=${size}` : '');
+  // 사진: 네이버 스마트스토어 사진은 그 서버 주소(작은 사진 f300_300, 크게 w640), 홈페이지 손님 사진은 /api/reviews/img/… 그대로
+  const rvPhoto = (p, size) => /^\//.test(p) ? p : (/^https:/.test(p) ? p : RV_PHOTO + p) + (size ? `?type=${size}` : '');
   const NL = String.fromCharCode(10);
   function rvCard(x, id, hl) {
     let body = esc(x.t);
     if (hl) body = body.replace(hl, m => `<mark>${m}</mark>`);
-    return `<article class="rva-c"><div class="rva-c__top"><span class="stars" style="--v:${+x.s || 5}" aria-label="별점 ${+x.s || 5}점"></span>${x.b ? '<span class="rva-c__tag rva-c__tag--best">BEST</span>' : ''}${x.m ? '<span class="rva-c__tag">한 달 사용</span>' : ''}<span class="rva-c__meta">${esc(x.i || '')} · ${esc(String(x.d || '').replace(/-/g, '.'))}</span></div>`
-      + `<div class="rva-c__body">${x.p ? `<button class="rva-c__ph" type="button" data-ph="${esc(rvPhoto(x.p, 'w640'))}" aria-label="구매평 사진 크게 보기"><img src="${esc(rvPhoto(x.p, 'f300_300'))}" alt="" width="88" height="88" loading="lazy" decoding="async" referrerpolicy="no-referrer"></button>` : ''}`
+    const photos = x.ps && x.ps.length ? x.ps : x.p ? [x.p] : [];
+    const tags = `${x.b ? '<span class="rva-c__tag rva-c__tag--best">BEST</span>' : ''}${x.v ? '<span class="rva-c__tag rva-c__tag--buy">홈페이지 구매</span>' : ''}${x.src ? `<span class="rva-c__tag">${esc(x.src)} 구매</span>` : ''}${x.m ? '<span class="rva-c__tag">한 달 사용</span>' : ''}`;
+    const meta = [x.i, x.d ? String(x.d).replace(/-/g, '.') : ''].filter(Boolean).map(esc).join(' · ');
+    return `<article class="rva-c"><div class="rva-c__top"><span class="stars" style="--v:${+x.s || 5}" aria-label="별점 ${+x.s || 5}점"></span>${tags}<span class="rva-c__meta">${meta}</span></div>`
+      + `${x.o ? `<p class="rva-c__opt">${esc(x.o)}</p>` : ''}<div class="rva-c__body">${photos.length ? `<div class="rva-c__phs">${photos.slice(0, 3).map((ph, k) => `<button class="rva-c__ph" type="button" data-ph="${esc(rvPhoto(ph, 'w640'))}" data-phs="${esc(photos.map(q => rvPhoto(q, 'w640')).join(' '))}" data-k="${k}" aria-label="구매평 사진 ${k + 1} 크게 보기"><img src="${esc(rvPhoto(ph, 'f300_300'))}" alt="" width="88" height="88" loading="lazy" decoding="async" referrerpolicy="no-referrer"></button>`).join('')}</div>` : ''}`
       + `<div class="rva-c__txt"><p class="rv__text" id="${esc(id)}">${body.split(NL).join('<br>')}</p><button class="rv__more" type="button" aria-expanded="false" aria-controls="${esc(id)}">더보기</button>`
-      + `${x.r ? `<p class="rva-c__prev"><b>처음 쓴 구매평</b> ${esc(x.r)}</p>` : ''}</div></div></article>`;
+      + `${x.r ? `<p class="rva-c__prev"><b>처음 쓴 구매평</b> ${esc(x.r)}</p>` : ''}${x.rp ? `<p class="rva-c__reply"><b>잠스쿨 답글</b> ${esc(x.rp)}</p>` : ''}</div></div></article>`;
   }
   G.RENDER = { esc, won, rate, rateOf, href, webp, pic, swap, badge, productCard, accItem, faqHTML, testsHTML, reviewsHTML, usesHTML, usePanel, specTable, featuresHTML, priceHTML, marketHTML, checksHTML, reviewRollHTML, postCard, perDay, ICON, rvCard, rvPhoto };
 })(typeof window !== 'undefined' ? window : globalThis);

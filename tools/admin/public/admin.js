@@ -61,7 +61,7 @@
   // ── 화면 틀(메뉴는 글자만)
   const NAV = [
     ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['shipset', '배송 설정'], ['orders', '주문 흐름']]],
-    ['사이트 꾸미기', [['site/home', '홈 화면'], ['site/event', '팝업·이벤트'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['site/reviews', '구매평'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
+    ['사이트 꾸미기', [['site/home', '홈 화면'], ['site/event', '팝업·이벤트'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['reviewsmgr', '구매평 관리'], ['site/reviews', 'BEST 구매평·사진'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
     ['글', [['blog', '블로그']]],
   ];
   const OWNER_NAV = [['settings', '소유확인·추적 코드'], ['topics', '블로그 자동 발행'], ['check', '키워드 점검'], ['log', '작업 기록'], ['users', '계정 관리'], ['data', '서버·데이터 옮기기']];
@@ -186,7 +186,7 @@
         <div class="kpi"><span>최근 7일 방문자</span><b>${num(u7)}명</b><small>${delta(u7, up7)} 직전 7일 ${num(up7)}명</small></div>
         <div class="kpi"><span>오늘 결제</span><b>${num(paidToday.length)}건</b><small>${won(paidToday.reduce((a, o) => a + o.amount, 0))}</small></div>
         <div class="kpi"><span>발송 전 주문</span><b>${num(p ? p.todo : 0)}건</b><small>${p && p.todo ? '<a href="#/payments" id="go-todo">보낼 주문 보기 →</a>' : '보낼 주문 없음'}</small></div></div>
-      ${p && p.tasks ? (() => { const t = p.tasks, items = [['todo', '신규 주문(발주 확인 전)', t.new], ['todo', '상품 준비 중(송장 입력 전)', t.prep], ['late', '출고 지연', t.late], ['claim', '취소·반품·교환 처리 중', t.claim], ['claim', '손님 새 요청', t.claimCustomer], ['issue', '결제 확인 필요', t.check]].filter(x => x[2]);
+      ${p && p.tasks ? (() => { const t = p.tasks, items = [['todo', '신규 주문(발주 확인 전)', t.new], ['todo', '상품 준비 중(송장 입력 전)', t.prep], ['late', '출고 지연', t.late], ['claim', '취소·반품·교환 처리 중', t.claim], ['claim', '손님 새 요청', t.claimCustomer], ['issue', '결제 확인 필요', t.check], ['rv', '승인 대기 구매평', t.rvPending]].filter(x => x[2]);
         return `<div class="card todo-card"><h2>처리할 일</h2>${items.length ? `<div class="todo-list">${items.map(([st, label, n]) => `<a href="#/payments" data-go="${st}" class="${st === 'late' || label === '손님 새 요청' || st === 'issue' ? 'warn' : ''}"><span>${h(label)}</span><b>${num(n)}건</b></a>`).join('')}</div>` : '<p class="help">지금 처리할 주문이 없습니다.</p>'}</div>`; })() : ''}
       <div class="cols"><div class="card"><div class="ch"><div><h2>방문자</h2><p class="h-sub">최근 14일 · 마우스를 올리면 그날 숫자</p></div><a class="btn sm" href="#/traffic/30">자세히</a></div><div class="lcbox" id="d-visit">${s ? '' : empty('방문 기록을 불러오지 못했습니다.')}</div></div>
         <div class="card"><div class="ch"><div><h2>결제 금액</h2><p class="h-sub">최근 14일 결제 완료(취소 제외) · 14일 합계 ${won(paySum.reduce((a, b) => a + b, 0))}</p></div><a class="btn sm" href="#/payments">자세히</a></div><div class="lcbox" id="d-pay"></div></div></div>
@@ -194,7 +194,11 @@
           ${recent.length ? `<table class="list rtbl"><thead><tr><th>일시</th><th>상품</th><th class="r">금액</th><th>상태</th></tr></thead><tbody>${recent.map(o => `<tr><td class="nw">${h(md(o.day))} ${h(o.time)}</td><td class="ell"><a href="#/payments/${h(o.moid)}" title="${h(o.items.join(', '))}">${h(shortItem(o.items[0]))}${o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ''}</a></td><td class="r nw">${won(o.amount)}</td><td class="nw"><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.status === 'paid' ? ` <span class="tag ${o.fulfil === 'shipped' ? 'live' : 'draft'}">${o.fulfil === 'shipped' ? '발송함' : '발송 전'}</span>` : ''}</td></tr>`).join('')}</tbody></table>` : empty('최근 14일 결제 주문이 없습니다.')}</div>
         <div class="card"><div class="ch"><div><h2>어디서 왔나</h2><p class="h-sub">최근 7일 · 들어온 경로 상위 5</p></div><a class="btn sm" href="#/traffic/7">자세히</a></div>${bars(top(src7, 5), ent7)}</div></div>`;
     const gt = $('#go-todo'); if (gt) gt.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = 'todo'; location.hash = '#/payments'; };
-    v.querySelectorAll('[data-go]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = a.dataset.go; location.hash = '#/payments'; });
+    v.querySelectorAll('[data-go]').forEach(a => a.onclick = e => {
+      e.preventDefault();
+      if (a.dataset.go === 'rv') { RVF.tab = 'site'; RVF.status = 'pending'; location.hash = '#/reviewsmgr'; return; }
+      PAYF.range = 'all'; PAYF.st = a.dataset.go; location.hash = '#/payments';
+    });
     const draws = [];
     if (s) draws.push(lineChart($('#d-visit'), dates, [{ name: '방문자', color: C1, area: true, on: true, values: days.map(d => d.uv) }], { label: '최근 14일 방문자 선 그래프' }));
     draws.push(barChart($('#d-pay'), dates, paySum, { name: '결제 금액', label: '최근 14일 결제 금액 막대 그래프', fmt: won, axis: x => x >= 10000 ? `${Math.round(x / 1000) / 10}만` : num(x), min: 100000, extra: i => [[CG, '결제 건수', `${payBy[i].length}건`]] }));
@@ -797,6 +801,74 @@
 
   // ── 정산: 결제 승인일 다음 영업일 정산(익일 정산), 취소·환불은 그날 기준 다음 정산금에서 차감
   const SETF = { range: 'm0', from: '', to: '' };
+  // ── 구매평 관리
+  //   홈페이지 손님 구매평: 이 홈페이지에서 산 손님(주문 확인) = 바로 게시, 다른 곳에서 샀다고 적은 손님 = 승인 대기. 게시·숨기기·답글은 바로 반영
+  //   모든 구매평: 상품 페이지 '구매평 모아 보기'와 같은 목록(BEST → 홈페이지 → 스마트스토어). 스마트스토어 글 숨기기·BEST 로 올리기는 저장 → 약 2분 뒤 반영
+  const RVF = { tab: 'site', status: 'pending', pid: '', f: 'all', sort: 'rec', q: '', vis: 'all', page: 1 };
+  const STARS = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+  const RV_ST = { shown: ['live', '게시'], pending: ['draft', '승인 대기'], hidden: ['bad', '숨김'] };
+  async function reviewsMgr() {
+    const v = shell('구매평 관리', { desc: '손님이 홈페이지에서 쓴 구매평을 확인하고, 상품 페이지 「구매평 모아 보기」에 보이는 모든 구매평을 살펴 숨기거나 BEST로 올립니다.' });
+    const tabs = `<div class="seg" role="group" aria-label="구매평 관리 화면">${[['site', '홈페이지 손님 구매평'], ['all', '모든 구매평']].map(([k, t]) => `<a href="#" data-tab="${k}" class="${RVF.tab === k ? 'on' : ''}">${t}</a>`).join('')}</div>`;
+    const bindTabs = () => v.querySelectorAll('[data-tab]').forEach(a => a.onclick = e => { e.preventDefault(); RVF.tab = a.dataset.tab; reviewsMgr(); });
+    if (RVF.tab === 'site') {
+      const d = await api('GET', `/api/admin/reviews-site?status=${RVF.status}`), C = d.counts;
+      const one = r => `<div class="rvm" data-id="${h(r.id)}">
+        <div class="rvm__top"><span class="rvm__s" aria-label="별점 ${r.stars}점">${STARS(r.stars)}</span><span class="tag ${RV_ST[r.status][0]}">${RV_ST[r.status][1]}</span><b>${h(r.product)}</b><span>${h(r.name)} · ${h(r.srcName)} · ${h(new Date(Date.parse(r.at) + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' '))}</span>${r.moid ? `<a href="#/payments/${encodeURIComponent(r.moid)}">${h(r.moid)}</a>` : ''}</div>
+        ${r.opt ? `<p class="rvm__o">${h(r.opt)}</p>` : ''}<p class="rvm__t">${h(r.text)}</p>
+        ${r.photos.length ? `<div class="rvm__ph">${r.photos.map((p, i) => `<a href="${h(p)}" target="_blank" rel="noopener"><img src="${h(p)}" alt="구매평 사진 ${i + 1}" loading="lazy"></a>`).join('')}</div>` : ''}
+        <label class="rvm__rl" for="rp-${h(r.id)}">잠스쿨 답글 <small>상품 페이지 구매평 아래에 보입니다. 비우고 저장하면 지웁니다</small></label><textarea id="rp-${h(r.id)}" rows="2" maxlength="500">${h(r.reply ? r.reply.text : '')}</textarea>
+        <div class="actions static">${r.status !== 'shown' ? '<button class="btn sm ok" data-st="shown">게시</button>' : ''}${r.status !== 'hidden' ? '<button class="btn sm" data-st="hidden">숨기기</button>' : ''}${r.status === 'hidden' ? '<button class="btn sm" data-st="pending">승인 대기로</button>' : ''}<button class="btn sm" data-reply>답글 저장</button></div></div>`;
+      v.innerHTML = `<div class="card ofbar">${tabs}</div>
+        <div class="card"><div class="seg wrap" role="group" aria-label="상태">${[['pending', `승인 대기 ${C.pending || 0}`], ['shown', `게시 ${C.shown || 0}`], ['hidden', `숨김 ${C.hidden || 0}`], ['all', '전체']].map(([k, t]) => `<a href="#" data-rs="${k}" class="${RVF.status === k ? 'on' : ''}">${t}</a>`).join('')}</div>
+        <p class="help">이 홈페이지에서 산 손님(주문번호·휴대폰으로 확인)의 구매평은 바로 게시됩니다. 공식몰·스마트스토어 등 다른 곳에서 샀다고 적은 구매평은 '승인 대기'로 들어오니 내용을 보고 게시해 주세요. 게시·숨기기·답글은 저장하면 1분 안에 사이트에 반영됩니다(다시 배포하지 않음).</p>
+        ${d.list.length ? d.list.map(one).join('') : `<p class="help">${RVF.status === 'pending' ? '승인을 기다리는 구매평이 없습니다.' : '구매평이 없습니다.'}</p>`}</div>`;
+      bindTabs();
+      v.querySelectorAll('[data-rs]').forEach(a => a.onclick = e => { e.preventDefault(); RVF.status = a.dataset.rs; reviewsMgr(); });
+      v.querySelectorAll('.rvm').forEach(box => box.onclick = async e => {
+        const b = e.target.closest('button'); if (!b) return;
+        const id = box.dataset.id, body = b.dataset.st ? { status: b.dataset.st } : { reply: box.querySelector('textarea').value };
+        b.disabled = true;
+        try { await api('POST', `/api/admin/reviews-site/${encodeURIComponent(id)}`, body); toast(b.dataset.st ? `${RV_ST[b.dataset.st][1]}(으)로 바꿨습니다. 1분 안에 반영됩니다.` : '답글을 저장했습니다. 1분 안에 반영됩니다.'); reviewsMgr(); }
+        catch (err) { fail(err); b.disabled = false; }
+      });
+      return;
+    }
+    const qs = new URLSearchParams({ pid: RVF.pid, f: RVF.f, sort: RVF.sort, q: RVF.q, vis: RVF.vis, page: String(RVF.page), n: '20' });
+    const d = await api('GET', `/api/admin/reviews-all?${qs}`); RVF.pid = String(d.pid);
+    const KIND = { best: ['live', 'BEST(잠스쿨이 고름)'], site: ['ai', '홈페이지 손님'], ss: ['', '스마트스토어'] };
+    const one = x => `<div class="rvm${x.hid ? ' is-hid' : ''}" data-no="${h(x.n)}">
+      <div class="rvm__top"><span class="rvm__s" aria-label="별점 ${+x.s || 5}점">${STARS(+x.s || 5)}</span><span class="tag ${KIND[x.kind][0]}">${KIND[x.kind][1]}</span>${x.hid ? '<span class="tag bad">숨김</span>' : ''}${x.m ? '<span class="tag">한 달 사용</span>' : ''}<span>${h(x.i || '')}${x.d ? ' · ' + h(x.d) : ''}${x.kind === 'ss' ? ' · 글번호 ' + h(x.n) : ''}</span></div>
+      ${x.o ? `<p class="rvm__o">${h(x.o)}</p>` : ''}<p class="rvm__t clamp">${h(x.t)}</p>
+      ${x.ph.length ? `<div class="rvm__ph">${x.ph.map((p, i) => `<a href="${h(p.l)}" target="_blank" rel="noopener noreferrer"><img src="${h(p.s)}" alt="구매평 사진 ${i + 1}" loading="lazy" referrerpolicy="no-referrer"></a>`).join('')}</div>` : ''}
+      <div class="actions static">${x.kind === 'ss' ? `<button class="btn sm" data-hide="${x.hid ? '' : '1'}">${x.hid ? '다시 보이기' : '숨기기'}</button>${x.hid ? '' : '<button class="btn sm ok" data-best>BEST로 올리기</button>'}` : x.kind === 'best' ? `<a class="btn sm" href="#/site/reviews/REVIEWS/${d.pid}">BEST 구매평에서 고치기·빼기</a>` : '<a class="btn sm" href="#" data-tab="site">홈페이지 손님 구매평에서 관리</a>'}</div></div>`;
+    const P = d.products.find(p => p.id === d.pid) || {};
+    v.innerHTML = `<div class="card ofbar">${tabs}</div>
+      <div class="card"><div class="rvm-bar">
+        <label>상품 <select id="rv-pid">${d.products.map(p => `<option value="${p.id}" ${p.id === d.pid ? 'selected' : ''}>${h(p.short)} (${num(p.total)})</option>`).join('')}</select></label>
+        <label>보기 <select id="rv-f">${[['all', '전체'], ['photo', '포토'], ['best', 'BEST'], ['site', '홈페이지 손님'], ['month', '한 달 사용'], ['r4', '별점 4점'], ['hidden', `숨긴 글 (${num(d.hiddenCount)})`]].map(([k, t]) => `<option value="${k}" ${(k === 'hidden' ? RVF.vis === 'hidden' : RVF.vis !== 'hidden' && RVF.f === k) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <label>정렬 <select id="rv-sort">${[['rec', '추천순'], ['new', '최신순'], ['star', '별점순'], ['photo', '포토리뷰순']].map(([k, t]) => `<option value="${k}" ${RVF.sort === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+        <form id="rv-qf"><input type="search" id="rv-q" value="${h(RVF.q)}" placeholder="글 내용·글번호로 찾기" aria-label="구매평 찾기"><button class="btn sm">찾기</button></form></div>
+        <p class="help">상품 페이지 「구매평 모아 보기」와 같은 순서입니다(BEST → 홈페이지 손님 → 스마트스토어). <b>${h(P.short || '')}</b> BEST ${num(P.best || 0)} · 홈페이지 ${num(P.site || 0)} · 스마트스토어 ${num(P.ss || 0)}. 스마트스토어 글 숨기기·BEST로 올리기는 저장 뒤 약 2분 뒤 사이트에 반영됩니다.</p>
+        <p class="help"><b>${num(d.total)}건</b>${d.pages > 1 ? ` · ${d.page} / ${num(d.pages)}쪽` : ''}</p>
+        ${d.items.length ? d.items.map(one).join('') : '<p class="help">조건에 맞는 구매평이 없습니다.</p>'}
+        ${d.pages > 1 ? `<div class="actions static"><button class="btn sm" id="rv-prev" ${d.page <= 1 ? 'disabled' : ''}>이전</button><button class="btn sm" id="rv-next" ${d.page >= d.pages ? 'disabled' : ''}>다음</button></div>` : ''}</div>`;
+    bindTabs();
+    const again = () => { RVF.page = 1; reviewsMgr(); };
+    $('#rv-pid').onchange = e => { RVF.pid = e.target.value; RVF.q = ''; again(); };
+    $('#rv-f').onchange = e => { const k = e.target.value; RVF.vis = k === 'hidden' ? 'hidden' : 'all'; RVF.f = k === 'hidden' ? 'all' : k; again(); };
+    $('#rv-sort').onchange = e => { RVF.sort = e.target.value; again(); };
+    $('#rv-qf').onsubmit = e => { e.preventDefault(); RVF.q = $('#rv-q').value.trim(); again(); };
+    if ($('#rv-prev')) { $('#rv-prev').onclick = () => { RVF.page--; reviewsMgr(); }; $('#rv-next').onclick = () => { RVF.page++; reviewsMgr(); }; }
+    v.querySelectorAll('.rvm').forEach(box => box.onclick = async e => {
+      const b = e.target.closest('button'); if (!b) return;
+      const no = box.dataset.no; b.disabled = true;
+      try {
+        if (b.dataset.hide != null) { const r = await api('POST', '/api/admin/reviews-hide', { no, hide: !!b.dataset.hide }); toast(`${b.dataset.hide ? '숨겼습니다' : '다시 보이게 했습니다'}. 약 2분 뒤 사이트에 반영됩니다.`); watchDeploy(r.commit); box.classList.toggle('is-hid', !!b.dataset.hide); b.textContent = '저장됨'; }
+        else if (b.dataset.best != null) { if (!confirm('이 구매평을 BEST 구매평(홈 리뷰·상품 페이지 맨 위)으로 올릴까요?')) { b.disabled = false; return; } const r = await api('POST', '/api/admin/reviews-best', { pid: d.pid, no }); saved(r, 'BEST 구매평을'); b.textContent = 'BEST로 올림'; }
+      } catch (err) { fail(err); b.disabled = false; }
+    });
+  }
   async function settle() {
     const v = shell('정산', { desc: '홈페이지 결제(씨드페이먼츠) 정산 예정과 환불 차감입니다. 실제 입금액은 씨드페이먼츠 가맹점 관리자 정산 내역과 맞춰 확인해 주세요.' });
     const mStart = back => { const t = new Date(Date.now() + 9 * 3600e3); t.setUTCDate(1); t.setUTCMonth(t.getUTCMonth() - back); return t.toISOString().slice(0, 10); };
@@ -1440,6 +1512,7 @@
       else if (a === 'payments' && b && b !== 'all') await payDetail(b);
       else if (a === 'payments') await payments();
       else if (a === 'settle') await settle();
+      else if (a === 'reviewsmgr') await reviewsMgr();
       else if (a === 'shipset') await shipSet();
       else if (a === 'me') await me();
       else if (owner && a === 'settings') await settings();

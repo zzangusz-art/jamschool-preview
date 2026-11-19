@@ -122,6 +122,22 @@ const POSTS = loadPosts(path.join(ROOT, 'content/blog'));
 // 썸네일(tools/blog/thumb.mjs)이 실제로 있을 때만 쓴다 — 없으면 카드는 글자만, 공유 이미지는 상품 사진
 for (const p of POSTS) p.thumb = p.image && fs.existsSync(path.join(ROOT, p.image)) ? p.image : null;
 const { esc, won } = R;
+// 구매평 모아 보기 데이터(아래 rvAllHTML·홈 바로가기·llms.txt 가 쓴다)
+//   어드민 '스마트스토어 구매평'에서 숨긴 글(content/reviews/hidden.json, 리뷰글번호)은 개수·미리 그린 글에서 뺀다
+const RV = (() => {
+  const j = f => { try { return JSON.parse(rd(`content/reviews/${f}`)); } catch { return null; } };
+  const hid = new Set((j('hidden.json') || []).map(String)), sum = (j('summary.json') || { products: {} }).products, cache = {};
+  // 상품별 숫자: 숨긴 글을 뺀 실제 목록으로 다시 센다(주제 순서는 정리할 때 순서)
+  const stats = id => {
+    if (cache[id]) return cache[id];
+    const S = sum[id]; if (!S) return null;
+    const list = (j(`${id}.json`) || []).filter(x => !hid.has(String(x.n))), c = {};
+    for (const x of list) for (const k of x.k || []) c[k] = (c[k] || 0) + 1;
+    return (cache[id] = { ...S, list, total: list.length, photo: list.filter(x => x.p).length, month: list.filter(x => x.m).length, best: list.filter(x => x.b).length, topics: S.topics.map(([k]) => [k, c[k] || 0]).filter(t => t[1]).sort((a, b) => b[1] - a[1]) });
+  };
+  return { sum, stats, topics: (j('topics.json') || { topics: {} }).topics, top: id => (stats(id) || { list: [] }).list.slice(0, 6) };
+})();
+const rvYM = d => d.slice(0, 7).replace('-', '.');
 
 // 상단 띠 배너(어드민 '팝업·이벤트 › 상단 띠 배너'): 「보이기」 켠 것만 넣는다. 기간은 손님 브라우저(ui.js)가 한국 날짜로 다시 확인하고,
 //   빌드한 날(한국) 기간 안의 첫 번째만 처음부터 보이게 해서 화면이 덜 흔들리게 한다. 켠 것이 없으면 띠 자체가 없다
@@ -219,6 +235,9 @@ idx = fill(idx, 'uses-panel', uses.panel);
 idx = fill(idx, 'faq', R.faqHTML(FAQ));
 idx = fill(idx, 'features', R.featuresHTML(FEATURES));
 idx = fill(idx, 'roll', R.reviewRollHTML(REVIEWS, SHORT_REVIEWS, Object.fromEntries(PRODUCTS.map(p => [p.id, p.short]))));
+// 홈 구매평 칸 아래: 상품별 '구매평 모아 보기' 바로가기(스마트스토어 구매평 전체)
+{ const rows = PRODUCTS.map(p => [p, RV.stats(p.id)]).filter(([, S]) => S && S.total), all = rows.reduce((a, [, S]) => a + S.total, 0);
+  idx = fill(idx, 'rvall', rows.length ? `<div class="rv-all"><p class="rv-all__t">네이버 스마트스토어 구매평 <b>${all.toLocaleString('ko-KR')}건</b>을 상품별로 모아 볼 수 있습니다</p><div class="rv-all__chips">${rows.map(([p, S]) => `<a href="${R.href(p)}#rva">${esc(p.short)} <b>${S.total.toLocaleString('ko-KR')}</b></a>`).join('')}</div></div>` : ''); }
 const price = R.priceHTML(O);
 idx = fill(idx, 'price-tabs', price.tabs);
 idx = fill(idx, 'price-panels', price.panels);
@@ -361,36 +380,39 @@ function specBase(p) {
 }
 // 구매평 모아 보기(content/reviews — tools/reviews/import-ss.py): 상품 페이지에 개수·이야기(주제)·추천 6개를 미리 그리고,
 //   나머지는 손님 화면(assets/js/reviews.js)이 /api/reviews 로 불러온다. 별점·리뷰 구조화 데이터는 넣지 않는다(productLD 주석)
-const RV = (() => {
-  const j = f => { try { return JSON.parse(rd(`content/reviews/${f}`)); } catch { return null; } };
-  return { sum: (j('summary.json') || { products: {} }).products, topics: (j('topics.json') || { topics: {} }).topics, top: id => (j(`${id}.json`) || []).slice(0, 6) };
-})();
-const rvYM = d => d.slice(0, 7).replace('-', '.');
-function rvAllHTML(p) {
-  const S = RV.sum[p.id]; if (!S || !S.total) return '';
+// 한 상품 구매평은 한 곳: 잠스쿨이 고른 BEST(어드민) → 홈페이지 손님 구매평(서버, 손님 화면이 불러옴) → 스마트스토어 구매평. 사진 줄(어드민 포토)은 맨 위
+const rvNorm = t => String(t || '').replace(/\s+/g, '').slice(0, 60);
+const rvPicks = id => REVIEWS.filter(r => +r.pid === id && r.text).map((r, i) => ({ n: `B${id}-${i + 1}`, i: r.id || '', d: '', s: 5, t: r.text, b: 1, pk: 1, ...(r.opt ? { o: r.opt } : {}) }));
+function rvAllHTML(p, photoStrip) {
+  const picks = rvPicks(p.id), S0 = RV.stats(p.id);
+  if ((!S0 || !S0.total) && !picks.length && !photoStrip) return '';
+  const S = S0 || { total: 0, photo: 0, month: 0, best: 0, topics: [], list: [] };
   const fmt = n => n.toLocaleString('ko-KR');
-  const T = S.topics.slice(0, 12).map(([k, n]) => ({ k, n, label: (RV.topics[k] || {}).label || k, re: (RV.topics[k] || {}).re || '' }));
-  const tabs = [['all', '전체'], ['photo', S.photo ? `포토 ${fmt(S.photo)}` : ''], ['month', S.month ? `한 달 사용 ${fmt(S.month)}` : ''], ['best', S.best ? `BEST ${fmt(S.best)}` : '']].filter(x => x[1]);
+  // 개수는 손님 목록(tools/reviews/api.mjs)과 같게: BEST 와 겹친 스마트스토어 글은 빼고, BEST 글도 주제에 센다
+  const seen = new Set(picks.map(x => rvNorm(x.t))), ss = S.list.filter(x => !seen.has(rvNorm(x.t)));
+  const tk = k => { let c = ss.filter(x => (x.k || []).includes(k)).length; try { const re = new RegExp((RV.topics[k] || {}).re || '$^'); c += picks.filter(x => re.test(x.t)).length; } catch { /* 주제 식 오류는 스마트스토어 개수만 */ } return c; };
+  const T = S.topics.map(([k]) => [k, tk(k)]).filter(t => t[1]).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, n]) => ({ k, n, label: (RV.topics[k] || {}).label || k, re: (RV.topics[k] || {}).re || '' }));
+  const C = { photo: ss.filter(x => x.p).length, month: ss.filter(x => x.m).length, best: picks.length + ss.filter(x => x.b).length };
+  const tabs = [['all', '전체'], ['photo', C.photo ? `포토 ${fmt(C.photo)}` : ''], ['month', C.month ? `한 달 사용 ${fmt(C.month)}` : ''], ['best', C.best ? `BEST ${fmt(C.best)}` : '']].filter(x => x[1]);
   return `<section class="rva" id="rva" aria-labelledby="rva-t" data-pid="${p.id}" data-topics="${esc(JSON.stringify(T.map(t => [t.k, t.re])))}">
-    <h3 class="pd-h3" id="rva-t">구매평 모아 보기</h3>
-    <p class="rva__lead">네이버 스마트스토어 구매평 <b>${fmt(S.total)}건</b> (${rvYM(S.from)}~${rvYM(S.to)}) · 포토 ${fmt(S.photo)} · 한 달 사용 ${fmt(S.month)}</p>
-    ${T.length ? `<p class="rva__sum">구매평에서 많이 나온 이야기: ${T.slice(0, 6).map(t => `${esc(t.label)} ${fmt(t.n)}건`).join(' · ')}</p>
-    <div class="rva__topics" role="group" aria-label="이야기별로 보기"><button type="button" data-k="" aria-pressed="true">전체</button>${T.map(t => `<button type="button" data-k="${esc(t.k)}" aria-pressed="false">${esc(t.label)} <b>${fmt(t.n)}</b></button>`).join('')}</div>` : ''}
+    <div class="rva__head"><h3 class="pd-h3" id="rva-t">구매평 모아 보기</h3><button class="btn btn--primary btn--sm rva__write" type="button" data-write>구매평 쓰기</button></div>
+    ${photoStrip ? '<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div>' : ''}
+    ${T.length ? `<div class="rva__topics" role="group" aria-label="이야기별로 보기"><button type="button" data-k="" aria-pressed="true">전체</button>${T.map(t => `<button type="button" data-k="${esc(t.k)}" aria-pressed="false">${esc(t.label)} <b>${fmt(t.n)}</b></button>`).join('')}</div>` : ''}
     <div class="rva__bar"><div class="rva__tabs" role="group" aria-label="구매평 종류">${tabs.map(([f, t], i) => `<button type="button" data-f="${f}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
-      <select class="rva__sort" aria-label="정렬"><option value="rec">추천순</option><option value="new">최신순</option></select>
+      <select class="rva__sort" aria-label="정렬"><option value="rec">추천순</option><option value="new">최신순</option><option value="star">별점순</option><option value="photo">포토리뷰순</option></select>
       <form class="rva__search" role="search"><label class="sr-only" for="rva-q">구매평에서 찾기</label><input id="rva-q" type="search" maxlength="20" placeholder="구매평에서 찾기(예: 퀸, 냄새)"><button class="btn btn--line btn--sm" type="submit">찾기</button></form></div>
     <p class="rva__info" aria-live="polite"></p>
-    <div class="rva__list">${RV.top(p.id).map((x, i) => R.rvCard(x, `rva-s${i}`)).join('')}</div>
+    <div class="rva__list">${(() => { const seen = new Set(picks.map(x => rvNorm(x.t))); return [...picks, ...RV.top(p.id).filter(x => !seen.has(rvNorm(x.t)))].slice(0, 6); })().map((x, i) => R.rvCard(x, `rva-s${i}`)).join('')}</div>
     <button class="btn btn--line rva__more" type="button" hidden>구매평 더 보기</button>
-    <p class="note rva__src">구매평 원문은 네이버 스마트스토어에 남긴 그대로이며, 아이디는 스마트스토어에서 가린 그대로 보여 드립니다.</p>
+    <p class="note rva__src">스마트스토어 구매평은 손님이 남긴 원문 그대로이고 아이디는 스마트스토어에서 가린 그대로입니다. 「홈페이지 구매」는 이 홈페이지에서 산 손님이 주문 확인 뒤 쓴 글이고, 다른 곳에서 산 손님의 글은 잠스쿨이 확인한 뒤 올립니다.</p>
   </section>`;
 }
 function reviewsHTMLp(p) {
   const sum = `<div class="rv-sum"><p class="rv-sum__score">${p.rating.toFixed(2)}</p><div class="rv-sum__meta"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><p>구매평 <b>${p.reviews.toLocaleString('ko-KR')}</b>건</p><p class="note">${esc(JAM.REVIEW_BASIS)}</p></div><a class="btn btn--line btn--sm" href="${esc(p.mall)}#prod_detail_review">공식몰 구매평 보기</a></div>`;
   // 그 상품 구매평·포토 구매평만(어드민 '구매평'에서 상품별로 고침)
   const mine = REVIEWS.filter(r => +r.pid === p.id), photos = JAM.PHOTOS.filter(x => +x.pid === p.id);
-  if (!mine.length && !photos.length) return sum + rvAllHTML(p);
-  return sum + (photos.length ? '<div class="photo-strip" id="photo-strip" aria-label="포토 구매평"></div>' : '') + (mine.length ? `<div class="rv-list rv-list--pd">${R.reviewsHTML(mine)}</div>` : '') + rvAllHTML(p);
+  // 순서: 요약 → 구매평 모아 보기(스마트스토어 전체) → 잠스쿨이 고른 구매평(어드민 BEST·포토). 예전에는 BEST 7개가 위에 있어 모아 보기가 화면 두 장 아래에 묻혔다
+  return sum + rvAllHTML(p, photos.length > 0);   // 예전 '잠스쿨이 고른 구매평' 따로 칸은 없앰(2026-11-19 요청: 하나로)
 }
 function qnaHTML(p) {
   const list = p.id === 29 ? FAQ : FAQ.filter(f => f.c === 'ship');
@@ -690,7 +712,7 @@ wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 - 상세: ${SITE}product-29.html
 
 ## 구매평에서 많이 나온 이야기 (네이버 스마트스토어 구매평, 상품별)
-${PRODUCTS.filter(p => RV.sum[p.id] && RV.sum[p.id].topics.length).map(p => { const S = RV.sum[p.id]; return `- ${p.short}: 구매평 ${S.total.toLocaleString('ko-KR')}건(${rvYM(S.from)}~${rvYM(S.to)}, 포토 ${S.photo.toLocaleString('ko-KR')}) — ${S.topics.slice(0, 6).map(([k, n]) => `${(RV.topics[k] || {}).label || k} ${n.toLocaleString('ko-KR')}건`).join(', ')}. ${SITE}product-${p.id}.html#rva`; }).join(String.fromCharCode(10))}
+${PRODUCTS.filter(p => RV.stats(p.id) && RV.stats(p.id).topics.length).map(p => { const S = RV.stats(p.id); return `- ${p.short}: 구매평 ${S.total.toLocaleString('ko-KR')}건(${rvYM(S.from)}~${rvYM(S.to)}, 포토 ${S.photo.toLocaleString('ko-KR')}) — ${S.topics.slice(0, 6).map(([k, n]) => `${(RV.topics[k] || {}).label || k} ${n.toLocaleString('ko-KR')}건`).join(', ')}. ${SITE}product-${p.id}.html#rva`; }).join(String.fromCharCode(10))}
 
 ## 구매 조건
 - 14일 무료체험(반품 시 왕복 배송비 고객 부담), 2년 내 폼 꺼짐 시 폼 무상 교체.

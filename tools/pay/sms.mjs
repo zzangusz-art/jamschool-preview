@@ -24,9 +24,9 @@ export const MSG_EVENTS = {
   claim: { label: '취소·반품·교환 요청 접수', on: true, text: '[잠스쿨] #{이름}님, #{요청} 요청을 접수했습니다.\n주문번호 #{주문번호}\n처리 상황은 주문 조회에서 보실 수 있습니다.\n#{조회주소}' },
   refunded: { label: '환불(결제 취소)', on: true, text: '[잠스쿨] #{이름}님, #{환불금액}이 환불(결제 취소)되었습니다.\n주문번호 #{주문번호}\n카드사에 따라 영업일 기준 3~7일 걸릴 수 있습니다.' },
   resent: { label: '교환 상품 재발송', on: true, text: '[잠스쿨] #{이름}님, 교환 상품을 보냈습니다.\n#{택배사} #{송장번호}\n배송 조회 #{배송조회}' },
-  delivered: { label: '배송 완료(직접 누를 때)', on: false, text: '[잠스쿨] #{이름}님, 상품이 배송 완료되었습니다. 받은 상품에 문제가 있으면 7일 안에 주문 조회에서 반품·교환을 요청해 주세요.\n#{조회주소}' },
+  delivered: { label: '배송 완료(직접 누를 때)', on: false, text: '[잠스쿨] #{이름}님, 상품이 배송 완료되었습니다. 받은 상품에 문제가 있으면 7일 안에 주문 조회에서 반품·교환을 요청해 주세요.\n#{조회주소}\n써 보신 뒤 구매평을 남겨 주시면 큰 힘이 됩니다.\n#{구매평주소}' },
 };
-export const MSG_VARS = ['이름', '주문번호', '상품', '금액', '출고예정', '조회주소', '택배사', '송장번호', '배송조회', '요청', '환불금액'];
+export const MSG_VARS = ['이름', '주문번호', '상품', '금액', '출고예정', '조회주소', '택배사', '송장번호', '배송조회', '요청', '환불금액', '구매평주소'];
 const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
 export function msgSettings(dir) {
   const s = readJson(path.join(dir, 'msg.json'), {}), out = {};
@@ -75,7 +75,8 @@ export function orderVars(o, extra = {}) {
   const first = o.items && o.items[0], more = o.items && o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : '';
   return {
     이름: (o.buyer && o.buyer.name) || '고객', 주문번호: o.moid, 상품: first ? `${first.gname || first.name}${more}` : '', 금액: won(o.amount),
-    조회주소: `https://${HOST()}/order-complete.html?o=${encodeURIComponent(o.moid)}&t=${encodeURIComponent(o.token || '')}`, ...extra,
+    조회주소: `https://${HOST()}/order-complete.html?o=${encodeURIComponent(o.moid)}&t=${encodeURIComponent(o.token || '')}`,
+    구매평주소: first && first.id ? `https://${HOST()}/product-${first.id}.html?write=1&o=${encodeURIComponent(o.moid)}&t=${encodeURIComponent(o.token || '')}` : '', ...extra,
   };
 }
 export const _test = { solapi, bytes };

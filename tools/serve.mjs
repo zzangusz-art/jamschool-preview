@@ -11,7 +11,10 @@ import zlib from 'node:zlib';
 import { handleAdmin } from './admin/server.mjs';
 import { countEvent, countPage } from './admin/stats.mjs';
 import { handlePay } from './pay/seedpay.mjs';
-import { handleReviews } from './reviews/api.mjs';
+import { handleReviews, connect as connectReviews } from './reviews/api.mjs';
+import { reviewOrder } from './pay/seedpay.mjs';
+import { notifyReview } from './pay/notify.mjs';
+connectReviews({ reviewOrder, notifyReview });   // 구매평 쓰기: 홈페이지 주문 구매 확인 · 새 구매평 텔레그램 알림
 
 const ROOT = path.resolve(process.argv[2] || '_site');
 const PORT = +process.env.PORT || 8080;
@@ -57,7 +60,7 @@ http.createServer(async (req, res) => {
   // 홈페이지 결제(/api/pay/*) — 씨드페이먼츠 결제창·결제통보, tools/pay/seedpay.mjs
   if (await handlePay(req, res)) return;
   // 구매평 모아 보기(/api/reviews) — tools/reviews/api.mjs, 데이터 content/reviews
-  if (handleReviews(req, res)) return;
+  if (await handleReviews(req, res)) return;
   // 사이트 자체 집계: 클릭·주문서 제출 이벤트(개인정보 없음) — tools/admin/stats.mjs
   if (req.method === 'POST' && (req.url || '').split('?')[0] === '/api/t') {
     let n = 0; const chunks = [];

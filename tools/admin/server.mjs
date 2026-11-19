@@ -22,6 +22,8 @@ import * as NOTIFY from '../pay/notify.mjs';
 import { clientIp } from '../client-ip.mjs';
 import { BLOCKS, MENUS, ICONS, IMG_PATH, cleanBlock } from './blocks.mjs';
 import { EDIT_FILES, listEdits, normText } from './edits.mjs';
+import * as RVAPI from '../reviews/api.mjs';
+import * as RVSITE from '../reviews/site.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -326,6 +328,68 @@ route('POST', '/api/admin/blocks/:name', 'client', async ({ params, data, user }
   const c = await saveSite(site, files, user, `${MENUS[def.menu]} · ${def.label} ${data.reset ? '처음 값으로 되돌림' : '수정'}`);
   return { ok: true, commit: c.sha };
 });
+// ── 구매평 관리
+//   홈페이지 손님 구매평: 서버 볼륨(tools/reviews/site.mjs) — 게시·숨기기·답글이 바로 반영된다
+//   모든 구매평(손님 화면과 같은 목록): 스마트스토어 글 숨기기 = content/reviews/hidden.json 커밋(재배포 뒤 반영), BEST 로 올리기 = BEST 구매평(site.json REVIEWS)에 추가
+const RV_PHOTO = 'https://phinf.pstatic.net/checkout.phinf/';
+const rvPhoto = (p, size) => !p ? '' : /^\//.test(p) ? p : (/^https:/.test(p) ? p : RV_PHOTO + p) + (size ? `?type=${size}` : '');
+const rvKind = x => x.pk ? 'best' : x.w ? 'site' : 'ss';
+async function rvProducts() {
+  const S = RVAPI.summaryOf(), { cur } = await products(), counts = {};
+  for (const r of RVSITE.all()) if (r.status === 'shown') counts[r.pid] = (counts[r.pid] || 0) + 1;
+  const picks = {}; for (const r of cur.REVIEWS || []) picks[r.pid] = (picks[r.pid] || 0) + 1;
+  return cur.PRODUCTS.map(p => ({ id: p.id, short: p.short, ss: (S.products[p.id] || {}).total || 0, site: counts[p.id] || 0, best: picks[p.id] || 0 }))
+    .map(p => ({ ...p, total: p.ss || p.site || p.best ? RVAPI.query(new URLSearchParams({ pid: String(p.id), n: '1' }), { admin: true }).body.total || 0 : 0 }))
+    .filter(p => p.ss || p.site || p.best);
+}
+route('GET', '/api/admin/reviews-site', 'client', async ({ query }) => {
+  const st = ['pending', 'shown', 'hidden', 'all'].includes(query.get('status')) ? query.get('status') : 'pending';
+  const { cur } = await products(), names = Object.fromEntries(cur.PRODUCTS.map(p => [p.id, p.short]));
+  const list = RVSITE.all().filter(r => st === 'all' || r.status === st).slice(0, 300)
+    .map(r => ({ ...r, product: names[r.pid] || `상품 ${r.pid}`, srcName: r.verified ? '홈페이지 구매(확인됨)' : `${RVSITE.SOURCES[r.src] || r.src} 구매(본인 입력)`, photos: r.photos.map(f => `/api/reviews/img/${f}`) }));
+  return { status: st, counts: RVSITE.counts(), list };
+});
+route('POST', '/api/admin/reviews-site/:id', 'client', async ({ params, data, user }) => {
+  const r = RVSITE.update(params.id, { status: data.status, reply: data.reply }, user);
+  console.log(`[admin] 홈페이지 구매평 ${r.id} ${data.status ? '상태 ' + data.status : ''}${data.reply != null ? ' 답글' : ''} — ${user.id}`);
+  return { ok: true, review: r, counts: RVSITE.counts() };
+});
+route('GET', '/api/admin/reviews-all', 'client', async ({ query }) => {
+  const prods = await rvProducts();
+  need(prods.length, 404, '구매평이 있는 상품이 없습니다');
+  const pid = prods.some(p => String(p.id) === query.get('pid')) ? query.get('pid') : String(prods[0].id);
+  query.set('pid', pid); if (!query.get('n')) query.set('n', '20');
+  const r = RVAPI.query(query, { admin: true });
+  need(r.status === 200, r.status, r.body.error);
+  return { products: prods, pid: +pid, hiddenCount: RVAPI.hiddenSet().size, ...r.body,
+    items: r.body.items.map(x => ({ ...x, kind: rvKind(x), ph: (x.ps || (x.p ? [x.p] : [])).slice(0, 3).map(p => ({ s: rvPhoto(p, 'f300_300'), l: rvPhoto(p, 'w640') })) })) };
+});
+route('POST', '/api/admin/reviews-hide', 'client', async ({ data, user }) => {
+  const no = String(data.no || '');
+  need(/^\d{5,}$/.test(no), 400, '스마트스토어 구매평만 여기서 숨길 수 있습니다');
+  const cur = await readJson('content/reviews/hidden.json', [], true), set = new Set((Array.isArray(cur) ? cur : []).map(String));
+  if (data.hide) set.add(no); else set.delete(no);
+  const list = [...set].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+  const c = await store.commit([{ path: 'content/reviews/hidden.json', text: JSON.stringify(list) + '\n' }], msg(user, `구매평 관리 · 스마트스토어 구매평 ${no} ${data.hide ? '숨김' : '다시 보이기'}`), user.name);
+  return { ok: true, commit: c.sha, hiddenCount: list.length };
+});
+route('POST', '/api/admin/reviews-best', 'client', async ({ data, user }) => {
+  const x = RVAPI.one(data.pid, data.no);
+  need(x, 404, '구매평을 찾을 수 없습니다');
+  need(!x.pk, 400, '이미 BEST 구매평입니다');
+  const { base, cur, site } = await products(true), files = [];
+  const list = (cur.REVIEWS || []).map(r => ({ ...r }));
+  need(list.length < BLOCKS.REVIEWS.max, 400, `BEST 구매평은 ${BLOCKS.REVIEWS.max}개까지입니다. '구매평' 메뉴에서 하나를 뺀 뒤 올려 주세요`);
+  const at = list.map(r => +r.pid).lastIndexOf(+data.pid);
+  const item = { pid: +data.pid, id: String(x.i || '고객').slice(0, 20), opt: String(x.o || '').slice(0, 30), text: String(x.t).slice(0, 1200) };
+  list.splice(at < 0 ? list.length : at + 1, 0, item);
+  const ctx = { products: base.PRODUCTS.map(p => p.id), lastSize: 0 };
+  ctx.image = imageSaver(files, 'reviews', ctx);
+  site.blocks = site.blocks || {};
+  site.blocks.REVIEWS = await cleanBlock('REVIEWS', list, ctx);
+  const c = await saveSite(site, files, user, `구매평 관리 · BEST 구매평으로 올림 「${item.text.slice(0, 20)}…」`);
+  return { ok: true, commit: c.sha };
+});
 // 페이지 문구·사진
 route('GET', '/api/admin/texts', 'client', async () => {
   const site = await readJson(SITE_JSON, {}), T = site.text || {}, I = site.img || {};
@@ -431,7 +495,7 @@ route('GET', '/api/admin/payments', 'client', async ({ query, user }) => {
   const owner = user.role === 'owner', st = PAY.adminStatus(), cfg = PAY.shipCfg();
   const base = { enabled: st.enabled, canCancel: canRefund(user), canRefund: canRefund(user), orders: PAY.listOrders({ all: query.get('all') === '1', from: query.get('from') || '', to: query.get('to') || '' }), todo: PAY.todoCount(),
     formats: Object.entries(SHIP_FORMATS).map(([k, f]) => [k, f.label]), since: ordersSince(), couriers: COURIER_LIST(), courier: cfg.courier, autoDays: cfg.autoDeliverDays, shipReady: !!(cfg.from.addr1 && cfg.from.tel),
-    tasks: PAY.taskCounts(), sms: PAY.msgCfg().status.ready };
+    tasks: { ...PAY.taskCounts(), rvPending: RVSITE.counts().pending || 0 }, sms: PAY.msgCfg().status.ready };
   return owner ? { ...st, ...base, notify: NOTIFY.notifyStatus() } : base;
 });
 // 고른 결제 완료 주문: 배송 단계 한꺼번에(발주 확인·발송 처리·배송 완료·신규로) / 택배사·3PL 엑셀 / 송장 일괄 입력

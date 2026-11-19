@@ -320,3 +320,4 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .done-req__r { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .done-req__form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 15px; resize: vertical; }
 .done-req__act { display: flex; gap: 8px; }
+.co-item__rv { margin-top: 8px; }
