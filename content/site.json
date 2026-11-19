@@ -261,6 +261,77 @@
         }
       }
     },
+    "39": {
+      "groups": [
+        {
+          "id": "g4u3x4",
+          "name": "두께",
+          "note": "침대 위엔 7cm, 바닥엔 12cm",
+          "price": true,
+          "values": [
+            {
+              "id": "v1j8g4",
+              "label": "침대형",
+              "sub": "8cm"
+            },
+            {
+              "id": "vr4cn2",
+              "label": "바닥형",
+              "sub": "12cm"
+            }
+          ]
+        },
+        {
+          "id": "gts1gu",
+          "name": "사이즈",
+          "note": "폭 × 길이 200cm",
+          "price": true,
+          "values": [
+            {
+              "id": "vmuanp",
+              "label": "싱글",
+              "sub": "100 X 200(cm)"
+            },
+            {
+              "id": "vqzf28",
+              "label": "슈퍼싱글",
+              "sub": "110 X 200(cm)"
+            },
+            {
+              "id": "vzq517",
+              "label": "퀸",
+              "sub": "150 X 200(cm)"
+            }
+          ]
+        }
+      ],
+      "prices": {
+        "v1j8g4-vmuanp": {
+          "price": 104000,
+          "list": 189000
+        },
+        "v1j8g4-vqzf28": {
+          "price": 134000,
+          "list": 219000
+        },
+        "v1j8g4-vzq517": {
+          "price": 144000,
+          "list": 229000
+        },
+        "vr4cn2-vmuanp": {
+          "price": 134000,
+          "list": 219000
+        },
+        "vr4cn2-vqzf28": {
+          "price": 144000,
+          "list": 229000
+        },
+        "vr4cn2-vzq517": {
+          "price": 154000,
+          "list": 239000
+        }
+      }
+    },
     "40": {
       "groups": [
         {
