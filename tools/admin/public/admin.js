@@ -446,7 +446,7 @@
   // ── 결제 주문(홈페이지 결제: 씨드페이먼츠) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
   const PST = { paid: 'live', cancelled: '', check: 'bad', failed: 'draft', approving: 'draft', ready: '' };
   const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
-  const telFmt = t => String(t || '').replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3');
+  const telFmt = t => { const d = String(t || ''); return /^02/.test(d) ? d.replace(/^(02)(\d{3,4})(\d{4})$/, '$1-$2-$3') : /^1[5-9]\d{6}$/.test(d) ? d.replace(/^(\d{4})(\d{4})$/, '$1-$2') : d.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'); };   // 02(서울)·1588 같은 대표번호도
   // 결제 주문 화면 상태(자세히 보고 돌아와도 그대로): 기간·상태
   const PAYF = { range: '30', from: '', to: '', st: 'paid' };
   const RANGES = [['0', '오늘'], ['1', '어제'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체 기간'], ['pick', '날짜 고르기']];
@@ -664,7 +664,7 @@
             <div class="actions static"><button class="btn sm" data-cl="resend">재발송 저장</button>${c.status === 'resent' ? '<button class="btn sm pri" data-cl="done">교환 완료</button>' : ''}</div>`
         : c.type === 'return' && c.status === 'collected' ? '<p class="help">아래 <b>환불</b>에서 돌려줄 금액을 확인하고 환불하면 반품이 끝납니다.</p>' : '';
       claimBody = `${dl([['진행', `<span class="tag bad">${h(c.label)}</span>${c.by === 'customer' ? ' <b class="o-warn">손님이 주문 조회에서 직접 요청</b>' : ''}`], ['사유', h(c.reason)], ['귀책', c.type === 'cancel' ? '' : c.fault === 'seller' ? '판매자 사유(배송비 잠스쿨 부담)' : '고객 사유(왕복 배송비 고객 부담)'],
-          ['접수', h(`${dt(c.requestedAt)} · ${c.by}`)], ['회수', c.pickup ? link(c.pickupTrack, `${c.pickupName} ${c.pickup.invoice || '송장 미입력'}`) : ''], ['회수 완료', c.collectedAt ? h(`${dt(c.collectedAt)}${c.note ? ' · ' + c.note : ''}`) : ''],
+          ['접수', h(`${dt(c.requestedAt)} · ${c.by === 'customer' ? '손님' : c.by}`)], ['회수', c.pickup ? link(c.pickupTrack, `${c.pickupName} ${c.pickup.invoice || '송장 미입력'}`) : ''], ['회수 완료', c.collectedAt ? h(`${dt(c.collectedAt)}${c.note ? ' · ' + c.note : ''}`) : ''],
           ['재발송', c.resend ? link(c.resendTrack, `${c.resendName} ${c.resend.invoice}`) : ''], ['메모', h(c.memo || '')]])}${next}
         <details class="mini"><summary>요청 철회·거부</summary><label for="rj-n">사유</label><input type="text" id="rj-n" maxlength="200" placeholder="예: 고객이 철회함"><div class="actions static"><button class="btn sm danger" data-cl="reject">철회·거부로 닫기</button></div></details>`;
     }
