@@ -187,27 +187,27 @@
       "groups": [
         {
           "id": "gg2gq7",
-          "name": "★다리베개(높이)★",
+          "name": "높이",
           "note": "",
           "price": true,
           "values": [
             {
               "id": "vcr5rq",
-              "label": "잠스쿨 다리베개(편안한 20cm)"
+              "label": "편안한_20cm"
             },
             {
               "id": "vxf9yj",
-              "label": "잠스쿨 다리베개(시원한 26cm)"
+              "label": "시원한_26cm"
             },
             {
               "id": "vrlg5v",
-              "label": "잠스쿨 다리베개(강력한 33cm)"
+              "label": "강력한_33cm"
             }
           ]
         },
         {
           "id": "gnt4xf",
-          "name": "★다리베개(색상)★",
+          "name": "색상",
           "note": "",
           "price": true,
           "values": [
