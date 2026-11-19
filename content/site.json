@@ -250,6 +250,38 @@
           "list": 91000
         }
       }
+    },
+    "40": {
+      "groups": [
+        {
+          "id": "gahktk",
+          "name": "사이즈",
+          "note": "폭 X 길이 X 높이(cm)",
+          "price": true,
+          "values": [
+            {
+              "id": "vo18va",
+              "label": "슈퍼싱글",
+              "sub": "110 X 200 X 8(cm)"
+            },
+            {
+              "id": "v4m9c1",
+              "label": "퀸",
+              "sub": "150 X 200 X 8(cm)"
+            }
+          ]
+        }
+      ],
+      "prices": {
+        "vo18va": {
+          "price": 197000,
+          "list": 267000
+        },
+        "v4m9c1": {
+          "price": 247000,
+          "list": 317000
+        }
+      }
     }
   }
 }
