@@ -601,7 +601,9 @@
     "angle": "쓰던 침대 위에 올리는 엄마품 메모리폼 토퍼(60kg 고밀도 메모리폼, 텐셀 겉커버, 보관용 고리)와, 침대 위에서도 쓰는 3단 침대형 7cm·바닥형 12cm. 미끄럼 방지 바닥면, 침대 폭에 맞춘 사이즈.",
     "category": "구매 가이드",
     "product": 40,
-    "status": "todo"
+    "status": "done",
+    "slug": "topper-on-bed",
+    "date": "2026-11-19"
   },
   {
     "id": "folding-mattress-guest",
@@ -614,7 +616,9 @@
     "angle": "손님용 사이즈 선택, 두 장 나란히, 접어서 보관, 구매평 속 손님용 사용.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-guest",
+    "date": "2026-11-19"
   },
   {
     "id": "tri-fold-smell",
@@ -627,7 +631,9 @@
     "angle": "출고 전 3단계 탈취, 4단계 유해물질 제거 공정, 압축 포장 복원 2일, 환기, 섬유 탈취제 사용 시 반품 어려움.",
     "category": "사용 팁",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-smell",
+    "date": "2026-11-19"
   },
   {
     "id": "topper-lifespan",
