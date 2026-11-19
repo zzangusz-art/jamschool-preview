@@ -309,3 +309,14 @@ body.has-paybar .toasts { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .done-track__inv, .done-track__claim { margin-top: 14px; font-size: 15px; color: var(--ink); line-height: 1.7; }
 .done-track__inv a, .done-track__claim a { color: var(--sky-ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .done-track .note { margin-top: 12px; }
+/* 주문 조회: 출고 예정 · 손님 취소·반품·교환 요청 */
+.done-track__due { margin-top: 12px; font-size: 14px; color: var(--sub); }
+.done-track__due b { color: var(--ink); }
+.done-req { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.done-req__btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.done-req__form { margin-top: 12px; display: grid; gap: 10px; }
+.done-req__t { font-weight: 800; color: var(--ink); }
+.done-req__reasons { display: grid; gap: 6px; }
+.done-req__r { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.done-req__form textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font-size: 15px; resize: vertical; }
+.done-req__act { display: flex; gap: 8px; }

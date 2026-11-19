@@ -18,7 +18,9 @@ import https from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { clientIp } from '../client-ip.mjs';
 import { notifyOrder } from './notify.mjs';
-import { applyFulfil, applyClaim, addRefund, refundedOf, stageOf, fulfilNow, customerView, shipSettings, saveShipSettings, saveSettleSettings, settleSettings, settlement, tplItemName, courierName, trackUrl, claimLabel, claimOpen, refundSuggest, FulfilError, COURIERS, CLAIM_TYPE } from './fulfil.mjs';   // 배송·취소·반품·교환·환불·정산   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
+import { applyFulfil, applyClaim, addRefund, refundedOf, stageOf, fulfilNow, customerView, shipSettings, saveShipSettings, saveSettleSettings, settleSettings, settlement, tplItemName, courierName, trackUrl, claimLabel, claimOpen, refundSuggest, FulfilError, COURIERS, CLAIM_TYPE, shipDue, isLate, dueLabel, customerClaim } from './fulfil.mjs';
+import { notifyClaim } from './notify.mjs';   // 손님이 직접 한 취소·반품·교환 요청을 텔레그램으로
+import { sendSms, msgSettings, saveMsgSettings, smsStatus, orderVars, fill, MSG_EVENTS } from './sms.mjs';   // 손님 안내 문자(솔라피)   // 배송·취소·반품·교환·환불·정산   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -183,6 +185,31 @@ function save(o) {
   return o;
 }
 const hist = (o, ev, note) => { (o.history ||= []).push({ at: nowIso(), ev, ...(note ? { note: String(note).slice(0, 300) } : {}) }); };
+// 손님 안내 문자(tools/pay/sms.mjs): 어드민에서 켜 둔 단계만, 기다리지 않는다. 결과는 주문 처리 기록에(번호·문구는 남기지 않음)
+const holidays = () => settleSettings(DIR()).holidays;
+const wonK = n => `${(Math.round(+n || 0)).toLocaleString('ko-KR')}원`;
+function tell(o, ev, extra = {}) {
+  try {
+    const m = msgSettings(DIR())[ev];
+    if (!m || !m.on || !o.buyer || !o.buyer.tel) return null;
+    const p = sendSms(o.buyer.tel, fill(m.text, orderVars(o, extra))).then(r => {
+      if (r.skipped) return r;
+      const x = load(o.moid); if (x) { hist(x, '손님 문자', `${MSG_EVENTS[ev].label} ${r.ok ? `보냄(${r.type})` : `실패 — ${r.error}`}`); save(x); }
+      return r;
+    }).catch(e => ({ ok: false, error: e.message }));
+    TELL.add(p); p.finally(() => TELL.delete(p));
+    return p;
+  } catch (e) { log('문자 준비 실패', o && o.moid, e.message); return null; }
+}
+const TELL = new Set();
+export const tellSettled = () => Promise.allSettled([...TELL]);   // 시험용
+const shipVars = f => ({ 택배사: courierName(f.courier), 송장번호: f.invoice || '', 배송조회: trackUrl(f.courier, f.invoice) });
+// 배송 단계를 바꾼 뒤: 송장이 새로 들어가면 발송 안내, 배송 완료로 바뀌면 배송 완료 안내(기본 꺼짐)
+function afterFulfil(o, before) {
+  const f = o.fulfil || {};
+  if (f.status === 'shipped' && f.invoice && (before.status !== 'shipped' || before.invoice !== f.invoice)) tell(o, 'shipped', shipVars(f));
+  if (f.status === 'delivered' && before.status !== 'delivered') tell(o, 'delivered');
+}
 function settings() { try { return { enabled: false, ...JSON.parse(fs.readFileSync(path.join(DIR(), 'settings.json'), 'utf8')) }; } catch { return { enabled: false }; } }
 const newId = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return 'JS' + kstStamp() + Array.from(crypto.randomBytes(6), b => A[b % A.length]).join(''); };
 
@@ -328,6 +355,7 @@ async function approve(data) {
     }
     log('paid', o.moid, o.amount, o.pg.authCode);
     notifyOrder(o, 'paid');
+    tell(o, 'paid', { 출고예정: dueLabel(shipDue(o, shipSettings(DIR()), holidays())) });
     return done;
   } finally { BUSY.delete(o.moid); }
 }
@@ -353,7 +381,7 @@ async function noti(req) {
     const full = str(d.partCanFlg) !== '1';
     if (o.pg && o.pg.tid && otid === o.pg.tid && o.status !== 'cancelled' && !(o.refunds || []).some(r => r.tid && r.tid === tid)) {
       const amt = full ? o.amount - refundedOf(o) : toInt(d.ccAmt);
-      if (amt > 0) addRefund(o, { amount: amt, part: !full, reason: st === '9' ? '망취소(결제통보)' : '가맹점 관리자 취소(결제통보)', by: 'seed', via: 'seed', tid, ccSeq: str(d.ccSeq) });
+      if (amt > 0) { addRefund(o, { amount: amt, part: !full, reason: st === '9' ? '망취소(결제통보)' : '가맹점 관리자 취소(결제통보)', by: 'seed', via: 'seed', tid, ccSeq: str(d.ccSeq) }); if (st !== '9') tell(o, 'refunded', { 환불금액: wonK(amt) }); }
     }
     hist(o, '결제통보 · 취소', `${toInt(d.ccAmt) >= 0 ? toInt(d.ccAmt) + '원' : ''} ${full ? '전체' : '부분'} 취소 · ${tid}`); save(o); return 200;
   }
@@ -363,6 +391,7 @@ async function noti(req) {
     o.pg = { ...o.pg, authCode: str(d.appNo), authDate: `${str(d.trDt)}${str(d.trTm)}`, cardName: str(d.fnNm), cardNo: str(d.cardNo), cardQuota: str(d.quotaMon) };
     hist(o, '결제통보 · 결제 완료로 맞춤', `${o.amount}원 승인 ${o.pg.authCode}`); save(o);
     notifyOrder(o, 'paid');
+    tell(o, 'paid', { 출고예정: dueLabel(shipDue(o, shipSettings(DIR()), holidays())) });
     return 200;
   }
   if (o.status !== 'paid' && toInt(d.goodsAmt) === o.amount) {
@@ -387,7 +416,7 @@ function publicView(o) {
     payLabel: o.status === 'paid' && o.pg && o.pg.cardName ? `${o.payLabel} (${o.pg.cardName} · ${QUOTA(o.pg.cardQuota)})` : o.payLabel,
     total: o.amount, sub: o.sub, ship: o.ship, items: o.items.map(({ id, name, opt, qty, price, img, cat }) => ({ id, name, opt, qty, price, img, cat })),
     name: mask(o.receiver.name), tel: `${o.receiver.tel.slice(0, 3)}-****-${o.receiver.tel.slice(-4)}`, addr: `(${o.receiver.zip}) ${o.receiver.addr1} · 상세 주소 생략`,
-    memo: o.receiver.memo, jeju: o.receiver.jeju, buyNow: o.buyNow, ship: ['paid', 'cancelled'].includes(o.status) ? customerView(o, shipSettings(DIR())) : null, fail: o.status === 'paid' ? '' : (o.fail && o.fail.msg) || '',
+    memo: o.receiver.memo, jeju: o.receiver.jeju, buyNow: o.buyNow, ship: ['paid', 'cancelled'].includes(o.status) ? customerView(o, { ...shipSettings(DIR()), holidays: holidays() }) : null, fail: o.status === 'paid' ? '' : (o.fail && o.fail.msg) || '',
   };
 }
 
@@ -419,6 +448,20 @@ export async function handlePay(req, res) {
       const telOk = o && tel.length >= 10 && [o.buyer && o.buyer.tel, o.receiver && o.receiver.tel].includes(tel);
       if (!telOk || ['ready', 'failed'].includes(o.status)) { json(res, 404, { error: '주문번호와 휴대폰 번호가 맞는 주문이 없습니다. 다시 확인해 주세요.' }); return true; }
       json(res, 200, { o: o.moid, t: o.token }); return true;
+    }
+    // 손님 취소·반품·교환 요청(주문 조회 화면): 조회 주소의 토큰이 맞아야 한다. 관리자에게 텔레그램, 손님에게 접수 문자
+    if (p === '/api/pay/claim' && req.method === 'POST') {
+      if (lookLimited(clientIp(req))) { json(res, 429, { error: '요청을 너무 많이 했습니다. 10분 뒤 다시 시도해 주세요.' }); return true; }
+      let d; try { d = JSON.parse((await readBody(req, 4096)).toString('utf8')); } catch { d = {}; }
+      const o = load(str(d.o));
+      if (!o || !same(d.t, o.token)) { json(res, 404, { error: '주문 정보를 찾을 수 없습니다' }); return true; }
+      if (BUSY.has(o.moid)) { json(res, 409, { error: '처리 중인 주문입니다. 잠시 뒤 다시 시도해 주세요.' }); return true; }
+      try { hist(o, '클레임', customerClaim(o, d, shipSettings(DIR()))); }
+      catch (e) { if (e instanceof FulfilError) { json(res, 400, { error: e.message }); return true; } throw e; }
+      save(o); log('claim', o.moid, o.claim.type);
+      notifyClaim(o, CLAIM_TYPE[o.claim.type], o.claim.reason);
+      tell(o, 'claim', { 요청: CLAIM_TYPE[o.claim.type] });
+      json(res, 200, publicView(o)); return true;
     }
     if (p === '/api/pay/order' && req.method === 'GET') {
       const o = load(url.searchParams.get('o'));
@@ -470,7 +513,7 @@ const ktime = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(
 const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const allOrders = () => { let names = []; try { names = fs.readdirSync(DIR()).filter(f => /^JS\w+\.json$/.test(f)); } catch { names = []; } return names.map(f => load(f.slice(0, -5))).filter(Boolean); };
 export function listOrders({ all = false, from = '', to = '' } = {}) {
-  const cfg = shipSettings(DIR());
+  const cfg = shipSettings(DIR()), hol = holidays();
   return allOrders()
     .filter(o => all || ['paid', 'check', 'cancelled', 'approving'].includes(o.status))
     .filter(o => (!isDay(from) || kday(o.createdAt) >= from) && (!isDay(to) || kday(o.createdAt) <= to))
@@ -481,12 +524,43 @@ export function listOrders({ all = false, from = '', to = '' } = {}) {
         items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), qty: o.items.reduce((a, x) => a + x.qty, 0), receiver: o.receiver.name, tel: o.receiver.tel, zip: o.receiver.zip,
         addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fail: (o.fail || {}).msg || '',
         fulfil: f.status, shippedAt: f.shippedAt || '', courier: f.invoice ? courierName(f.courier) : '', invoice: f.invoice || '', track: f.invoice ? trackUrl(f.courier, f.invoice) : '',
-        stage: st.key, stageName: st.label, stageTone: st.tone, refunded: refundedOf(o),
-        claim: c ? { type: c.type, status: c.status, open: claimOpen(c), label: claimLabel(c) } : null };
+        stage: st.key, stageName: st.label, stageTone: st.tone, refunded: refundedOf(o), memo2: o.adminMemo || '',
+        due: o.paidAt ? shipDue(o, cfg, hol) : '', late: isLate(o, cfg, hol),
+        claim: c ? { type: c.type, status: c.status, open: claimOpen(c), label: claimLabel(c), byCustomer: c.by === 'customer' } : null };
     });
 }
 // 날짜와 상관없이 결제 완료·발송 전(신규·상품 준비 중, 취소 요청 아님) 주문 수(목록 위 안내)
 export const todoCount = () => { const cfg = shipSettings(DIR()); return allOrders().filter(o => o.status === 'paid' && ['new', 'prep'].includes(fulfilNow(o, cfg).status) && !claimOpen(o.claim)).length; };
+// 어드민 홈 '처리할 일': 날짜와 상관없이 지금 손이 가야 하는 주문 수
+export function taskCounts() {
+  const cfg = shipSettings(DIR()), hol = holidays(), t = { new: 0, prep: 0, late: 0, claim: 0, claimCustomer: 0, check: 0 };
+  for (const o of allOrders()) {
+    if (o.status === 'check') t.check++;
+    if (o.status !== 'paid') continue;
+    if (claimOpen(o.claim)) { t.claim++; if (o.claim.by === 'customer' && o.claim.status === 'requested') t.claimCustomer++; continue; }
+    const f = fulfilNow(o, cfg).status;
+    if (f === 'new') t.new++; else if (f === 'prep') t.prep++;
+    if (isLate(o, cfg, hol)) t.late++;
+  }
+  return t;
+}
+// 관리자 메모(주문마다 하나, 손님에게는 안 보임)
+export function setMemo(id, memo, user) {
+  const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
+  o.adminMemo = String(memo || '').normalize('NFC').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500); hist(o, '관리자 메모', `${o.adminMemo ? '고침' : '지움'} — ${user.name}(${user.id})`); save(o);
+  return getOrderAdmin(id);
+}
+// 손님 안내 문자 설정·상태·시험 발송
+export const msgCfg = () => ({ events: msgSettings(DIR()), status: smsStatus() });
+export const saveMsg = (d, user) => ({ events: saveMsgSettings(DIR(), d, user), status: smsStatus() });
+export async function smsTest(to, ev, user) {
+  const m = msgSettings(DIR())[ev] || msgSettings(DIR()).shipped;
+  const sample = { moid: 'JS20261119123000SAMPLE', token: 'sample', amount: 239000, buyer: { name: user.name || '홍길동' }, items: [{ name: '3단 접이식 매트리스', gname: '잠스쿨 3단 접이식 매트리스' }] };
+  const text = fill(m.text, orderVars(sample, { 출고예정: '오늘 출고 예정', 택배사: '로젠택배', 송장번호: '12345678901', 배송조회: trackUrl('logen', '12345678901'), 요청: '반품', 환불금액: '239,000원' }));
+  const r = await sendSms(to, `[시험] ${text}`);
+  log('sms-test', user.id, r.ok ? 'ok' : r.error);
+  return { ...r, text };
+}
 // 발송용 엑셀·일괄 처리: 고른 주문 중 결제 완료만(고른 순서대로)
 const pickPaid = moids => { const ids = [...new Set((Array.isArray(moids) ? moids : []).map(String))].slice(0, 1000); return ids.map(load).filter(o => o && o.status === 'paid').map(o => ({ ...o, statusName: LABEL[o.status] })); };
 export function ordersForExport(moids) {
@@ -502,7 +576,7 @@ export function shipMany(moids, status, user) {
   let n = 0; const skipped = [];
   for (const x of list) {
     const o = load(x.moid); if (!o || fulfilNow(o).status === to) continue;
-    try { hist(o, '배송', applyFulfil(o, { status: to }, user)); save(o); n++; }
+    try { const before = { ...(o.fulfil || {}) }; hist(o, '배송', applyFulfil(o, { status: to }, user)); save(o); afterFulfil(o, before); n++; }
     catch (e) { if (e instanceof FulfilError) skipped.push(`${o.moid} — ${e.message}`); else throw e; }
   }
   log('ship-many', to, n, user.id);
@@ -521,7 +595,7 @@ export function invoiceMany(text, courier, user) {
     if (!id || !inv) { errors.push(`${ln.slice(0, 50)} — 주문번호(JS…)나 송장번호를 찾지 못했습니다`); continue; }
     const o = load(id);
     if (!o) { errors.push(`${id} — 없는 주문입니다`); continue; }
-    try { hist(o, '배송', applyFulfil(o, { status: 'shipped', courier: named ? named.code : courier, invoice: inv, needInvoice: true }, user)); save(o); done.push(o.moid); }
+    try { const before = { ...(o.fulfil || {}) }; hist(o, '배송', applyFulfil(o, { status: 'shipped', courier: named ? named.code : courier, invoice: inv, needInvoice: true }, user)); save(o); afterFulfil(o, before); done.push(o.moid); }
     catch (e) { if (e instanceof FulfilError || e instanceof PayError) errors.push(`${id} — ${e.message}`); else throw e; }
   }
   log('invoice-many', done.length, errors.length, user.id);
@@ -544,6 +618,7 @@ export function getOrderAdmin(id) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
   const { token, ...rest } = o, cfg = shipSettings(DIR()), f = fulfilNow(o, cfg), c = o.claim;
   return { ...rest, statusName: LABEL[o.status] || o.status, stage: stageOf(o, cfg), fulfilNow: f, refunded: refundedOf(o), remain: o.amount - refundedOf(o),
+    due: o.paidAt ? dueLabel(shipDue(o, cfg, holidays())) : '', late: isLate(o, cfg, holidays()),
     track: f.invoice ? trackUrl(f.courier, f.invoice) : '', courierName: f.invoice ? courierName(f.courier) : '',
     claimView: c ? { ...c, label: claimLabel(c), open: claimOpen(c), typeName: CLAIM_TYPE[c.type],
       pickupTrack: c.pickup && c.pickup.invoice ? trackUrl(c.pickup.courier, c.pickup.invoice) : '', pickupName: c.pickup ? courierName(c.pickup.courier) : '',
@@ -553,7 +628,9 @@ export function getOrderAdmin(id) {
 // 배송 단계 하나(발주 확인·송장 입력·배송 완료·되돌리기). 예전 화면은 status 글자만 보낸다
 export function setFulfil(id, d, user) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
+  const before = { ...(o.fulfil || {}) };
   hist(o, '배송', applyFulfil(o, typeof d === 'string' ? { status: d === 'shipped' ? 'shipped' : 'new' } : d || {}, user)); save(o);
+  afterFulfil(o, before);
   return getOrderAdmin(id);
 }
 // 취소·반품·교환 요청과 단계(회수 접수·회수 완료·재발송·완료·철회·메모)
@@ -561,6 +638,8 @@ export function claimOrder(id, d, user) {
   const o = load(id); if (!o) throw new PayError(404, '주문을 찾을 수 없습니다');
   if (BUSY.has(o.moid)) throw new PayError(409, '처리 중인 주문입니다. 잠시 뒤 다시 시도해 주세요');
   hist(o, '클레임', applyClaim(o, d || {}, user)); save(o);
+  if (d && d.action === 'request') tell(o, 'claim', { 요청: CLAIM_TYPE[o.claim.type] });
+  if (d && d.action === 'resend') tell(o, 'resent', shipVars(o.claim.resend));
   return getOrderAdmin(id);
 }
 // 환불: via=pg 는 씨드페이먼츠 결제 취소(전액 = 처음 한 번에 전부, 그 밖은 부분취소 partCanFlg=1 · ccAmt),
@@ -574,6 +653,7 @@ export async function refundOrder(id, d, user) {
   if (via === 'manual') {
     addRefund(o, { amount, part: amount < remain || refunded > 0, reason, by: user.id, via, memo: clean((d && d.memo) || '').slice(0, 100) });
     hist(o, '환불 기록(결제 밖 환불)', `${amount}원 · ${reason} — ${who}`); save(o); log('refund-manual', o.moid, amount);
+    tell(o, 'refunded', { 환불금액: wonK(amount) });
     return getOrderAdmin(id);
   }
   if (!o.pg || !o.pg.tid) throw new PayError(400, '결제 거래번호가 없어 결제 취소를 할 수 없습니다(결제 밖 환불로 기록해 주세요)');
@@ -597,6 +677,7 @@ export async function refundOrder(id, d, user) {
     if (o.status === 'cancelled') o.cancel = { at: nowIso(), by: user.id, msg: reason, code: '0000', cancelNum: str(r.tid), check };
     hist(o, full ? 'cancelled' : '부분 환불', `${amount}원 · ${reason} — ${who}${check === 'ok' ? '' : ' · ' + check}`); save(o);
     log(full ? 'cancelled' : 'refund-part', o.moid, amount, str(r.tid));
+    tell(o, 'refunded', { 환불금액: wonK(amount) });
     return getOrderAdmin(id);
   } finally { BUSY.delete(o.moid); }
 }

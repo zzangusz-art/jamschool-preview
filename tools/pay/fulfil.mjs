@@ -177,6 +177,8 @@ export function customerView(o, cfg = SHIP_DEFAULT) {
     claim: c ? { type: CLAIM_TYPE[c.type], label: claimLabel(c), pickup: c.pickup && c.pickup.invoice ? { courier: courierName(c.pickup.courier), invoice: c.pickup.invoice, track: trackUrl(c.pickup.courier, c.pickup.invoice) } : null,
       resend: c.resend ? { courier: courierName(c.resend.courier), invoice: c.resend.invoice, track: trackUrl(c.resend.courier, c.resend.invoice) } : null } : null,
     refunded: refundedOf(o),
+    due: o.status === 'paid' && ['new', 'prep'].includes(f.status) && !claimOpen(c) ? dueLabel(shipDue(o, cfg, cfg.holidays)) : '',
+    can: customerCan(o, cfg), reasons: CUSTOMER_REASONS,
   };
 }
 
@@ -294,4 +296,41 @@ export function settlement(orders, cfg, { from = '', to = '', today = kday(nowIs
   const sum = k => out.reduce((a, r) => a + r[k], 0);
   return { rows: out, total: { payN: sum('payN'), payAmt: sum('payAmt'), refN: sum('refN'), refAmt: sum('refAmt'), fee: sum('fee'), vat: sum('vat'), net: sum('net'),
     plan: out.filter(r => r.status === 'plan').reduce((a, r) => a + r.net, 0), check: out.filter(r => r.status === 'check').length } };
+}
+
+// ── 출고 예정일: 결제가 영업일 출고 마감(기본 13:00) 전이면 그날, 아니면 다음 영업일(주말·공휴일 건너뜀)
+//    그날이 지나도록 발송 안 하면 '출고 지연'(스마트스토어 발송기한·발송지연과 같은 개념)
+const kstNow = () => new Date(Date.now() + 9 * 3600e3).toISOString();
+export function shipDue(o, cfg = SHIP_DEFAULT, holidays = HOLIDAYS) {
+  if (!o.paidAt) return '';
+  const t = new Date(Date.parse(o.paidAt) + 9 * 3600e3).toISOString(), day = t.slice(0, 10), hm = t.slice(11, 16);
+  const H = new Set(holidays || []), w = new Date(day + 'T00:00:00Z').getUTCDay(), open = w !== 0 && w !== 6 && !H.has(day);
+  return open && hm < (cfg.cutoff || '13:00') ? day : bizDay(day, 1, holidays);
+}
+export const isLate = (o, cfg = SHIP_DEFAULT, holidays = HOLIDAYS) => o.status === 'paid' && ['new', 'prep'].includes((o.fulfil || {}).status || 'new') && !claimOpen(o.claim) && !!o.paidAt && kstNow().slice(0, 10) > shipDue(o, cfg, holidays);
+const WD = ['일', '월', '화', '수', '목', '금', '토'];
+export const dueLabel = d => { if (!d) return ''; const today = kstNow().slice(0, 10); return d === today ? '오늘 출고 예정' : `${+d.slice(5, 7)}월 ${+d.slice(8, 10)}일(${WD[new Date(d + 'T00:00:00Z').getUTCDay()]}) 출고 예정`; };
+
+// ── 손님이 주문 조회에서 직접 하는 요청: 발송 전 = 취소 요청, 발송 뒤 = 반품·교환 요청(받은 날부터 7일 — 배송 완료 전이면 발송일부터 14일까지)
+export const CUSTOMER_REASONS = {
+  cancel: ['단순 변심', '주소·옵션을 잘못 넣음', '다른 상품으로 다시 주문', '기타'],
+  return: ['단순 변심', '상품 불량·파손', '주문과 다른 상품이 옴', '기타'],
+  exchange: ['사이즈·색상 바꾸기', '상품 불량·파손', '주문과 다른 상품이 옴', '기타'],
+};
+const SELLER_FAULT = /불량|파손|다른 상품이 옴/;
+export function customerCan(o, cfg = SHIP_DEFAULT) {
+  if (o.status !== 'paid' || claimOpen(o.claim)) return { cancel: false, ret: false };
+  const f = fulfilNow(o, cfg), sent = ['shipped', 'delivered'].includes(f.status);
+  const until = f.deliveredAt ? Date.parse(f.deliveredAt) + 7 * 864e5 : f.shippedAt ? Date.parse(f.shippedAt) + 14 * 864e5 : 0;
+  return { cancel: !sent, ret: sent && Date.now() <= until };
+}
+export function customerClaim(o, d, cfg = SHIP_DEFAULT) {
+  const type = String(d.type || ''), can = customerCan(o, cfg), list = CUSTOMER_REASONS[type];
+  if (!list) bad('요청 종류를 골라 주세요');
+  if (type === 'cancel' ? !can.cancel : !can.ret) bad(type === 'cancel' ? '이미 발송했거나 요청이 진행 중이라 취소 요청을 할 수 없습니다. 반품으로 요청하거나 고객센터로 연락해 주세요.' : '반품·교환을 요청할 수 있는 기간(받은 날부터 7일)이 지났거나 요청이 진행 중입니다. 고객센터로 연락해 주세요.');
+  const reason = list.includes(d.reason) ? d.reason : '';
+  if (!reason) bad('사유를 골라 주세요');
+  const detail = line(d.detail, 200);
+  if (reason === '기타' && !detail) bad('사유를 적어 주세요');
+  return applyClaim(o, { action: 'request', type, reason: detail ? `${reason} — ${detail}` : reason, fault: type === 'cancel' ? 'buyer' : SELLER_FAULT.test(reason) ? 'seller' : 'buyer', memo: '손님이 주문 조회에서 요청' }, { id: 'customer', name: '손님' });
 }

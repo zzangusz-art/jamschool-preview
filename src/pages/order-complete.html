@@ -36,7 +36,19 @@
         <h2 class="done-box__t" id="done-track-t">배송 현황 <span class="done-track__st" id="done-stage"></span></h2>
         <ol class="done-steps" id="done-steps"></ol>
         <p class="done-track__inv" id="done-inv" hidden></p>
+        <p class="done-track__due" id="done-due" hidden></p>
         <p class="done-track__claim" id="done-claim" hidden></p>
+        <div class="done-req" id="done-req" hidden>
+          <div class="done-req__btns" id="done-req-btns"></div>
+          <form class="done-req__form" id="done-req-form" hidden novalidate>
+            <p class="done-req__t" id="done-req-t"></p>
+            <div class="done-req__reasons" id="done-req-reasons" role="radiogroup" aria-labelledby="done-req-t"></div>
+            <label class="sr-only" for="done-req-detail">자세한 내용</label><textarea id="done-req-detail" rows="3" maxlength="200" placeholder="자세한 내용(선택, '기타'는 꼭 적어 주세요)"></textarea>
+            <p class="note" id="done-req-note"></p>
+            <div class="done-req__act"><button class="btn btn--primary" type="submit">요청 보내기</button><button class="btn btn--line" type="button" id="done-req-x">닫기</button></div>
+            <p class="lookup__msg" id="done-req-msg" role="alert"></p>
+          </form>
+        </div>
         <p class="note">이 화면 주소를 저장해 두면 배송 현황을 다시 볼 수 있습니다. 주소를 잃어버렸다면 사이트 맨 아래 '주문·배송 조회'에서 주문번호와 휴대폰 번호로 찾을 수 있습니다.</p>
       </section>
 
@@ -70,7 +82,7 @@
       </section>
 
       <div class="done-btns"><a data-edit="complete-024" class="btn btn--primary" href="shop.html">쇼핑 계속하기</a><a data-edit="complete-025" class="btn btn--line" href="https://pf.kakao.com/_XxhVxeT/chat" target="_blank" rel="noopener">카카오톡 상담</a></div>
-      <p data-edit="complete-026" class="note" style="margin-top:16px;text-align:center">교환·반품은 받은 날부터 7일 이내에 고객센터 010-9610-8868(평일 09:00~17:00)로 먼저 요청해 주세요.</p>
+      <p data-edit="complete-026" class="note" style="margin-top:16px;text-align:center">교환·반품은 받은 날부터 7일 이내에 위 '배송 현황'에서 요청하거나 고객센터 010-9610-8868(평일 09:00~17:00)로 알려 주세요.</p>
     </div>
   </div>
 </main>

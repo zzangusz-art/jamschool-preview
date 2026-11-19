@@ -55,6 +55,15 @@ export function notifyOrder(o, kind = 'paid', reason = '') {
   INFLIGHT.add(p); p.finally(() => INFLIGHT.delete(p));
   return p;
 }
+// 손님이 주문 조회에서 취소·반품·교환을 요청했을 때(관리자가 바로 알도록)
+export function notifyClaim(o, typeName, reason) {
+  if (!TOKEN() || !CHATS().length) return Promise.resolve({ sent: 0, skipped: true });
+  const text = [`<b>🔁 [잠스쿨] 손님 ${esc(typeName)} 요청</b>`, `주문번호 ${esc(o.moid)}`, ...(o.items || []).map(x => `· ${esc(x.name)}${x.opt ? ` (${esc(x.opt)})` : ''} × ${esc(x.qty)}`),
+    `사유 ${esc(String(reason || '').slice(0, 200))}`, `<a href="${esc(adminLink(o.moid))}">관리자 화면에서 처리</a>`].join(String.fromCharCode(10));
+  const p = sendAll(text).then(rs => { const bad = rs.filter(r => r.status === 'rejected'); log(bad.length ? '실패' : '보냄', o.moid, 'claim'); return { sent: rs.length - bad.length }; }).catch(() => ({ sent: 0 }));
+  INFLIGHT.add(p); p.finally(() => INFLIGHT.delete(p));
+  return p;
+}
 export const settled = () => Promise.allSettled([...INFLIGHT]);   // 시험용: 보내는 중인 알림이 끝날 때까지
 
 // ───────── 관리자 어드민: 상태 · 시험 알림(대화방 ID 가 없으면 봇에게 말을 건 대화방을 찾아 준다)

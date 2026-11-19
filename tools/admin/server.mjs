@@ -430,7 +430,8 @@ const COURIER_LIST = () => COURIERS.map(c => [c.code, c.name]);
 route('GET', '/api/admin/payments', 'client', async ({ query, user }) => {
   const owner = user.role === 'owner', st = PAY.adminStatus(), cfg = PAY.shipCfg();
   const base = { enabled: st.enabled, canCancel: canRefund(user), canRefund: canRefund(user), orders: PAY.listOrders({ all: query.get('all') === '1', from: query.get('from') || '', to: query.get('to') || '' }), todo: PAY.todoCount(),
-    formats: Object.entries(SHIP_FORMATS).map(([k, f]) => [k, f.label]), since: ordersSince(), couriers: COURIER_LIST(), courier: cfg.courier, autoDays: cfg.autoDeliverDays, shipReady: !!(cfg.from.addr1 && cfg.from.tel) };
+    formats: Object.entries(SHIP_FORMATS).map(([k, f]) => [k, f.label]), since: ordersSince(), couriers: COURIER_LIST(), courier: cfg.courier, autoDays: cfg.autoDeliverDays, shipReady: !!(cfg.from.addr1 && cfg.from.tel),
+    tasks: PAY.taskCounts(), sms: PAY.msgCfg().status.ready };
   return owner ? { ...st, ...base, notify: NOTIFY.notifyStatus() } : base;
 });
 // 고른 결제 완료 주문: 배송 단계 한꺼번에(발주 확인·발송 처리·배송 완료·신규로) / 택배사·3PL 엑셀 / 송장 일괄 입력
@@ -459,6 +460,11 @@ route('GET', '/api/admin/payments/:moid', 'client', async ({ params, user }) => 
 });
 route('POST', '/api/admin/payments/:moid/fulfil', 'client', async ({ params, data, user }) => ({ order: PAY.setFulfil(params.moid, data || {}, user) }));
 route('POST', '/api/admin/payments/:moid/claim', 'client', async ({ params, data, user }) => ({ order: PAY.claimOrder(params.moid, data || {}, user) }));
+route('POST', '/api/admin/payments/:moid/memo', 'client', async ({ params, data, user }) => ({ order: PAY.setMemo(params.moid, data.memo, user) }));
+// 손님 안내 문자(솔라피): 단계별 켜기·문구, 시험 문자(받을 번호는 관리자가 넣은 번호)
+route('GET', '/api/admin/msg-settings', 'client', async () => PAY.msgCfg());
+route('POST', '/api/admin/msg-settings', 'client', async ({ data, user }) => { const r = PAY.saveMsg(data.events || {}, user); console.log(`[admin] 손님 문자 설정 ${user.id}`); return { ok: true, ...r }; });
+route('POST', '/api/admin/msg-test', 'client', async ({ data, user }) => PAY.smsTest(String(data.to || ''), String(data.ev || 'shipped'), user));
 route('POST', '/api/admin/payments/:moid/refund', 'client', async ({ params, data, user }) => {
   need(canRefund(user), 403, '환불은 총괄 관리자만 할 수 있습니다(배송 설정 › 환불 권한)');
   return { order: await PAY.refundOrder(params.moid, data || {}, user) };

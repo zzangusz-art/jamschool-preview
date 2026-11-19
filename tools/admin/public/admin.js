@@ -60,7 +60,7 @@
 
   // ── 화면 틀(메뉴는 글자만)
   const NAV = [
-    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['settle', '정산'], ['shipset', '배송 설정'], ['orders', '주문 흐름']]],
+    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['shipset', '배송 설정'], ['orders', '주문 흐름']]],
     ['사이트 꾸미기', [['site/home', '홈 화면'], ['site/event', '팝업·이벤트'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['site/reviews', '구매평'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
     ['글', [['blog', '블로그']]],
   ];
@@ -75,7 +75,7 @@
       <button class="navbtn" id="navbtn" type="button" aria-expanded="false" aria-controls="side-nav"><span>메뉴</span></button>
       <nav id="side-nav">${NAV.map(([g, list]) => `<p class="grp">${g}</p>${list.map(link).join('')}`).join('')}
         ${isOwner ? `<p class="grp own">총괄 관리자 전용</p>${OWNER_NAV.map(link).join('')}` : ''}
-        <div class="bottom">${link(['me', '내 계정'])}<a href="/" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout">로그아웃</a></div></nav>
+        <div class="bottom">${link(['settle', '정산'])}${link(['me', '내 계정'])}<a href="/" target="_blank" rel="noopener">사이트 보기 ↗</a><a href="#" id="logout">로그아웃</a></div></nav>
       <p class="who"><b>${h(ME.user.name)}</b>${h(ME.user.roleName)} · ${h(ME.user.id)}</p></aside>
       <main class="main"><div class="top"><div class="tt">${o.back ? `<a class="back" href="${o.back[0]}">← ${h(o.back[1])}</a>` : ''}<h1 id="ttl">${h(title)}</h1>${o.desc ? `<p>${o.desc}</p>` : ''}</div>${o.tool || ''}<span id="deploy" class="deploy ${deploy.state}" ${deploy.text ? '' : 'hidden'}>${h(deploy.text)}</span></div>
       ${!ME.storeReady ? '<div class="box bad">저장소 연결이 안 되어 있어 저장할 수 없습니다. 관리자에게 알려 주세요(Railway 변수 GITHUB_TOKEN).</div>' : ''}
@@ -186,12 +186,15 @@
         <div class="kpi"><span>최근 7일 방문자</span><b>${num(u7)}명</b><small>${delta(u7, up7)} 직전 7일 ${num(up7)}명</small></div>
         <div class="kpi"><span>오늘 결제</span><b>${num(paidToday.length)}건</b><small>${won(paidToday.reduce((a, o) => a + o.amount, 0))}</small></div>
         <div class="kpi"><span>발송 전 주문</span><b>${num(p ? p.todo : 0)}건</b><small>${p && p.todo ? '<a href="#/payments" id="go-todo">보낼 주문 보기 →</a>' : '보낼 주문 없음'}</small></div></div>
+      ${p && p.tasks ? (() => { const t = p.tasks, items = [['todo', '신규 주문(발주 확인 전)', t.new], ['todo', '상품 준비 중(송장 입력 전)', t.prep], ['late', '출고 지연', t.late], ['claim', '취소·반품·교환 처리 중', t.claim], ['claim', '손님 새 요청', t.claimCustomer], ['issue', '결제 확인 필요', t.check]].filter(x => x[2]);
+        return `<div class="card todo-card"><h2>처리할 일</h2>${items.length ? `<div class="todo-list">${items.map(([st, label, n]) => `<a href="#/payments" data-go="${st}" class="${st === 'late' || label === '손님 새 요청' || st === 'issue' ? 'warn' : ''}"><span>${h(label)}</span><b>${num(n)}건</b></a>`).join('')}</div>` : '<p class="help">지금 처리할 주문이 없습니다.</p>'}</div>`; })() : ''}
       <div class="cols"><div class="card"><div class="ch"><div><h2>방문자</h2><p class="h-sub">최근 14일 · 마우스를 올리면 그날 숫자</p></div><a class="btn sm" href="#/traffic/30">자세히</a></div><div class="lcbox" id="d-visit">${s ? '' : empty('방문 기록을 불러오지 못했습니다.')}</div></div>
         <div class="card"><div class="ch"><div><h2>결제 금액</h2><p class="h-sub">최근 14일 결제 완료(취소 제외) · 14일 합계 ${won(paySum.reduce((a, b) => a + b, 0))}</p></div><a class="btn sm" href="#/payments">자세히</a></div><div class="lcbox" id="d-pay"></div></div></div>
       <div class="cols"><div class="card"><div class="ch"><div><h2>최근 결제 주문</h2><p class="h-sub">최근 14일 중 최신 5건</p></div><a class="btn sm" href="#/payments">결제 주문</a></div>
           ${recent.length ? `<table class="list rtbl"><thead><tr><th>일시</th><th>상품</th><th class="r">금액</th><th>상태</th></tr></thead><tbody>${recent.map(o => `<tr><td class="nw">${h(md(o.day))} ${h(o.time)}</td><td class="ell"><a href="#/payments/${h(o.moid)}" title="${h(o.items.join(', '))}">${h(shortItem(o.items[0]))}${o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ''}</a></td><td class="r nw">${won(o.amount)}</td><td class="nw"><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.status === 'paid' ? ` <span class="tag ${o.fulfil === 'shipped' ? 'live' : 'draft'}">${o.fulfil === 'shipped' ? '발송함' : '발송 전'}</span>` : ''}</td></tr>`).join('')}</tbody></table>` : empty('최근 14일 결제 주문이 없습니다.')}</div>
         <div class="card"><div class="ch"><div><h2>어디서 왔나</h2><p class="h-sub">최근 7일 · 들어온 경로 상위 5</p></div><a class="btn sm" href="#/traffic/7">자세히</a></div>${bars(top(src7, 5), ent7)}</div></div>`;
     const gt = $('#go-todo'); if (gt) gt.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = 'todo'; location.hash = '#/payments'; };
+    v.querySelectorAll('[data-go]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = a.dataset.go; location.hash = '#/payments'; });
     const draws = [];
     if (s) draws.push(lineChart($('#d-visit'), dates, [{ name: '방문자', color: C1, area: true, on: true, values: days.map(d => d.uv) }], { label: '최근 14일 방문자 선 그래프' }));
     draws.push(barChart($('#d-pay'), dates, paySum, { name: '결제 금액', label: '최근 14일 결제 금액 막대 그래프', fmt: won, axis: x => x >= 10000 ? `${Math.round(x / 1000) / 10}만` : num(x), min: 100000, extra: i => [[CG, '결제 건수', `${payBy[i].length}건`]] }));
@@ -443,7 +446,8 @@
   // 결제 주문 화면 상태(자세히 보고 돌아와도 그대로): 기간·상태
   const PAYF = { range: '30', from: '', to: '', st: 'paid' };
   const RANGES = [['0', '오늘'], ['1', '어제'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체 기간'], ['pick', '날짜 고르기']];
-  const OST = [['todo', '발송 전'], ['ship', '배송 중'], ['done', '배송 완료'], ['claim', '취소·반품·교환'], ['refund', '환불'], ['paid', '결제 완료 전체'], ['issue', '확인 필요·결제 취소'], ['tries', '결제 시도 전체']];
+  const mdK = s => s ? `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일` : '';
+  const OST = [['todo', '발송 전'], ['late', '출고 지연'], ['ship', '배송 중'], ['done', '배송 완료'], ['claim', '취소·반품·교환'], ['refund', '환불'], ['paid', '결제 완료 전체'], ['issue', '확인 필요·결제 취소'], ['tries', '결제 시도 전체']];
   const kToday = (back = 0) => new Date(Date.now() + 9 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
   const WDK = ['일', '월', '화', '수', '목', '금', '토'];
   const dayLabel = s => `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일 (${WDK[new Date(s + 'T00:00:00Z').getUTCDay()]})${s === kToday() ? ' · 오늘' : s === kToday(1) ? ' · 어제' : ''}`;
@@ -451,7 +455,7 @@
   const open = o => !!(o.claim && o.claim.open);
   const stOk = (o, st) => st === 'todo' ? o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && !open(o) : st === 'ship' ? o.status === 'paid' && o.fulfil === 'shipped' && !open(o)
     : st === 'done' ? o.status === 'paid' && o.fulfil === 'delivered' && !open(o) : st === 'claim' ? open(o) : st === 'refund' ? o.refunded > 0 : st === 'paid' ? o.status === 'paid'
-    : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : true;
+    : st === 'late' ? !!o.late : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : true;
   // 서버가 준 엑셀 파일을 내려받기(이름은 Content-Disposition 의 filename*)
   async function download(url, data) {
     const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-Jam-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -489,22 +493,25 @@
     const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => stOk(o, 'todo')), shipIn = paidIn.filter(o => stOk(o, 'ship')), claimIn = d.orders.filter(o => stOk(o, 'claim'));
     const list = d.orders.filter(o => stOk(o, PAYF.st));
     const days = []; for (const o of list) { let g = days.find(x => x.day === o.day); if (!g) days.push(g = { day: o.day, list: [] }); g.list.push(o); }
-    const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}">
+    const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}" data-q="${h([o.moid, o.receiver, o.tel, o.invoice, o.memo2, ...o.items].join(' ').toLowerCase())}">
         <input type="checkbox" data-sel="${h(o.moid)}" ${o.status === 'paid' ? '' : 'disabled'} aria-label="${h(o.receiver)} 주문 고르기">
         <div class="o-time">${h(o.time)}</div>
         <div class="o-main"><p class="o-items">${o.items.map(h).join('<br>')}</p>
           <p class="o-to"><b>${h(o.receiver)}</b> · ${h(telFmt(o.tel))} · (${h(o.zip)}) ${h(o.addr)}${o.jeju ? ' · <b class="o-warn">제주·도서산간</b>' : ''}</p>
-          ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${h(o.fail)}</p>` : ''}
+          ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.memo2 ? `<p class="o-memo o-admin">관리자 메모: ${h(o.memo2)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${h(o.fail)}</p>` : ''}
+          ${o.late ? `<p class="o-memo"><b class="o-warn">출고 지연</b> 출고 예정일(${h(mdK(o.due))})이 지났습니다</p>` : o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && o.due ? `<p class="o-memo">출고 예정 ${h(mdK(o.due))}</p>` : ''}${o.claim && o.claim.byCustomer && o.claim.open ? '<p class="o-memo"><b class="o-warn">손님이 직접 요청</b></p>' : ''}
           <p class="o-id">${h(o.moid)} · ${h(o.payLabel || '')}</p></div>
         <div class="o-side"><b>${won(o.amount)}</b><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.stageName ? `<span class="tag ${h(o.stageTone || '')}">${h(o.stageName)}</span>` : ''}${o.invoice ? `<a class="o-inv" href="${h(o.track)}" target="_blank" rel="noopener">${h(o.courier)} ${h(o.invoice)} ↗</a>` : ''}<a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></div></div>`;
     v.innerHTML = `${ownerBox}${d.shipReady ? '' : '<div class="box info"><b>배송 설정이 비어 있습니다.</b> <a href="#/shipset">배송 설정</a>에서 발송지·회수지 주소와 기본 택배사를 넣어 주세요(택배 엑셀·반품 안내에 쓰입니다).</div>'}${FLOW(d.autoDays)}
       <div class="card ofbar"><div class="seg wrap" role="group" aria-label="기간">${RANGES.map(([k, t]) => `<a href="#" data-range="${k}" class="${PAYF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
         <div class="ofpick" ${PAYF.range === 'pick' ? '' : 'hidden'}><input type="date" id="of-from" value="${h(PAYF.from)}" aria-label="시작 날짜"> ~ <input type="date" id="of-to" value="${h(PAYF.to)}" aria-label="끝 날짜"><button class="btn sm" type="button" id="of-go">보기</button></div>
-        <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}</a>`).join('')}</div></div>
+        <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}${k === 'late' && d.tasks && d.tasks.late ? ` <b class="o-warn">${d.tasks.late}</b>` : k === 'claim' && d.tasks && d.tasks.claim ? ` <b class="o-warn">${d.tasks.claim}</b>` : ''}</a>`).join('')}</div>
+        <input type="search" id="o-q" class="o-q" placeholder="주문번호·이름·전화·송장·상품 찾기" aria-label="주문 찾기"></div>
       <div class="kpis"><div class="kpi"><span>결제 완료</span><b>${num(paidIn.length)}건</b><small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
-        <div class="kpi"><span>발송 전</span><b>${num(todoIn.length)}건</b><small>${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
+        <div class="kpi"><span>발송 전</span><b>${num(todoIn.length)}건</b><small>${d.tasks && d.tasks.late ? `<b class="o-warn">출고 지연 ${num(d.tasks.late)}건</b> · ` : ''}${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
         <div class="kpi"><span>배송 중</span><b>${num(shipIn.length)}건</b><small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div>
-        <div class="kpi"><span>취소·반품·교환 진행</span><b>${num(claimIn.length)}건</b><small>${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
+        <div class="kpi"><span>취소·반품·교환 진행</span><b>${num(claimIn.length)}건</b><small>${d.tasks && d.tasks.claimCustomer ? `손님 새 요청 ${num(d.tasks.claimCustomer)}건 · ` : ''}${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
+      ${d.sms ? '' : '<p class="help">손님 안내 문자(결제 완료·발송·환불)가 아직 연결되지 않았습니다 — <a href="#/shipset">배송 설정 › 손님 안내 문자</a></p>'}
       <div class="obar"><label class="chk"><input type="checkbox" id="o-all"> 보이는 결제 완료 주문 모두 고르기</label><span class="o-n" id="o-n">0건 고름</span>
         <select id="o-fmt" aria-label="엑셀 양식">${(d.formats || []).map(([k, t]) => `<option value="${h(k)}">${h(t)}</option>`).join('')}</select>
         <button class="btn sm pri" type="button" id="o-xls" disabled>엑셀 내려받기</button><button class="btn sm" type="button" data-bulk="prep" disabled>발주 확인</button><button class="btn sm" type="button" data-bulk="shipped" disabled>발송 처리</button><button class="btn sm" type="button" data-bulk="delivered" disabled>배송 완료</button><button class="btn sm" type="button" data-bulk="new" disabled>신규로</button><button class="btn sm" type="button" id="o-inv">송장 일괄 입력</button></div>
@@ -527,6 +534,12 @@
     // 기간·상태
     v.querySelectorAll('[data-range]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.range = a.dataset.range; if (PAYF.range === 'pick') { if (!PAYF.from) { PAYF.from = kToday(6); PAYF.to = kToday(); } } payments(); });
     v.querySelectorAll('[data-st]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.st = a.dataset.st; payments(); });
+    // 찾기: 보이는 목록 안에서 바로 거른다(주문번호·이름·전화·송장·상품·관리자 메모)
+    $('#o-q').addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase().replace(/-/g, '');
+      v.querySelectorAll('.orow').forEach(r => { r.hidden = !!q && !r.dataset.q.replace(/-/g, '').includes(q); });
+      v.querySelectorAll('.oday').forEach(sec => { sec.hidden = ![...sec.querySelectorAll('.orow')].some(r => !r.hidden); });
+    });
     const go = $('#of-go'); if (go) go.onclick = () => { PAYF.from = $('#of-from').value; PAYF.to = $('#of-to').value; if (PAYF.from && PAYF.to && PAYF.from > PAYF.to) [PAYF.from, PAYF.to] = [PAYF.to, PAYF.from]; payments(); };
     const at = $('#all-todo'); if (at) at.onclick = e => { e.preventDefault(); PAYF.range = 'all'; PAYF.st = 'todo'; payments(); };
     // 엑셀·발송 처리
@@ -622,7 +635,8 @@
         <button class="btn sm pri" data-ful="shipped">${f.status === 'shipped' || f.status === 'delivered' ? '송장 고치기' : '송장 저장·발송 처리'}</button>
         ${f.status === 'shipped' ? '<button class="btn sm" data-ful="delivered">배송 완료</button>' : ''}
         ${f.status !== 'new' ? `<button class="btn sm" data-ful="${f.status === 'prep' ? 'new' : 'prep'}">${f.status === 'prep' ? '신규로 되돌리기' : '상품 준비 중으로 되돌리기'}</button>` : ''}</div>` : '';
-    const shipCard = `<div class="card"><h2>배송</h2><p class="h-sub">${stageTag} ${f.invoice ? link(o.track, `${o.courierName} ${f.invoice} 배송 조회`) : paid ? '송장 미입력' : ''}</p>${dl([
+    const dueTxt = paid && ['new', 'prep'].includes(f.status) && o.due ? `<br>${o.late ? '<b class="o-warn">출고 지연</b> · ' : ''}${h(o.due)}` : '';
+    const shipCard = `<div class="card"><h2>배송</h2><p class="h-sub">${stageTag} ${f.invoice ? link(o.track, `${o.courierName} ${f.invoice} 배송 조회`) : paid ? '송장 미입력' : ''}${dueTxt}</p>${dl([
         ['받는 분', h(rc.name)], ['연락처', h(telFmt(rc.tel))], ['주소', h(`(${rc.zip}) ${rc.addr1} ${rc.addr2}`)], ['배송 메모', h(rc.memo || '')],
         ['제주·도서산간', rc.jeju ? '<b>추가 배송비 안내 필요</b>' : ''], ['주문하는 분', h(`${by.name} · ${telFmt(by.tel)}${by.email ? ' · ' + by.email : ''}`)],
       ])}${shipForm}</div>`;
@@ -645,7 +659,7 @@
         : c.type === 'exchange' && (c.status === 'collected' || c.status === 'resent') ? `<div class="fgrid"><div><label for="rs-c">재발송 택배사</label>${courierSel('rs-c', d.couriers, (c.resend || {}).courier || d.courier)}</div><div><label for="rs-n">재발송 송장번호</label><input type="text" id="rs-n" value="${h((c.resend || {}).invoice || '')}" inputmode="numeric"></div></div>
             <div class="actions static"><button class="btn sm" data-cl="resend">재발송 저장</button>${c.status === 'resent' ? '<button class="btn sm pri" data-cl="done">교환 완료</button>' : ''}</div>`
         : c.type === 'return' && c.status === 'collected' ? '<p class="help">아래 <b>환불</b>에서 돌려줄 금액을 확인하고 환불하면 반품이 끝납니다.</p>' : '';
-      claimBody = `${dl([['진행', `<span class="tag bad">${h(c.label)}</span>`], ['사유', h(c.reason)], ['귀책', c.type === 'cancel' ? '' : c.fault === 'seller' ? '판매자 사유(배송비 잠스쿨 부담)' : '고객 사유(왕복 배송비 고객 부담)'],
+      claimBody = `${dl([['진행', `<span class="tag bad">${h(c.label)}</span>${c.by === 'customer' ? ' <b class="o-warn">손님이 주문 조회에서 직접 요청</b>' : ''}`], ['사유', h(c.reason)], ['귀책', c.type === 'cancel' ? '' : c.fault === 'seller' ? '판매자 사유(배송비 잠스쿨 부담)' : '고객 사유(왕복 배송비 고객 부담)'],
           ['접수', h(`${dt(c.requestedAt)} · ${c.by}`)], ['회수', c.pickup ? link(c.pickupTrack, `${c.pickupName} ${c.pickup.invoice || '송장 미입력'}`) : ''], ['회수 완료', c.collectedAt ? h(`${dt(c.collectedAt)}${c.note ? ' · ' + c.note : ''}`) : ''],
           ['재발송', c.resend ? link(c.resendTrack, `${c.resendName} ${c.resend.invoice}`) : ''], ['메모', h(c.memo || '')]])}${next}
         <details class="mini"><summary>요청 철회·거부</summary><label for="rj-n">사유</label><input type="text" id="rj-n" maxlength="200" placeholder="예: 고객이 철회함"><div class="actions static"><button class="btn sm danger" data-cl="reject">철회·거부로 닫기</button></div></details>`;
@@ -668,11 +682,13 @@
         ['승인번호', h(pg.authCode || '')], ['거래번호(TID)', h(pg.tid || '')], ['주문 일시', h(dt(o.createdAt))], ['결제 일시', h(dt(o.paidAt))],
         ['취소', o.cancel ? h(`${dt(o.cancel.at)} · ${o.cancel.msg} · ${o.cancel.by}`) : ''],
       ])}</div>${shipCard}</div>
+      <div class="card"><h2>관리자 메모</h2><p class="h-sub">손님에게는 보이지 않습니다. 통화 내용·특이 사항을 남겨 두세요.</p><textarea id="am-t" rows="2" maxlength="500">${h(o.adminMemo || '')}</textarea><div class="actions static"><button class="btn sm" id="am-save">메모 저장</button></div></div>
       <div class="card"><h2>주문 상품</h2><table class="list"><thead><tr><th>상품</th><th>옵션</th><th class="r">수량</th><th class="r">금액</th></tr></thead><tbody>${o.items.map(x => `<tr><td>${h(x.name)}</td><td>${h(x.opt || '')}</td><td class="r">${x.qty}</td><td class="r">${won(x.price * x.qty)}</td></tr>`).join('')}</tbody></table></div>
       <div class="cols">${claimCard}${refundCard}</div>
       ${FLOW(d.autoDays)}
       <div class="card" style="margin-top:16px"><h2>처리 기록</h2>${dl((o.history || []).slice().reverse().map(x => [dt(x.at), h(`${x.ev}${x.note ? ' · ' + x.note : ''}`)]))}</div>`;
     const post = async (url, body, msg) => { try { await api('POST', `/api/admin/payments/${encodeURIComponent(moid)}/${url}`, body); toast(msg); payDetail(moid); } catch (e) { toast(e.message, 6000); } };
+    $('#am-save').onclick = () => post('memo', { memo: $('#am-t').value }, '메모를 저장했습니다');
     v.querySelectorAll('[data-ful]').forEach(b => b.onclick = () => {
       const st = b.dataset.ful;
       if (st === 'shipped') { const inv = $('#sh-n').value.trim(); if (!inv && !confirm('송장번호 없이 발송 처리할까요? 나중에 넣을 수 있습니다.')) return; post('fulfil', { status: 'shipped', courier: $('#sh-c').value, invoice: inv }, '발송 처리했습니다'); }
@@ -740,7 +756,9 @@
       <div class="card"><h2>3PL 발주서</h2><p class="h-sub">결제 주문 › 엑셀 '3PL 발주서'의 받는분·품목명 규칙입니다. 품목명 = 상품별 이름 + 두께형(cm)_사이즈 / 색상</p>
         <div class="fgrid"><div><label for="t-sf">받는분 뒤 판매처 표시</label><input type="text" id="t-sf" value="${h(c.tpl.suffix)}" placeholder="(공)"></div><div><label for="t-fr">운임구분</label><input type="text" id="t-fr" value="${h(c.tpl.fare)}"></div></div>
         <table class="list"><thead><tr><th>상품</th><th>3PL 품목명(앞부분)</th></tr></thead><tbody>${d.products.map(p => `<tr><td>${h(p.short)}</td><td><input type="text" data-tpl="${p.id}" value="${h(c.tpl.names[p.id] || p.short)}"></td></tr>`).join('')}</tbody></table></div>
-      <div class="actions"><button class="btn ok" id="ss-save">저장하기</button></div>${c.at ? `<p class="help">마지막 저장 ${h(dt(c.at))} · ${h(c.by || '')}</p>` : ''}`;
+      <div class="actions"><button class="btn ok" id="ss-save">저장하기</button></div>${c.at ? `<p class="help">마지막 저장 ${h(dt(c.at))} · ${h(c.by || '')}</p>` : ''}
+      <div id="msg-box"></div>`;
+    msgCard($('#msg-box')).catch(e => { $('#msg-box').innerHTML = `<div class="box bad">${h(e.message)}</div>`; });
     $('#rt-same').onchange = e => { $('#rt-box').hidden = e.target.checked; };
     v.querySelectorAll('[data-zip]').forEach(b => b.onclick = () => findZip(b.dataset.zip));
     v.addEventListener('input', () => { dirty = true; });
@@ -753,6 +771,30 @@
     };
   }
 
+  // ── 손님 안내 문자(배송 설정 아래): 단계별 켜기·문구·시험 문자(연결 전에는 미리보기만)
+  const MSG_VARS = ['이름', '주문번호', '상품', '금액', '출고예정', '조회주소', '택배사', '송장번호', '배송조회', '요청', '환불금액'];
+  async function msgCard(box) {
+    const d = await api('GET', '/api/admin/msg-settings'), S = d.status, E = d.events;
+    box.innerHTML = `<div class="card"><h2>손님 안내 문자</h2><p class="h-sub">주문 단계가 바뀌면 주문하신 분 휴대폰으로 자동으로 보냅니다. 주문·배송 안내 같은 거래 문자라 광고 수신 동의 없이 보낼 수 있습니다.</p>
+      <div class="box ${S.ready ? 'ok' : 'info'}">${S.ready ? `<b>문자 연결됨</b> · 발신번호 ${h(S.sender)}` : '<b>문자 연결 전</b> — 솔라피(solapi.com)에서 가입·발신번호 등록 뒤 Railway 변수 <code>SOLAPI_API_KEY</code>·<code>SOLAPI_API_SECRET</code>·<code>SOLAPI_SENDER</code>(발신번호)를 넣으면 아래 켜 둔 문자가 나갑니다. 그 전에는 보내지 않고, 시험 문자는 미리보기만 됩니다.'}</div>
+      ${Object.entries(E).map(([k, m]) => `<div class="msg-ev"><label class="chk"><input type="checkbox" data-mon="${k}" ${m.on ? 'checked' : ''}> <b>${h(m.label)}</b></label><textarea data-mtx="${k}" rows="4">${h(m.text)}</textarea>${m.text !== m.base ? `<button class="btn sm" type="button" data-mreset="${k}">처음 문구로</button>` : ''}</div>`).join('')}
+      <p class="help">넣을 수 있는 칸: ${MSG_VARS.map(x => `<code>#{${x}}</code>`).join(' ')} · 90바이트(한글 약 45자)가 넘으면 장문(LMS)으로 보냅니다.</p>
+      <div class="actions static"><button class="btn sm ok" type="button" id="msg-save">문자 설정 저장</button></div>
+      <div class="fgrid"><div><label for="mt-to">시험 문자 받을 번호</label><input type="tel" id="mt-to" placeholder="010-0000-0000"></div><div><label for="mt-ev">어떤 문자</label><select id="mt-ev">${Object.entries(E).map(([k, m]) => `<option value="${k}">${h(m.label)}</option>`).join('')}</select></div></div>
+      <div class="actions static"><button class="btn sm" type="button" id="msg-test">${S.ready ? '시험 문자 보내기' : '문구 미리보기'}</button></div><div id="mt-out"></div></div>`;
+    box.querySelectorAll('[data-mreset]').forEach(b => b.onclick = () => { box.querySelector(`[data-mtx="${b.dataset.mreset}"]`).value = E[b.dataset.mreset].base; });
+    $('#msg-save').onclick = async () => {
+      const events = {}; for (const k of Object.keys(E)) events[k] = { on: box.querySelector(`[data-mon="${k}"]`).checked, text: box.querySelector(`[data-mtx="${k}"]`).value };
+      try { await api('POST', '/api/admin/msg-settings', { events }); dirty = false; toast('손님 안내 문자 설정을 저장했습니다'); msgCard(box); } catch (e) { toast(e.message, 6000); }
+    };
+    $('#msg-test').onclick = async () => {
+      try {
+        const r = await api('POST', '/api/admin/msg-test', { to: $('#mt-to').value, ev: $('#mt-ev').value });
+        $('#mt-out').innerHTML = `<div class="box ${r.ok ? 'ok' : 'info'}">${r.ok ? `<b>보냈습니다</b>(${h(r.type)})` : `<b>${S.ready ? '보내지 못했습니다' : '미리보기'}</b> ${S.ready ? h(r.error || '') : '(문자 연결 전이라 보내지 않았습니다)'}`}<pre class="msg-pre">${h(r.text || '')}</pre></div>`;
+      } catch (e) { toast(e.message, 6000); }
+    };
+  }
+
   // ── 정산: 결제 승인일 다음 영업일 정산(익일 정산), 취소·환불은 그날 기준 다음 정산금에서 차감
   const SETF = { range: 'm0', from: '', to: '' };
   async function settle() {
@@ -762,9 +804,7 @@
     const R = { m0: [mStart(0), mEnd(0)], m1: [mStart(1), mEnd(1)], d30: [kToday(29), kToday(-14)], all: ['', ''], pick: [SETF.from, SETF.to] }[SETF.range] || ['', ''];
     const d = await api('GET', `/api/admin/settlement?from=${encodeURIComponent(R[0] || '')}&to=${encodeURIComponent(R[1] || '')}`), c = d.cfg, T = d.total;
     const tag = r => `<span class="tag ${r.status === 'done' ? 'live' : r.status === 'check' ? 'bad' : 'draft'}">${h(r.statusName)}</span>`;
-    v.innerHTML = `<div class="box info"><b>정산 흐름</b> 결제 완료(승인일) → <b>다음 영업일</b>에 정산 입금(주말·공휴일은 그다음 영업일) · 정산 전에 취소하면 그 결제는 정산에서 빠지고, 정산 뒤 취소·환불은 <b>취소한 날 기준 다음 정산금에서 차감</b>됩니다.
-        수수료 <b>${c.feeRate}%${c.vat ? ' + 부가세(수수료의 10%)' : ''}</b>${c.feeSet ? '' : '(계약 기준 기본값)'} · 씨드 테스트 서버 결제는 빼고 셉니다.</div>
-      <div class="card ofbar"><div class="seg wrap" role="group" aria-label="정산일 기간">${[['m0', '이번 달'], ['m1', '지난달'], ['d30', '최근 30일·예정'], ['all', '전체'], ['pick', '날짜 고르기']].map(([k, t]) => `<a href="#" data-sr="${k}" class="${SETF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
+    v.innerHTML = `<div class="card ofbar"><div class="seg wrap" role="group" aria-label="정산일 기간">${[['m0', '이번 달'], ['m1', '지난달'], ['d30', '최근 30일·예정'], ['all', '전체'], ['pick', '날짜 고르기']].map(([k, t]) => `<a href="#" data-sr="${k}" class="${SETF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
         <div class="ofpick" ${SETF.range === 'pick' ? '' : 'hidden'}><input type="date" id="sf-from" value="${h(SETF.from)}" aria-label="시작 정산일"> ~ <input type="date" id="sf-to" value="${h(SETF.to)}" aria-label="끝 정산일"><button class="btn sm" id="sf-go">보기</button></div>
         <button class="btn sm" id="sf-xls">엑셀 내려받기</button></div>
       <div class="kpis"><div class="kpi"><span>결제</span><b>${won(T.payAmt)}</b><small>${num(T.payN)}건</small></div><div class="kpi"><span>취소·환불 차감</span><b>${won(T.refAmt)}</b><small>${num(T.refN)}건</small></div>

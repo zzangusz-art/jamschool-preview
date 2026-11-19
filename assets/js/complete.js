@@ -40,18 +40,56 @@
     const s = o.ship; if (!s || !s.steps || !s.steps.length) return;
     $('#done-track').hidden = false;
     $('#done-stage').textContent = s.stage;
-    const T = { prep: '상품을 준비하고 있습니다', shipped: '배송 중입니다', delivered: '배송이 완료되었습니다', returned: '반품이 완료되었습니다', claim: s.stage };
+    const T = { prep: '상품을 준비하고 있습니다', shipped: '배송 중입니다', delivered: '배송이 완료되었습니다', returned: '반품이 완료되었습니다', claim: /요청$/.test(s.stage) ? `${s.stage}을 접수했습니다` : s.stage };
     if (T[s.stageKey]) $('#done-t').textContent = T[s.stageKey];
     $('#done-steps').innerHTML = s.steps.map((x, i) => `<li class="${x.done ? 'on' : ''}"><b>${i + 1}</b><span>${esc(x.label)}</span><small>${x.at ? esc(md(x.at)) : ''}</small></li>`).join('');
     if (s.invoice) { const el = $('#done-inv'); el.hidden = false; el.innerHTML = `${esc(s.courier)} 송장번호 <b>${esc(s.invoice)}</b> · ${link(s.track, '배송 조회')}`; }
     const c = s.claim, bits = [];
     if (c) {
-      bits.push(`<b>${esc(c.type)}</b> ${esc(c.label)}`);
+      bits.push(`<b>${esc(c.label)}</b>`);
       if (c.pickup) bits.push(`회수 ${esc(c.pickup.courier)} ${esc(c.pickup.invoice)} · ${link(c.pickup.track, '조회')}`);
       if (c.resend) bits.push(`재발송 ${esc(c.resend.courier)} ${esc(c.resend.invoice)} · ${link(c.resend.track, '조회')}`);
     }
     if (s.refunded) bits.push(`환불 ${won(s.refunded)}`);
     if (bits.length) { const el = $('#done-claim'); el.hidden = false; el.innerHTML = bits.join('<br>'); }
+    if (s.due) { const el = $('#done-due'); el.hidden = false; el.innerHTML = `<b>${esc(s.due)}</b> · 오후 1시 이전 결제는 당일 출고합니다(주말·공휴일 제외).`; }
+    request(o, s);
+  }
+  // 손님 요청: 발송 전 = 주문 취소 요청, 받은 뒤 7일 안 = 반품·교환 요청. 보낸 뒤에는 화면을 다시 불러 진행 상황을 보여 준다
+  const REQ = {
+    cancel: { btn: '주문 취소 요청', t: '어떤 이유로 취소하시나요?', note: '발송 전 주문은 확인 뒤 결제를 전액 취소해 드립니다(카드사에 따라 3~7영업일).' },
+    return: { btn: '반품 요청', t: '어떤 이유로 반품하시나요?', note: '회수 택배가 방문합니다. 단순 변심은 왕복 배송비(매트리스 36,000원 · 그 밖의 상품 6,000원)를 빼고 환불하고, 상품 불량·오배송은 배송비를 받지 않습니다.' },
+    exchange: { btn: '교환 요청', t: '어떤 이유로 교환하시나요?', note: '회수 뒤 새 상품을 보내 드립니다. 단순 교환의 왕복 배송비는 고객 부담입니다. 바꿀 옵션을 자세한 내용에 적어 주세요.' },
+  };
+  function request(o, s) {
+    const can = s.can || {}, types = [...(can.cancel ? ['cancel'] : []), ...(can.ret ? ['return', 'exchange'] : [])];
+    if (!types.length || !s.reasons) return;
+    $('#done-req').hidden = false;
+    $('#done-req-btns').innerHTML = types.map(t => `<button class="btn btn--line btn--sm" type="button" data-req="${t}">${REQ[t].btn}</button>`).join('');
+    const form = $('#done-req-form');
+    let type = '';
+    $('#done-req-btns').addEventListener('click', e => {
+      const b = e.target.closest('[data-req]'); if (!b) return;
+      type = b.dataset.req; form.hidden = false; $('#done-req-msg').textContent = '';
+      $('#done-req-t').textContent = REQ[type].t; $('#done-req-note').textContent = REQ[type].note;
+      $('#done-req-reasons').innerHTML = (s.reasons[type] || []).map((r, i) => `<label class="done-req__r"><input type="radio" name="req-r" value="${esc(r)}" ${i ? '' : 'checked'}> ${esc(r)}</label>`).join('');
+      form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    $('#done-req-x').addEventListener('click', () => { form.hidden = true; });
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const msg = $('#done-req-msg'), r = (form.querySelector('[name="req-r"]:checked') || {}).value, detail = $('#done-req-detail').value.trim();
+      if (!r) { msg.textContent = '사유를 골라 주세요.'; return; }
+      if (r === '기타' && !detail) { msg.textContent = '자세한 내용을 적어 주세요.'; return; }
+      const btn = form.querySelector('[type=submit]'); btn.disabled = true; msg.textContent = '';
+      try {
+        const res = await fetch('/api/pay/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ o: q.get('o'), t: q.get('t'), type, reason: r, detail }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) { msg.textContent = j.error || '요청을 보내지 못했습니다.'; btn.disabled = false; return; }
+        UI.toast(`${REQ[type].btn.replace(' 요청', '')} 요청을 보냈습니다. 확인 뒤 연락드립니다.`, { icon: UI.I.check });
+        setTimeout(() => location.reload(), 900);
+      } catch (err) { msg.textContent = '요청을 보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.'; btn.disabled = false; }
+    });
   }
   function failView(msg, retry) {
     $('#done-wait').hidden = true;

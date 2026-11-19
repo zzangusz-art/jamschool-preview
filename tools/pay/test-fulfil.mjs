@@ -22,7 +22,13 @@ let n = 0; const ok = s => console.log('ok', ++n, s);
 // 가짜 씨드페이먼츠 취소
 const CANCEL = 'https://pay.seedpayments.co.kr/payment/v1/cancel';
 let calls = [], plan = null;
+let smsSent = [], smsPlan = null;   // 가짜 솔라피
 globalThis.fetch = async (url, opt) => {
+  if (String(url) === 'https://api.solapi.com/messages/v4/send-many') {
+    const body = JSON.parse(opt.body); smsSent.push({ auth: opt.headers.Authorization, body });
+    const out = smsPlan ? smsPlan(body) : { groupId: 'G1', count: { total: 1, registeredSuccess: 1, registeredFailed: 0 } };
+    return new Response(JSON.stringify(out), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
   const params = Object.fromEntries(new URLSearchParams(opt.body)); calls.push({ url, params });
   if (url !== CANCEL || !plan) throw new Error('예상 못 한 요청 ' + url);
   return new Response(JSON.stringify(plan(params)), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -163,6 +169,51 @@ assert.ok(s2.checks['2026-11-23']);
 assert.throws(() => PAY.saveSettle({ feeRate: 50 }, client), /0~10/);
 assert.throws(() => PAY.saveSettle({ holidays: '2026/12/25' }, client), /날짜 형식/);
 ok(`정산: 기본 수수료 2.2%+부가세(입금 확인만 저장해도 유지)·다음 영업일(금→월, 성탄절·추석 건너뜀)·환불 차감·수수료율 바꾸기·테스트 서버 주문 제외·입금 확인 · 정산 예정 ${rep.rows.length}일`);
+
+// 9) 출고 예정일·출고 지연, 손님 직접 요청(주문 조회), 손님 안내 문자(솔라피), 관리자 메모·처리할 일
+assert.equal(F.shipDue({ paidAt: '2026-11-20T03:00:00.000Z' }), '2026-11-20');   // 금 12:00 → 그날
+assert.equal(F.shipDue({ paidAt: '2026-11-20T05:00:00.000Z' }), '2026-11-23');   // 금 14:00 → 월
+assert.equal(F.shipDue({ paidAt: '2026-12-24T06:00:00.000Z' }), '2026-12-28');   // 목 15:00 → 성탄절·주말 건너 월
+const late = mk({ paidAt: '2026-11-02T01:00:00.000Z' });
+assert.equal(PAY.listOrders({}).find(o => o.moid === late).late, true); assert.ok(PAY.taskCounts().late >= 1);
+const sm = mk();
+const claimApi = (o, t, d) => call('POST', '/api/pay/claim', { o, t, ...d }, { 'content-type': 'application/json', 'x-real-ip': '10.0.0.' + (++ipN) });
+let cr = await claimApi(sm, 'bad', { type: 'cancel', reason: '단순 변심' }); assert.equal(cr.code, 404);
+cr = await claimApi(sm, read(sm).token, { type: 'return', reason: '단순 변심' }); assert.equal(cr.code, 400); assert.match(cr.json.error, /반품·교환을 요청할 수 있는 기간/);
+cr = await claimApi(sm, read(sm).token, { type: 'cancel', reason: '기타' }); assert.equal(cr.code, 400); assert.match(cr.json.error, /사유를 적어/);
+const v0 = await call('GET', `/api/pay/order?o=${sm}&t=${read(sm).token}`);
+assert.match(v0.json.ship.due, /출고 예정/); assert.deepEqual(v0.json.ship.can, { cancel: true, ret: false });
+process.env.SOLAPI_API_KEY = 'TESTKEY'; process.env.SOLAPI_API_SECRET = 'TESTSECRET'; process.env.SOLAPI_SENDER = '02-123-4567';
+smsSent = [];
+cr = await claimApi(sm, read(sm).token, { type: 'cancel', reason: '주소·옵션을 잘못 넣음', detail: '주소 오타' });
+assert.equal(cr.code, 200); assert.equal(read(sm).claim.by, 'customer'); assert.equal(read(sm).claim.reason, '주소·옵션을 잘못 넣음 — 주소 오타');
+assert.equal(cr.json.ship.claim.label, '취소 요청'); assert.deepEqual(cr.json.ship.can, { cancel: false, ret: false });
+await PAY.tellSettled();
+assert.equal(smsSent.length, 1);
+const m0 = smsSent[0], a0 = m0.auth.match(/^HMAC-SHA256 apiKey=TESTKEY, date=(\S+), salt=([0-9a-f]{32}), signature=([0-9a-f]{64})$/);
+assert.ok(a0, m0.auth); assert.equal(a0[3], crypto.createHmac('sha256', 'TESTSECRET').update(a0[1] + a0[2]).digest('hex'));
+assert.equal(m0.body.messages[0].to, '01011112222'); assert.equal(m0.body.messages[0].from, '021234567');
+assert.match(m0.body.messages[0].text, /주문자님, 취소 요청을 접수했습니다/); assert.match(m0.body.messages[0].text, new RegExp(`order-complete\\.html\\?o=${sm}&t=`));
+assert.ok(read(sm).history.some(h => h.ev === '손님 문자' && /취소·반품·교환 요청 접수 보냄/.test(h.note)));
+// 발송(송장 입력) 문자: 송장이 새로 들어갈 때 한 번, 같은 송장으로 다시 저장하면 안 보냄
+const sx2 = mk(); smsSent = [];
+PAY.setFulfil(sx2, { status: 'shipped', courier: 'cj', invoice: '5556667778' }, client); await PAY.tellSettled();
+PAY.setFulfil(sx2, { status: 'shipped', courier: 'cj', invoice: '5556667778' }, client); await PAY.tellSettled();
+assert.equal(smsSent.length, 1); assert.match(smsSent[0].body.messages[0].text, /CJ대한통운 5556667778/); assert.match(smsSent[0].body.messages[0].text, /cjlogistics/); assert.equal(smsSent[0].body.messages[0].type, 'LMS');
+// 문구 끄기·바꾸기, 실패는 기록만
+PAY.saveMsg({ shipped: { on: false }, refunded: { text: '[잠스쿨] #{환불금액} 환불 완료 #{없는칸}' } }, client);
+smsSent = []; const sx3 = mk(); PAY.setFulfil(sx3, { status: 'shipped', courier: 'logen', invoice: '1231231231' }, client); await PAY.tellSettled(); assert.equal(smsSent.length, 0);
+smsPlan = () => ({ count: { total: 1, registeredSuccess: 0, registeredFailed: 1 } });
+await PAY.refundOrder(sx3, { amount: 10000, via: 'manual', reason: '일부' }, client); await PAY.tellSettled();
+assert.equal(smsSent[0].body.messages[0].text, '[잠스쿨] 10,000원 환불 완료'); assert.ok(read(sx3).history.some(h => h.ev === '손님 문자' && /실패/.test(h.note)));
+smsPlan = null;
+const pv = await PAY.smsTest('010-1111-2222', 'paid', client); assert.equal(pv.ok, true); assert.match(pv.text, /오늘 출고 예정/);
+assert.throws(() => PAY.saveMsg({ paid: { text: '   ' } }, client), /비어 있습니다/);
+// 관리자 메모
+assert.equal(PAY.setMemo(sx3, '고객 통화: 오후 배송 원함', client).adminMemo, '고객 통화: 오후 배송 원함');
+assert.equal(PAY.listOrders({}).find(o => o.moid === sx3).memo2, '고객 통화: 오후 배송 원함');
+delete process.env.SOLAPI_API_KEY; delete process.env.SOLAPI_API_SECRET; delete process.env.SOLAPI_SENDER;
+ok('출고 예정일(마감·주말·공휴일)·출고 지연 · 손님 취소 요청(토큰·기간·사유 검사, 손님 표시) · 솔라피 문자(HMAC 서명·발신/수신·문구 칸·조회 주소·LMS·같은 송장 한 번·끄기·실패 기록) · 관리자 메모');
 
 fs.rmSync(TMP, { recursive: true, force: true });
 console.log(`\n배송·클레임·환불·정산 시험 ${n}개 통과`);
