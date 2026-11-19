@@ -3,7 +3,7 @@
    꺼져 있으면 같은 상품의 스마트스토어로 보낸다. 금액·주문 저장·승인은 서버(tools/pay/seedpay.mjs)가 한다 */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, cart, store } = UI;
-  const { OPTIONS_29: O, CHECKOUT, CS } = JAM;
+  const { OPT, CHECKOUT, CS } = JAM;
   const form = $('#co-form'); if (!form) return;
   const qs = new URLSearchParams(location.search);
   const buyNow = qs.get('buy') === 'now', pgTest = qs.get('pg') === 'test';
@@ -21,12 +21,12 @@
     return raw.map(x => {
       const p = SHOP.P(x.id); if (!p) return null;
       const qty = Math.max(1, Math.min(99, +x.qty || 1));
-      if (p.full) {
-        const [, t, s, c] = String(x.key).split('-');
-        const price = O.price[`${t}-${s}`];
-        if (!price || !O.color.some(k => k.id === c)) return null;
-        return { ...SHOP.itemFor(p, { t, s, c }, qty), cat: p.cat };
+      if (OPT.of(p)) {
+        const y = OPT.parse(p, x.key);
+        if (!y || y.off) return null;
+        return { ...SHOP.itemFor(p, y.vals, qty), cat: p.cat };
       }
+      if (String(x.key) !== String(p.id)) return null;
       return { ...SHOP.itemFor(p, null, qty), cat: p.cat };
     }).filter(Boolean);
   }

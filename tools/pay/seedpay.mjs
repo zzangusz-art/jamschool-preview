@@ -148,18 +148,19 @@ function siteData() {
 }
 // 주문서의 한 줄(key, qty) → 서버 계산 값. checkout.js load() · shop-core.js itemFor() 와 같은 규칙
 function lineFor(J, key, qty) {
-  const O = J.OPTIONS_29, q = toInt(qty);
+  const q = toInt(qty);
   if (!(q >= 1 && q <= 99)) throw new PayError(400, '수량을 확인해 주세요');
   const k = String(key || '');
-  const m = k.match(/^29-(7|12)-(MS|SS|Q)-([a-z]+)$/);
+  // 옵션 상품: key = 상품번호-값-값…(data.js JAM.OPT 와 같은 규칙, 가격은 옵션 조합 가격표)
+  const m = k.match(/^(\d+)-(.+)$/);
   if (m) {
-    const p = J.PRODUCTS.find(x => x.id === 29), t = O.thickness.find(x => x.id === m[1]), s = O.size.find(x => x.id === m[2]), c = O.color.find(x => x.id === m[3]);
-    const price = O.price[`${m[1]}-${m[2]}`];
-    if (!p || !t || !s || !c || !(price > 0)) throw new PayError(400, '주문할 수 없는 옵션이 있습니다');
-    return { key: k, id: 29, name: p.name, gname: gname(p), opt: `${t.label} ${t.sub} / ${s.label} ${s.w}×200 / ${c.label}`, qty: q, price, img: c.id === 'ivory' ? p.imgs[8] : p.imgs[0], cat: p.cat };
+    const p = J.PRODUCTS.find(x => x.id === +m[1]), x = p && J.OPT.parse(p, k);
+    if (!x) throw new PayError(400, '주문할 수 없는 옵션이 있습니다');
+    if (x.off) throw new PayError(400, '품절된 옵션이 있습니다');
+    return { key: x.key, id: p.id, name: p.name, gname: gname(p), opt: x.label, qty: q, price: x.price, img: x.img, cat: p.cat };
   }
   const p = /^\d+$/.test(k) && J.PRODUCTS.find(x => x.id === +k);
-  if (!p || p.full || !(p.price > 0)) throw new PayError(400, '주문할 수 없는 상품이 있습니다');
+  if (!p || J.OPT.of(p) || !(p.price > 0)) throw new PayError(400, '주문할 수 없는 상품이 있습니다');
   return { key: k, id: p.id, name: p.name, gname: gname(p), opt: '', qty: q, price: p.price, img: p.imgs[0], cat: p.cat };
 }
 // 결제창 상품명: 여러 건이면 짧은 이름 + 외 N건. 입점 브랜드(하픽 등)는 '잠스쿨'을 붙이지 않는다

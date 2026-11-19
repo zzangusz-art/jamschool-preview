@@ -307,7 +307,7 @@
     const ph = JAM.PHOTOS.map(x => typeof x === 'string' ? { pid: 29, src: x } : x).filter(x => !pid || String(x.pid) === pid);
     const cap = id => `${(JAM.PRODUCTS.find(p => String(p.id) === String(id)) || { short: '잠스쿨' }).short} 포토 구매평`;
     el.innerHTML = ph.map((x, i) => `<button type="button" aria-label="포토 구매평 ${i + 1} 크게 보기">${RENDER.pic(x.src, 'alt="" width="160" height="160" loading="lazy"')}</button>`).join('');
-    $('button', el).forEach((b, i) => b.addEventListener('click', () => lightbox(ph.map((x, k) => ({ src: x.src, alt: `포토 구매평 ${k + 1}`, cap: cap(x.pid) })), i)));
+    $$('button', el).forEach((b, i) => b.addEventListener('click', () => lightbox(ph.map((x, k) => ({ src: x.src, alt: `포토 구매평 ${k + 1}`, cap: cap(x.pid) })), i)));
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('.rv__more'); if (!b) return;

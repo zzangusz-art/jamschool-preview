@@ -1,7 +1,7 @@
 /* 상품 상세: 갤러리, 옵션 선택(선택 목록·수량), 장바구니·구매·찜·공유, 탭 스크롤스파이, 상세 접기, 모바일 구매바·시트 */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, accordion, cart, wish, lightbox, readyThumbs, photoStrip, reduce } = UI;
-  const { PRODUCTS, OPTIONS_29: O } = JAM;
+  const { PRODUCTS, OPT } = JAM;
   const root = $('.pd'); if (!root) return;
   const p = PRODUCTS.find(x => x.id === +root.dataset.id);
 
@@ -27,67 +27,78 @@
   $('.pd-gal__zoom').addEventListener('click', () => lightbox(lbItems, gi));
   $$('.pd-gal__slide img').forEach((img, i) => img.addEventListener('click', () => lightbox(lbItems, i)));
 
-  // ───────── 옵션
-  const sel = [];                 // 선택 목록 [{key, t, s, c, qty}]
-  const st = { t: null, s: null, c: null };
+  // ───────── 옵션(어드민 '상품 › 옵션' — 묶음 수·이름은 상품마다 다르다). 묶음을 모두 고르면 아래 선택 목록에 담긴다
+  const o = OPT.of(p), N = o ? o.groups.length : 0;
+  const sel = [];                 // 선택 목록 [{key, vals, qty}]
+  const st = new Array(N).fill(null);
   let qtySingle = 1;
   const totalEl = $('#pd-total'), priceEl = $('#pd-price');
-  function label(it) {
-    const t = O.thickness.find(x => x.id === it.t), s = O.size.find(x => x.id === it.s), c = O.color.find(x => x.id === it.c);
-    return `${t.label} ${t.sub} / ${s.label} ${s.w}×200 / ${c.label}`;
-  }
-  const unit = it => O.price[`${it.t}-${it.s}`];
+  const inf = vals => OPT.info(p, vals);
   function renderSel() {
     const ul = $('#pd-sel'); if (!ul) return;
-    ul.innerHTML = sel.map(it => `<li class="pd-sel__row" data-key="${it.key}"><p class="pd-sel__name">${esc(label(it))}</p>
+    ul.innerHTML = sel.map(it => { const x = inf(it.vals); return `<li class="pd-sel__row" data-key="${esc(it.key)}"><p class="pd-sel__name">${esc(x.label)}</p>
       <div class="pd-sel__ctl"><div class="qty"><button type="button" data-sq="-1" aria-label="수량 줄이기" ${it.qty <= 1 ? 'disabled' : ''}>${UI.I.minus}</button><span>${it.qty}</span><button type="button" data-sq="1" aria-label="수량 늘리기">${UI.I.plus}</button></div>
-      <b>${won(unit(it) * it.qty)}</b><button type="button" class="pd-sel__del" data-sdel aria-label="${esc(label(it))} 삭제">${UI.I.x}</button></div></li>`).join('');
-    totalEl.textContent = won(sel.reduce((s, it) => s + unit(it) * it.qty, 0));
+      <b>${won(x.price * it.qty)}</b><button type="button" class="pd-sel__del" data-sdel aria-label="${esc(x.label)} 삭제">${UI.I.x}</button></div></li>`; }).join('');
+    totalEl.textContent = won(sel.reduce((s, it) => s + inf(it.vals).price * it.qty, 0));
     $('#pd-hint').hidden = sel.length > 0;
   }
-  function sizePrices() {
-    $$('#po-s-g [data-v]').forEach(b => {
-      const v = b.dataset.v, el = $('[data-p]', b);
-      el.textContent = st.t ? won(O.price[`${st.t}-${v}`]) : won(Math.min(O.price[`7-${v}`], O.price[`12-${v}`])) + '~';
+  // 가격 묶음의 큰 버튼에 가격 표시: 다른 가격 묶음을 다 골랐으면 그 조합 가격, 아니면 가장 싼 값~
+  function groupPrices() {
+    o.groups.forEach((g, gi) => {
+      if (!g.price) return;
+      $$(`#po-${CSS.escape(g.id)}-g [data-v]`).forEach(b => {
+        const el = $('[data-p]', b); if (!el) return;
+        const part = st.map((v, i) => (i === gi ? b.dataset.v : o.groups[i].price ? v : null));
+        const r = OPT.range(p, part);
+        el.textContent = !r ? '품절' : r.lo === r.hi ? won(r.lo) : won(r.lo) + '~';
+      });
     });
   }
-  if (p.full) {
+  if (o) {
     $$('.pd-opt [role="radiogroup"]').forEach(g => {
-      const key = { 'po-t-g': 't', 'po-s-g': 's', 'po-c-g': 'c' }[g.id], bs = $$('[role="radio"]', g);
+      const gi = o.groups.findIndex(x => `po-${x.id}-g` === g.id), bs = $$('[role="radio"]', g).filter(b => !b.disabled);
       bs.forEach((b, i) => {
         b.tabIndex = i === 0 ? 0 : -1;
         b.addEventListener('click', () => pick(b));
         b.addEventListener('keydown', e => {
           const d = ['ArrowRight', 'ArrowDown'].includes(e.key) ? 1 : ['ArrowLeft', 'ArrowUp'].includes(e.key) ? -1 : 0;
-          if (d) { e.preventDefault(); const n = bs[(i + d + bs.length) % bs.length]; n.focus(); pick(n); }
+          if (d) { e.preventDefault(); const n = bs[(bs.indexOf(b) + d + bs.length) % bs.length]; n.focus(); pick(n); }
         });
       });
       function pick(b) {
         bs.forEach(x => { x.setAttribute('aria-checked', x === b); x.tabIndex = x === b ? 0 : -1; });
-        st[key] = b.dataset.v;
-        if (key === 't') sizePrices();
-        if (st.t && st.s && st.c) {
-          const k = `${st.t}-${st.s}-${st.c}`, f = sel.find(x => x.key === k);
+        st[gi] = b.dataset.v;
+        // 사진이 연결된 선택지(예: 색상)를 고르면 그 사진으로 넘긴다
+        const pv = o.groups[gi].values.find(x => x.id === b.dataset.v);
+        if (pv && pv.img != null && p.imgs[pv.img]) goto(pv.img);
+        groupPrices();
+        if (st.every(v => v != null)) {
+          const x = inf(st);
+          if (!x || x.off) { toast('품절된 옵션입니다. 다른 옵션을 골라 주세요.'); return; }
+          const f = sel.find(y => y.key === x.key);
           if (f) { f.qty = Math.min(99, f.qty + 1); toast('이미 고른 옵션이라 수량을 1개 늘렸습니다.'); }
-          else sel.push({ key: k, t: st.t, s: st.s, c: st.c, qty: 1 });
+          else sel.push({ key: x.key, vals: x.vals, qty: 1 });
           // 고른 옵션의 정가(삭선)·할인율·할인가
-          const k2 = `${st.t}-${st.s}`, v = O.price[k2], L = O.list[k2];
-          priceEl.textContent = won(v);
+          priceEl.textContent = won(x.price);
           $('.pd-price__now .from')?.remove();
-          $('.pd-price__list').innerHTML = `<span class="sr-only">정가</span>${won(L)}`;
-          $('.pd-price__now .rate').textContent = `${RENDER.rateOf(L, v)}%`;
-          // 사이즈·색상은 다음 선택을 위해 비운다(두께는 유지)
-          st.s = st.c = null;
-          ['po-s-g', 'po-c-g'].forEach(id => $$(`#${id} [role="radio"]`).forEach(x => x.setAttribute('aria-checked', 'false')));
+          // 정가를 비운(할인 없는) 조합은 삭선·할인율을 숨긴다
+          const disc = x.list > x.price;
+          $('.pd-price__list').innerHTML = disc ? `<span class="sr-only">정가</span>${won(x.list)}` : '';
+          $('.pd-price__list').hidden = !disc;
+          $('.pd-price__now .rate').textContent = disc ? `${RENDER.rateOf(x.list, x.price)}%` : '';
+          $('.pd-price__now .rate').hidden = !disc;
+          // 첫 묶음은 두고 나머지는 다음 선택을 위해 비운다
+          o.groups.forEach((gr, i) => { if (!i) return; st[i] = null; $$(`#po-${CSS.escape(gr.id)}-g [role="radio"]`).forEach(y => y.setAttribute('aria-checked', 'false')); });
+          groupPrices();
           renderSel();
         } else {
-          const need = [!st.t && '두께', !st.s && '사이즈', !st.c && '색상'].filter(Boolean);
+          const need = o.groups.filter((gr, i) => st[i] == null).map(gr => gr.name);
           $('#pd-hint').textContent = `${need.join(', ')}을(를) 고르면 아래에 담깁니다.`;
           $('#pd-hint').hidden = false;
         }
       }
     });
-    sizePrices();
+    groupPrices();
     $('#pd-sel').addEventListener('click', e => {
       const row = e.target.closest('.pd-sel__row'); if (!row) return;
       const it = sel.find(x => x.key === row.dataset.key);
@@ -107,12 +118,12 @@
     });
   }
   function items() {
-    if (!p.full) return [{ key: String(p.id), id: p.id, name: p.name, opt: '', price: p.price, img: p.imgs[0], qty: qtySingle }];
-    return sel.map(it => ({ key: `29-${it.key}`, id: 29, name: p.name, opt: label(it), price: unit(it), img: it.c === 'ivory' ? p.imgs[8] : p.imgs[0], qty: it.qty }));
+    if (!o) return [{ key: String(p.id), id: p.id, name: p.name, opt: '', price: p.price, img: p.imgs[0], qty: qtySingle }];
+    return sel.map(it => SHOP.itemFor(p, it.vals, it.qty));
   }
   function needOptions() {
-    if (!p.full || sel.length) return false;
-    toast('두께·사이즈·색상을 먼저 골라 주세요.');
+    if (!o || sel.length) return false;
+    toast(`${OPT.names(o, '·')} 먼저 골라 주세요.`);
     if (matchMedia('(max-width: 1023px)').matches && !$('#buy').classList.contains('is-open')) openSheet();
     else $('#pd-opt').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' });
     return true;

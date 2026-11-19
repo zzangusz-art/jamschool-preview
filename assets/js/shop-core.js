@@ -2,7 +2,7 @@
    홈·진열·상품 상세·장바구니에서 같이 쓴다. ui.js 다음에 불러온다. */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, cart, store } = UI;
-  const { PRODUCTS, OPTIONS_29: O, CHECKOUT } = JAM;
+  const { PRODUCTS, OPT, CHECKOUT } = JAM;
   const P = id => PRODUCTS.find(p => p.id === +id);
 
   // ───────── 3단 옵션(두께·사이즈·색상) 라디오 버튼
@@ -23,17 +23,29 @@
       function pick(b) { bs.forEach(x => { x.setAttribute('aria-checked', x === b); x.tabIndex = x === b ? 0 : -1; }); onPick(g.dataset.k, b.dataset.v); }
     });
   }
-  function optLabel(st) {
-    const t = O.thickness.find(x => x.id === st.t), s = O.size.find(x => x.id === st.s), c = O.color.find(x => x.id === st.c);
-    return `${t.label} ${t.sub} / ${s.label} ${s.w}×200 / ${c.label}`;
+  // 옵션 묶음(JAM.OPT) 한 줄의 라디오 버튼 — 빠른 보기·장바구니 옵션 변경에서 쓴다(상품 페이지는 빌드가 그린다)
+  function groupField(g, sel) {
+    const style = g.values.some(v => v.hex) ? 'colors' : g.values.length <= 2 ? 'seg' : 'sizes';
+    const btn = v => `<button type="button" role="radio" class="${style === 'colors' ? 'color-opt' : style === 'sizes' ? 'size-opt' : ''}" aria-checked="${v.id === sel}" data-v="${esc(v.id)}"${v.off ? ' disabled' : ''}>${style === 'colors' ? `<i style="background:${esc(v.hex || '#D5DCE3')}"></i>${esc(v.label)}` : style === 'sizes' ? `<b>${esc(v.label)}</b>${v.sub ? `<small>${esc(v.sub)}</small>` : ''}` : `${esc(v.label)}${v.sub ? `<small>${esc(v.sub)}</small>` : ''}`}${v.off ? '<small>품절</small>' : ''}</button>`;
+    return `<div class="field"><p class="field__label">${esc(g.name)}</p><div class="${style}" role="radiogroup" data-k="${esc(g.id)}" aria-label="${esc(g.name)}">${g.values.map(btn).join('')}</div></div>`;
   }
-  // 장바구니·주문서에 들어가는 한 줄. 3단은 옵션 조합마다 key 가 다르다
+  // 처음 고를 값: 묶음마다 살 수 있는 첫 값(조합이 품절이면 다음 조합)
+  function firstVals(p) {
+    const o = OPT.of(p); if (!o) return null;
+    return OPT.combos(o.groups).find(v => { const x = OPT.info(p, v); return x && !x.off; }) || OPT.combos(o.groups)[0];
+  }
+  // 예전 형식({t,s,c})도 받는다(홈 3단 안내에서 담을 때)
+  const valsOf = (p, st) => { const o = OPT.of(p); return !o || !st ? null : Array.isArray(st) ? st : o.groups.map(g => st[g.id]); };
+  // 장바구니·주문서에 들어가는 한 줄. 옵션 상품은 조합마다 key 가 다르다(상품번호-값-값…)
   function itemFor(p, st, qty = 1) {
-    return st
-      ? { key: `29-${st.t}-${st.s}-${st.c}`, id: 29, name: p.name, opt: optLabel(st), st: { t: st.t, s: st.s, c: st.c }, price: O.price[`${st.t}-${st.s}`], img: st.c === 'ivory' ? p.imgs[8] : p.imgs[0], qty }
+    const vals = valsOf(p, st), x = vals && OPT.info(p, vals);
+    return x
+      ? { key: x.key, id: p.id, name: p.name, opt: x.label, st: x.vals, price: x.price, img: x.img, qty }
       : { key: String(p.id), id: p.id, name: p.name, opt: '', price: p.price, img: p.imgs[0], qty };
   }
   function addToCart(p, st, qty = 1) {
+    const x = OPT.of(p) && OPT.info(p, valsOf(p, st) || []);
+    if (OPT.of(p) && (!x || x.off)) { toast('품절된 옵션입니다. 다른 옵션을 골라 주세요.'); return; }
     cart.add(itemFor(p, st, qty));
     toast('장바구니에 담았습니다.', { action: '보기', onAction: () => openLayer('cart') });
   }
@@ -41,8 +53,9 @@
   // ───────── 빠른 보기 (상품 카드의 눈 아이콘)
   function openQuick(id, opener) {
     const p = P(id); if (!p || !$('#quick')) return;
-    const st = { t: '12', s: 'SS', c: 'gray' };
-    const price = () => p.full ? O.price[`${st.t}-${st.s}`] : p.price;
+    const o = OPT.of(p), st = firstVals(p);
+    const cur = () => (o ? OPT.info(p, st) : null);
+    const price = () => (cur() ? cur().price : p.price);
     const body = $('#quick-body');
     body.innerHTML = `<div class="qv">
       <div class="qv__gal"><div class="qv__main">${RENDER.pic(p.imgs[0], `alt="${esc(p.name)}" width="1000" height="1000"`)}</div>
@@ -53,9 +66,7 @@
         <p class="pcard__rv"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><b>${p.rating.toFixed(2)}</b><span>구매평 ${p.reviews.toLocaleString('ko-KR')}</span></p>
         <p class="pcard__list" style="margin-top:12px" id="qv-list">${won(p.list)}</p>
         <p class="qv__price"><span class="rate" id="qv-rate">${RENDER.rate(p)}%</span><b id="qv-price">${won(price())}</b></p>
-        ${p.full ? `<div class="field" style="margin-top:18px"><p class="field__label">두께</p><div class="seg" role="radiogroup" data-k="t" aria-label="두께">${optButtons('t', O.thickness, st.t)}</div></div>
-        <div class="field"><p class="field__label">사이즈</p><div class="sizes" role="radiogroup" data-k="s" aria-label="사이즈">${optButtons('s', O.size, st.s)}</div></div>
-        <div class="field"><p class="field__label">색상</p><div class="colors" role="radiogroup" data-k="c" aria-label="색상">${optButtons('c', O.color, st.c)}</div></div>`
+        ${o ? `<div style="margin-top:18px">${o.groups.map((g, i) => groupField(g, st[i])).join('')}</div>`
         : `<ul class="qv__pts">${(p.points.length ? p.points : [p.summary]).map(x => `<li>${esc(x)}</li>`).join('')}</ul>`}
         <div class="qv__btns"><a class="btn btn--line" href="${RENDER.href(p)}">상세 보기</a><button class="btn btn--primary" type="button" id="qv-add">장바구니 담기</button></div>
       </div></div>`;
@@ -66,12 +77,12 @@
     }));
     // 3단은 고른 옵션의 정가·할인율로 바꿔 보여 준다
     const syncPrice = () => {
-      const v = price(), L = p.full ? O.list[`${st.t}-${st.s}`] : p.list;
-      $('#qv-price').textContent = won(v); $('#qv-list').textContent = won(L); $('#qv-rate').textContent = `${RENDER.rateOf(L, v)}%`;
+      const x = cur(), v = price(), L = x ? x.list : p.list;
+      $('#qv-price').textContent = won(v); $('#qv-list').textContent = L > v ? won(L) : ''; $('#qv-rate').textContent = L > v ? `${RENDER.rateOf(L, v)}%` : '';
     };
-    bindRadios(body, (k, v) => { st[k] = v; syncPrice(); });
+    bindRadios(body, (k, v) => { const i = o.groups.findIndex(g => g.id === k); if (i >= 0) st[i] = v; syncPrice(); });
     syncPrice();
-    $('#qv-add').addEventListener('click', () => { addToCart(p, p.full ? st : null); closeLayer($('#quick')); });
+    $('#qv-add').addEventListener('click', () => { const x = cur(); if (o && (!x || x.off)) { toast('품절된 옵션입니다. 다른 옵션을 골라 주세요.'); return; } addToCart(p, o ? st : null); closeLayer($('#quick')); });
     openLayer('quick', opener);
   }
   document.addEventListener('click', e => {
@@ -85,7 +96,7 @@
     ids() { return store.get(RECENT_K, []).filter(id => P(id)); },
     push(id) { store.set(RECENT_K, [id, ...this.ids().filter(x => x !== id)].slice(0, 8)); },
   };
-  const miniCard = p => `<a class="mini" href="${RENDER.href(p)}">${RENDER.pic(p.imgs[0], 'alt="" width="200" height="200" loading="lazy"')}<span class="mini__n">${esc(p.short)}</span><b>${won(p.price)}${p.full ? '~' : ''}</b></a>`;
+  const miniCard = p => `<a class="mini" href="${RENDER.href(p)}">${RENDER.pic(p.imgs[0], 'alt="" width="200" height="200" loading="lazy"')}<span class="mini__n">${esc(p.short)}</span><b>${won(p.price)}${p.from ? '~' : ''}</b></a>`;
 
   // ───────── 주문서로
   // 바로 구매는 sessionStorage 로 넘기고 장바구니는 건드리지 않는다. 장바구니 주문은 고른 key 만 넘긴다
@@ -109,15 +120,22 @@
   }
 
   // 예전에 담긴 장바구니 금액을 지금 가격으로 맞춘다(가격표가 바뀌어도 장바구니·주문서 금액이 같게)
+  // 옵션이 바뀌어 더 없는 조합(또는 옵션이 생겨 고르지 않은 줄)은 장바구니에서 뺀다 — 결제 서버도 같은 규칙으로 막는다
   (function syncCart() {
     let changed = false;
-    cart.items.forEach(x => {
-      const p = P(x.id); if (!p) return;
-      const k = String(x.key).split('-'), now = p.full ? O.price[`${k[1]}-${k[2]}`] : p.price;
-      if (now && now !== x.price) { x.price = now; changed = true; }
+    cart.items = cart.items.filter(x => {
+      const p = P(x.id); if (!p) return true;
+      if (OPT.of(p)) {
+        const y = OPT.parse(p, x.key); if (!y) { changed = true; return false; }
+        if (y.price !== x.price || y.label !== x.opt) { Object.assign(x, { price: y.price, opt: y.label, st: y.vals }); changed = true; }
+        return true;
+      }
+      if (String(x.key) !== String(p.id)) { changed = true; return false; }
+      if (p.price !== x.price) { x.price = p.price; changed = true; }
+      return true;
     });
     if (changed) cart.save();
   })();
 
-  window.SHOP = { P, optButtons, bindRadios, optLabel, itemFor, addToCart, openQuick, recent, miniCard, buyNow, checkoutCart, openOrderModal, BUY_K, SEL_K };
+  window.SHOP = { P, optButtons, bindRadios, groupField, firstVals, itemFor, addToCart, openQuick, recent, miniCard, buyNow, checkoutCart, openOrderModal, BUY_K, SEL_K };
 })();

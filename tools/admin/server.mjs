@@ -12,6 +12,7 @@ import { makeStore } from './store.mjs';
 import { summary as statsSummary, flushNow as statsFlush, forgetCache as statsForget, resetOrderStats, ordersSince } from './stats.mjs';
 import { FORMATS as SHIP_FORMATS, shipExport } from '../pay/ship-export.mjs';
 import * as BACKUP from './backup.mjs';
+import { cleanOpts, canon } from './options.mjs';
 import { parseFrontmatter, renderMarkdown } from '../blog/lib.mjs';
 import { CATEGORIES, checkPost, similar } from '../blog-ai/rules.mjs';
 import * as PAY from '../pay/seedpay.mjs';
@@ -192,16 +193,19 @@ route('DELETE', '/api/admin/posts/:slug', 'owner', async ({ params, user }) => {
 const EDITABLE = ['name', 'short', 'summary', 'list', 'price', 'badges', 'points', 'imgs', 'store', 'rating', 'reviews'];
 route('GET', '/api/admin/products', 'client', async () => {
   const { cur } = await products();
-  return { products: cur.PRODUCTS.map(p => ({ id: p.id, name: p.name, short: p.short, price: p.price, list: p.list, img: p.imgs[0], full: !!p.full })) };
+  return { products: cur.PRODUCTS.map(p => ({ id: p.id, name: p.name, short: p.short, price: p.price, list: p.list, img: p.imgs[0], from: !!p.from, opts: cur.OPT.of(p) ? cur.OPT.of(p).groups.map(g => g.name) : [] })) };
 });
 route('GET', '/api/admin/products/:id', 'client', async ({ params }) => {
-  const { cur } = await products();
+  const { cur, base } = await products();
   const p = cur.PRODUCTS.find(x => String(x.id) === params.id); need(p, 404, '상품을 찾지 못했습니다');
-  return { product: Object.fromEntries(['id', 'cat', ...EDITABLE, 'full'].map(k => [k, p[k] ?? ''])), options29: p.id === 29 ? { price: cur.OPTIONS_29.price, list: cur.OPTIONS_29.list, size: cur.OPTIONS_29.size, thickness: cur.OPTIONS_29.thickness } : null };
+  const b = base.PRODUCTS.find(x => x.id === p.id), o = cur.OPT.of(p), ob = b && base.OPT.of(b);
+  return { product: Object.fromEntries(['id', 'cat', ...EDITABLE].map(k => [k, p[k] ?? ''])), opts: o ? JSON.parse(JSON.stringify(o)) : null, optsBase: ob ? JSON.parse(JSON.stringify(ob)) : null,
+    optsChanged: canon(o || null) !== canon(ob || null), priceByOpts: !!(o && o.groups.some(g => g.price)) };
 });
 route('POST', '/api/admin/products/:id', 'client', async ({ params, data, user }) => {
-  const { base, site } = await products(true);
+  const { base, site, cur } = await products(true);
   const b = base.PRODUCTS.find(x => String(x.id) === params.id); need(b, 404, '상품을 찾지 못했습니다');
+  const co = cur.OPT.of(cur.PRODUCTS.find(x => x.id === b.id));
   const f = data.product || {}, files = [];
   const imgs = [];
   for (const it of f.imgs || []) {
@@ -216,18 +220,31 @@ route('POST', '/api/admin/products/:id', 'client', async ({ params, data, user }
   need(next.rating >= 0 && next.rating <= 5, 400, '평점은 0~5 사이 숫자로 넣어 주세요');
   need(next.reviews >= 0 && next.reviews < 1e7, 400, '구매평 수를 숫자로 넣어 주세요');
   need(!next.store || /^https:\/\/smartstore\.naver\.com\//.test(next.store), 400, '스토어 링크는 스마트스토어 주소만');
-  if (b.full) { delete next.price; delete next.list; }   // 3단은 옵션 가격표에서 정한다
+  if (co && co.groups.some(g => g.price)) { delete next.price; delete next.list; }   // 옵션 가격표가 있으면 대표 가격은 거기서(가장 싼 조합)
   else need(next.price > 0 && next.list >= next.price, 400, '판매가는 0보다 크고 정가 이하여야 합니다');
   const ov = {}; for (const [k, v] of Object.entries(next)) if (JSON.stringify(v) !== JSON.stringify(b[k] ?? (Array.isArray(v) ? [] : ''))) ov[k] = v;
   site.products = site.products || {};
   if (Object.keys(ov).length) site.products[b.id] = ov; else delete site.products[b.id];
-  if (b.full && data.options29) {
-    const o = {}; for (const k of ['price', 'list']) { o[k] = {}; for (const [key, v] of Object.entries(data.options29[k] || {})) if (key in base.OPTIONS_29[k] && +v > 0 && +v !== base.OPTIONS_29[k][key]) o[k][key] = Math.round(+v); }
-    for (const key of Object.keys(base.OPTIONS_29.price)) { const pr = +(data.options29.price || {})[key] || base.OPTIONS_29.price[key], li = +(data.options29.list || {})[key] || base.OPTIONS_29.list[key]; need(pr <= li, 400, `옵션 ${key}: 판매가가 정가보다 큽니다`); }
-    site.options29 = Object.fromEntries(Object.entries(o).filter(([, v]) => Object.keys(v).length));
-  }
   files.push({ path: 'content/site.json', text: JSON.stringify(site, null, 2) + '\n' });
   const c = await store.commit(files, msg(user, `상품 정보 수정 「${b.short}」`), user.name);
+  return { ok: true, commit: c.sha };
+});
+
+// 상품 옵션(사이즈·두께·색상 등 묶음과 선택지, 조합별 판매가·정가·품절) — content/site.json 의 opts.<상품>(처음 값과 다를 때만, null = 옵션 없음)
+route('POST', '/api/admin/products/:id/options', 'client', async ({ params, data, user }) => {
+  const { base, site, cur } = await products(true);
+  const b = base.PRODUCTS.find(x => String(x.id) === params.id); need(b, 404, '상품을 찾지 못했습니다');
+  const p = cur.PRODUCTS.find(x => x.id === b.id), ob = base.OPT.of(b) || null;
+  site.opts = site.opts || {};
+  if (data.reset) delete site.opts[b.id];
+  else {
+    const o = cleanOpts(data.opts, p);
+    if (!(o && o.groups.some(g => g.price))) need(p.price > 0 || (b.price > 0), 400, '가격이 달라지는 묶음이 없으면 기본 정보의 판매가로 팝니다. 판매가를 먼저 넣어 주세요');
+    if (canon(o) === canon(ob)) delete site.opts[b.id]; else site.opts[b.id] = o;
+  }
+  if (b.id === 29) delete site.options29;   // 예전 3단 가격표 저장 형식은 옵션 가격표로 옮겨졌다
+  if (!Object.keys(site.opts).length) delete site.opts;
+  const c = await store.commit([{ path: 'content/site.json', text: JSON.stringify(site, null, 2) + '\n' }], msg(user, `상품 옵션 ${data.reset ? '처음 값으로' : '수정'} 「${b.short}」`), user.name);
   return { ok: true, commit: c.sha };
 });
 

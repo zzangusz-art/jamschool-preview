@@ -347,7 +347,68 @@
   // 관리자 어드민에서 고친 값(content/site.json → 빌드가 페이지마다 window.JAM_OVERRIDES 로 넣는다): 상품 기본 정보·사진, 3단 옵션 가격
   const OV = (typeof window !== 'undefined' && window.JAM_OVERRIDES) || {};
   for (const p of PRODUCTS) { const o = (OV.products || {})[p.id]; if (o) Object.assign(p, o); }
-  if (OV.options29) for (const k of ['price', 'list']) Object.assign(OPTIONS_29[k], OV.options29[k] || {});
+  if (OV.options29) for (const k of ['price', 'list']) Object.assign(OPTIONS_29[k], OV.options29[k] || {});   // 예전 저장 형식(3단 가격표만)
+
+  // ───────── 상품 옵션(어드민 '상품 › 옵션'): 옵션 묶음(사이즈·두께·색상 등, 최대 4개)과 선택지, 가격이 달라지는 묶음의 조합별 판매가·정가·품절
+  // opts = { groups: [{ id, name, note, price: 가격이 달라지는 묶음인지, values: [{ id, label, sub, hex, img: 사진 번호, off: 품절 }] }],
+  //          prices: { '<가격 묶음 값 id 를 '-' 로 이은 것>': { price, list, off } } }
+  // 장바구니·주문 key = `${상품 번호}-${묶음 순서대로 값 id 를 '-' 로}` (3단: 29-12-SS-gray). 가격 묶음이 없으면 기본 정보의 판매가 하나
+  // 브라우저(상품 페이지·장바구니·주문서)와 결제 서버(tools/pay/seedpay.mjs)가 이 함수를 같이 쓴다
+  const josa = (w, a, b) => { const c = String(w).charCodeAt(String(w).length - 1); return w + (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 ? a : b); };
+  const OPT = {
+    of: p => (p && p.opts && Array.isArray(p.opts.groups) && p.opts.groups.length ? p.opts : null),
+    combos: groups => groups.reduce((acc, g) => acc.flatMap(a => g.values.map(v => [...a, v.id])), [[]]),
+    pkey: (o, vals) => o.groups.map((g, i) => (g.price ? vals[i] : null)).filter(x => x != null).join('-'),
+    row(p, vals) {
+      const o = OPT.of(p);
+      return o.groups.some(g => g.price) ? (o.prices || {})[OPT.pkey(o, vals)] : { price: p.price, list: p.list };
+    },
+    info(p, vals) {   // 고른 값(묶음 순서) → 한 줄 정보. 없는 옵션이면 null
+      const o = OPT.of(p); if (!o || !Array.isArray(vals) || vals.length !== o.groups.length) return null;
+      const vs = o.groups.map((g, i) => g.values.find(v => v.id === vals[i])); if (vs.some(v => !v)) return null;
+      const r = OPT.row(p, vals); if (!r || !(r.price > 0)) return null;
+      const im = vs.filter(v => v.img != null && p.imgs[v.img]).pop();
+      return { key: `${p.id}-${vals.join('-')}`, vals: vals.slice(), label: vs.map(v => v.label + (v.sub ? ' ' + String(v.sub).replace(/\s*×\s*/g, '×') : '')).join(' / '),
+        price: r.price, list: r.list >= r.price ? r.list : r.price, img: im ? p.imgs[im.img] : p.imgs[0], off: !!(r.off || vs.some(v => v.off)) };
+    },
+    parse(p, key) { const m = String(key || '').match(/^(\d+)-(.+)$/); return m && p && +m[1] === p.id ? OPT.info(p, m[2].split('-')) : null; },
+    range(p, part) {   // part: 묶음별 고른 값(안 고른 곳은 null) → 살 수 있는 조합의 최저·최고가
+      const o = OPT.of(p); let lo = Infinity, hi = 0;
+      for (const vals of OPT.combos(o.groups)) {
+        if (part && part.some((v, i) => v != null && v !== vals[i])) continue;
+        const inf = OPT.info(p, vals); if (!inf || inf.off) continue;
+        lo = Math.min(lo, inf.price); hi = Math.max(hi, inf.price);
+      }
+      return hi ? { lo, hi } : null;
+    },
+    names: (o, sep) => { const n = o.groups.map(g => g.name); return sep ? josa(n.join(sep), '을', '를') : n.length === 1 ? josa(n[0], '을', '를') : josa(n[0], '과', '와') + ' ' + josa(n.slice(1).join(', '), '을', '를'); },
+  };
+  // 3단 기본 옵션(위 OPTIONS_29 에서): 두께·사이즈는 가격이 달라지고 색상은 같다. 아이보리는 9번째 사진
+  { const p29 = PRODUCTS.find(p => p.id === 29);
+    if (p29) p29.opts = {
+      groups: [
+        { id: 't', name: '두께', note: '침대 위엔 7cm, 바닥엔 12cm', price: true, values: OPTIONS_29.thickness.map(t => ({ id: t.id, label: t.label, sub: t.sub })) },
+        { id: 's', name: '사이즈', note: '폭 × 길이 200cm', price: true, values: OPTIONS_29.size.map(s => ({ id: s.id, label: s.label, sub: `${s.w} × 200` })) },
+        { id: 'c', name: '색상', note: '', price: false, values: OPTIONS_29.color.map(c => ({ id: c.id, label: c.label, hex: c.hex, ...(c.id === 'ivory' ? { img: 8 } : {}) })) },
+      ],
+      prices: Object.fromEntries(Object.keys(OPTIONS_29.price).map(k => [k, { price: OPTIONS_29.price[k], list: OPTIONS_29.list[k] }])),
+    }; }
+  // 어드민에서 고친 옵션(상품별 통째로, null = 옵션 없음)
+  for (const [id, o] of Object.entries(OV.opts || {})) { const p = PRODUCTS.find(x => x.id === +id); if (p) p.opts = o && Array.isArray(o.groups) && o.groups.length ? o : null; }
+  // 옵션 가격이 있는 상품: 대표 가격 = 살 수 있는 조합 중 가장 싼 판매가(정가도 그 조합), 가격이 여러 개면 '~부터' 표시(from)
+  for (const p of PRODUCTS) {
+    const o = OPT.of(p); p.from = false;
+    if (!o || !o.groups.some(g => g.price)) continue;
+    const rows = Object.entries(o.prices || {}).filter(([, r]) => r && r.price > 0), live = rows.filter(([, r]) => !r.off), use = live.length ? live : rows;
+    if (!use.length) continue;
+    const [, cheap] = use.sort((a, b) => a[1].price - b[1].price)[0];
+    p.price = cheap.price; p.list = cheap.list >= cheap.price ? cheap.list : cheap.price;
+    p.from = new Set(use.map(([, r]) => r.price)).size > 1;
+  }
+  // 3단 안내(홈 옵션 탐색·글 생성기·llms.txt)가 쓰는 가격표도 옵션 가격과 맞춘다(두께-사이즈 조합이 그대로 있을 때)
+  { const p29 = PRODUCTS.find(p => p.id === 29), o = OPT.of(p29);
+    if (o && o.groups[0] && o.groups[0].id === 't' && o.groups[1] && o.groups[1].id === 's')
+      for (const k of Object.keys(OPTIONS_29.price)) { const r = (o.prices || {})[k]; if (r && r.price > 0) { OPTIONS_29.price[k] = r.price; OPTIONS_29.list[k] = r.list >= r.price ? r.list : r.price; } } }
   // 어드민 '홈 화면'·'구매평'·'자주 묻는 질문'·'기본 정보' 에서 고친 목록(blocks: 목록은 통째로, 묶음은 바뀐 칸만)·상품정보 제공고시(notice)
   const B = OV.blocks || {};
   const LISTS = { HERO_SLIDES, TRUST, FEATURES, USES, TESTS, REVIEWS, SHORT_REVIEWS, PHOTOS, FAQ, CHECKS };
@@ -359,13 +420,9 @@
   REVIEWS.forEach(r => { if (r.pid == null) r.pid = 29; });
   SHORT_REVIEWS.splice(0, SHORT_REVIEWS.length, ...SHORT_REVIEWS.map(t => typeof t === 'string' ? { pid: 29, text: t } : t));
   PHOTOS.splice(0, PHOTOS.length, ...PHOTOS.map(s => typeof s === 'string' ? { pid: 29, src: s } : s));
-  { // 3단 대표 가격 = 가장 싼 옵션의 판매가·정가
-    const p29 = PRODUCTS.find(p => p.id === 29), cheap = Object.keys(OPTIONS_29.price).sort((a, b) => OPTIONS_29.price[a] - OPTIONS_29.price[b])[0];
-    if (p29) { p29.price = OPTIONS_29.price[cheap]; p29.list = OPTIONS_29.list[cheap]; }
-  }
 
   // 구매평 수·평점의 기준(공식몰 상품 페이지 값. 공식몰 구매평에는 스마트스토어에서 연동된 구매평이 함께 들어 있다)
   const REVIEW_BASIS = B.REVIEW_BASIS || '2026년 11월 16일 공식몰 기준(스마트스토어 연동 구매평 포함)';
 
-  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES, TRUST };
+  window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, OPT, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES, TRUST };
 })();

@@ -58,7 +58,7 @@ const BODY_END = [
 const CLIENT_BLOCKS = ['TESTS', 'USES', 'REVIEWS', 'PHOTOS', 'CS'];
 const clientOv = () => {
   const b = Object.fromEntries(CLIENT_BLOCKS.filter(k => (OVERRIDES.blocks || {})[k] != null).map(k => [k, OVERRIDES.blocks[k]]));
-  return { products: OVERRIDES.products || {}, options29: OVERRIDES.options29 || {}, ...(Object.keys(b).length ? { blocks: b } : {}) };
+  return { products: OVERRIDES.products || {}, options29: OVERRIDES.options29 || {}, ...(OVERRIDES.opts ? { opts: OVERRIDES.opts } : {}), ...(Object.keys(b).length ? { blocks: b } : {}) };
 };
 const ovTag = () => { const o = clientOv(); return Object.values(o).some(v => v && typeof v === 'object' && Object.keys(v).length)
   ? `<script>window.JAM_OVERRIDES=${JSON.stringify(o).replace(/</g, '\\u003c')}</script>\n` : ''; };
@@ -117,7 +117,7 @@ vm.createContext(ctx);
 const DETAIL_FILES = fs.readdirSync(path.join(ROOT, 'assets/js')).filter(f => /^detail-\d+\.js$/.test(f)).map(f => `assets/js/${f}`);
 for (const f of ['assets/js/data.js', 'assets/js/render.js', ...DETAIL_FILES]) vm.runInContext(rd(f).replace(/typeof window !== 'undefined' \? window : globalThis/, 'window'), ctx);
 const { JAM, RENDER: R, DETAIL = {} } = ctx.window;
-const { PRODUCTS, OPTIONS_29: O, REVIEWS, SHORT_REVIEWS, TESTS, FAQ, USES, FEATURES, MARKET, CHECKS, NOTICE = {} } = JAM;
+const { PRODUCTS, OPTIONS_29: O, OPT, REVIEWS, SHORT_REVIEWS, TESTS, FAQ, USES, FEATURES, MARKET, CHECKS, NOTICE = {} } = JAM;
 const POSTS = loadPosts(path.join(ROOT, 'content/blog'));
 // 썸네일(tools/blog/thumb.mjs)이 실제로 있을 때만 쓴다 — 없으면 카드는 글자만, 공유 이미지는 상품 사진
 for (const p of POSTS) p.thumb = p.image && fs.existsSync(path.join(ROOT, p.image)) ? p.image : null;
@@ -182,7 +182,7 @@ idx = fill(idx, 'products', PRODUCTS.filter(p => !p.brand).slice(0, 9).map(p => 
     const p = d.id ? PRODUCTS.find(x => x.id === d.id) : null;
     const label = p ? p.short : d.title.join('');
     const T = i === 0 ? 'h1' : 'h2';
-    const price = p ? `<p class="hs__price"><span class="rate">${R.rate(p)}%</span><b>${won(p.price)}</b>${p.full ? '부터' : ''}</p>` : '';
+    const price = p ? `<p class="hs__price"><span class="rate">${R.rate(p)}%</span><b>${won(p.price)}</b>${p.from ? '부터' : ''}</p>` : '';
     const cta = p
       ? `<a class="btn btn--primary" href="${R.href(p)}">제품 보기</a>${d.cta2 ? `<a class="btn btn--line" href="${esc(d.cta2[1])}">${esc(d.cta2[0])}</a>` : `<button class="btn btn--line" type="button" data-quick="${p.id}">빠른 보기</button>`}`
       : `<button class="btn btn--primary" type="button" data-open="coupon">회원 혜택 보기</button><a class="btn btn--line" href="shop.html">전체 상품 보기</a>`;
@@ -237,13 +237,20 @@ function galleryHTML(p) {
   const thumbs = p.imgs.map((src, i) => `<button class="pd-gal__th" type="button" aria-label="${i + 1}번째 이미지" aria-current="${i === 0}">${R.pic(src, 'alt="" width="120" height="120" loading="lazy"')}</button>`).join('');
   return `<div class="pd-gal"><div class="pd-gal__main"><div class="pd-gal__track" id="gal-track" tabindex="0" aria-label="상품 이미지, 좌우로 넘겨 보기">${slides}</div><span class="pd-gal__count" aria-hidden="true"><b>1</b> / ${p.imgs.length}</span><button class="pd-gal__zoom" type="button" aria-label="이미지 크게 보기">${svg('i-search')}</button></div><div class="pd-gal__thumbs" id="gal-thumbs">${thumbs}</div></div>`;
 }
+// 옵션(어드민 '상품 › 옵션', JAM.OPT): 묶음마다 버튼 줄. 색상 칩이 있으면 색상 모양, 선택지 2개 이하는 반반 버튼, 3개 이상은 큰 버튼(가격 묶음이면 가격 표시)
+const optStyle = g => (g.values.some(v => v.hex) ? 'colors' : g.values.length <= 2 ? 'seg' : 'sizes');
+function optButton(g, v, style) {
+  const off = v.off ? ' disabled aria-disabled="true"' : '', so = v.off ? '<small>품절</small>' : '';
+  if (style === 'colors') return `<button class="color-opt" type="button" role="radio" aria-checked="false" data-v="${esc(v.id)}"${off}><i style="background:${esc(v.hex || '#D5DCE3')}"></i>${esc(v.label)}${so}</button>`;
+  if (style === 'sizes') return `<button class="size-opt" type="button" role="radio" aria-checked="false" data-v="${esc(v.id)}"${off}><b>${esc(v.label)}</b>${v.sub ? `<small>${esc(v.sub)}</small>` : ''}${g.price ? '<small class="size-opt__p" data-p></small>' : ''}${so}</button>`;
+  return `<button type="button" role="radio" aria-checked="false" data-v="${esc(v.id)}"${off}>${esc(v.label)}${v.sub ? `<small>${esc(v.sub)}</small>` : ''}${so}</button>`;
+}
 function optionsHTML(p) {
-  if (!p.full) return `<div class="pd-opt" id="pd-opt"><div class="pd-qty-row"><span>수량</span><div class="qty" id="pd-qty"><button type="button" data-q="-1" aria-label="수량 줄이기" disabled><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg></button><span>1</span><button type="button" data-q="1" aria-label="수량 늘리기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button></div></div><div class="pd-total"><span>총 상품금액</span><b id="pd-total">${won(p.price)}</b></div></div>`;
+  const o = OPT.of(p);
+  if (!o) return `<div class="pd-opt" id="pd-opt"><div class="pd-qty-row"><span>수량</span><div class="qty" id="pd-qty"><button type="button" data-q="-1" aria-label="수량 줄이기" disabled><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 12h12"/></svg></button><span>1</span><button type="button" data-q="1" aria-label="수량 늘리기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></button></div></div><div class="pd-total"><span>총 상품금액</span><b id="pd-total">${won(p.price)}</b></div></div>`;
   return `<div class="pd-opt" id="pd-opt">
-    <div class="field"><p class="field__label" id="po-t">두께<span>침대 위엔 7cm, 바닥엔 12cm</span></p><div class="seg" role="radiogroup" aria-labelledby="po-t" id="po-t-g">${O.thickness.map(t => `<button type="button" role="radio" aria-checked="false" data-v="${t.id}">${esc(t.label)}<small>${esc(t.sub)}</small></button>`).join('')}</div></div>
-    <div class="field"><p class="field__label" id="po-s">사이즈<span>폭 × 길이 200cm</span></p><div class="sizes" role="radiogroup" aria-labelledby="po-s" id="po-s-g">${O.size.map(s => `<button class="size-opt" type="button" role="radio" aria-checked="false" data-v="${s.id}"><b>${esc(s.label)}</b><small>${s.w} × 200</small><small class="size-opt__p" data-p></small></button>`).join('')}</div></div>
-    <div class="field"><p class="field__label" id="po-c">색상</p><div class="colors" role="radiogroup" aria-labelledby="po-c" id="po-c-g">${O.color.map(c => `<button class="color-opt" type="button" role="radio" aria-checked="false" data-v="${c.id}"><i style="background:${c.hex}"></i>${esc(c.label)}</button>`).join('')}</div></div>
-    <p class="pd-hint" id="pd-hint" aria-live="polite">두께와 사이즈, 색상을 고르면 아래에 담깁니다.</p>
+    ${o.groups.map(g => { const st = optStyle(g); return `<div class="field"><p class="field__label" id="po-${esc(g.id)}">${esc(g.name)}${g.note ? `<span>${esc(g.note)}</span>` : ''}</p><div class="${st}" role="radiogroup" aria-labelledby="po-${esc(g.id)}" id="po-${esc(g.id)}-g">${g.values.map(v => optButton(g, v, st)).join('')}</div></div>`; }).join('\n    ')}
+    <p class="pd-hint" id="pd-hint" aria-live="polite">${esc(OPT.names(o))} 고르면 아래에 담깁니다.</p>
     <ul class="pd-sel" id="pd-sel" aria-label="선택한 옵션"></ul>
     <div class="pd-total"><span>총 상품금액</span><b id="pd-total">0원</b></div>
   </div>`;
@@ -264,7 +271,7 @@ function infoHTML(p) {
     <a class="pd-info__rv" href="#reviews"><span class="stars" style="--v:${p.rating}" aria-hidden="true"></span><b>${p.rating.toFixed(2)}</b><span>구매평 ${p.reviews.toLocaleString('ko-KR')}건</span></a>
     <div class="pd-price">
       <p class="pd-price__list"><span class="sr-only">정가</span>${won(p.list)}</p>
-      <p class="pd-price__now"><b class="rate">${r}%</b><b id="pd-price">${won(p.price)}</b>${p.full ? '<span class="from">부터</span>' : ''}</p>
+      <p class="pd-price__now"><b class="rate">${r}%</b><b id="pd-price">${won(p.price)}</b>${p.from ? '<span class="from">부터</span>' : ''}</p>
       ${p.id === 29 ? `<p class="pd-price__cp">공식몰 회원 가입축하 쿠폰 <b>10,000원</b><button class="pd-cp-btn" type="button" data-open="coupon">혜택 보기</button></p>` : ''}
     </div>
     ${trustHTML29(p)}
@@ -371,8 +378,9 @@ function productLD(p) {
   const url = SITE + `product-${p.id}.html`;
   // 배송·반품 정보는 모든 판매 조건(Offer)에 붙인다(구글 판매자 정보 권장 항목)
   const sell = { availability: 'https://schema.org/InStock', url, seller: { '@id': SITE + '#org' }, shippingDetails: SHIPPING, hasMerchantReturnPolicy: returnPolicy(p.cat === 'mattress' ? 36000 : 0) };
-  const offers = p.full
-    ? { '@type': 'AggregateOffer', priceCurrency: 'KRW', lowPrice: Math.min(...Object.values(O.price)), highPrice: Math.max(...Object.values(O.price)), offerCount: Object.keys(O.price).length * O.color.length, ...sell }
+  const o = OPT.of(p), combos = o ? OPT.combos(o.groups).map(v => OPT.info(p, v)).filter(Boolean) : [], live = combos.filter(c => !c.off);
+  const offers = o && live.length
+    ? { '@type': 'AggregateOffer', priceCurrency: 'KRW', lowPrice: Math.min(...live.map(c => c.price)), highPrice: Math.max(...live.map(c => c.price)), offerCount: live.length, ...sell }
     : { '@type': 'Offer', priceCurrency: 'KRW', price: p.price, ...sell };
   // 별점·리뷰(aggregateRating·review)는 넣지 않는다: 구매평이 모두 스마트스토어(다른 사이트)에서 모은 것이라
   // 구글 리뷰 스니펫 정책("다른 사이트의 리뷰·평점을 모아 표시하지 말 것") 위반 → 수동 조치 위험. 화면 표시는 출처와 함께 그대로.
@@ -382,16 +390,19 @@ function productLD(p) {
     image: p.imgs.slice(0, 4).map(i => SITE + i), brand: { '@type': 'Brand', name: p.brand || '잠스쿨' }, sku: `JAM-${p.id}`,
     ...(MADE_KR.has(p.id) ? { countryOfOrigin: 'KR' } : {}), offers,
   };
-  // 두께·사이즈·색상 옵션이 있는 상품(3단): 옵션마다 가격이 달라 ProductGroup + 변형(hasVariant)으로 — 'OO 슈퍼싱글 가격' 같은 질문에 옵션 가격이 바로 잡히게
-  if (p.full) {
+  // 옵션(사이즈·두께·색상 등)이 있는 상품: ProductGroup + 조합마다 변형(hasVariant) — 'OO 슈퍼싱글 가격' 같은 질문에 옵션 가격이 바로 잡히게
+  if (o && combos.length) {
+    const isColor = g => g.values.some(v => v.hex) || /색|컬러|color/i.test(g.name);
+    const cg = o.groups.findIndex(isColor), other = o.groups.map((g, i) => i).filter(i => i !== cg);
+    const lab = (c, i) => { const v = o.groups[i].values.find(x => x.id === c.vals[i]); return v.label + (v.sub ? ' ' + String(v.sub).replace(/\s*×\s*/g, '×') : ''); };
     Object.assign(prod, {
-      '@type': 'ProductGroup', productGroupID: `JAM-${p.id}`, variesBy: ['https://schema.org/size', 'https://schema.org/color'],
-      hasVariant: O.thickness.flatMap(t => O.size.flatMap(s => O.color.map(c => ({
-        '@type': 'Product', '@id': `${url}#v-${t.id}-${s.id}-${c.id}`, sku: `JAM-${p.id}-${t.id}${s.id}-${c.id}`,
-        name: `${p.name} ${t.label} ${t.sub} ${s.label} ${c.label}`, size: `${t.label} ${t.sub} ${s.label}(${s.w}×200cm)`, color: c.label,
-        image: SITE + (c.id === 'ivory' && p.imgs[8] ? p.imgs[8] : p.imgs[0]),
-        offers: { '@type': 'Offer', priceCurrency: 'KRW', price: O.price[`${t.id}-${s.id}`], ...sell },
-      })))),
+      '@type': 'ProductGroup', productGroupID: `JAM-${p.id}`, variesBy: [...(other.length ? ['https://schema.org/size'] : []), ...(cg >= 0 ? ['https://schema.org/color'] : [])],
+      hasVariant: combos.slice(0, 60).map(c => ({
+        '@type': 'Product', '@id': `${url}#v-${c.vals.join('-')}`, sku: `JAM-${p.id}-${c.vals.join('-')}`,
+        name: `${p.name} ${c.label.replace(/ \/ /g, ' ')}`, ...(other.length ? { size: other.map(i => lab(c, i)).join(' ') } : {}), ...(cg >= 0 ? { color: lab(c, cg) } : {}),
+        image: SITE + c.img,
+        offers: { '@type': 'Offer', priceCurrency: 'KRW', price: c.price, ...sell, ...(c.off ? { availability: 'https://schema.org/OutOfStock' } : {}) },
+      })),
     });
   }
   if (p.id === 29) {

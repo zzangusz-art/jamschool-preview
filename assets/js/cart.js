@@ -1,12 +1,12 @@
 /* 장바구니 페이지: 선택·수량·삭제(되돌리기)·3단 옵션 변경, 결제 예정 금액, 선택 상품 주문, 함께 쓰면 좋은 상품, 최근 본 상품 */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, cart, readyThumbs, I } = UI;
-  const { OPTIONS_29: O, CHECKOUT } = JAM;
+  const { OPT, CHECKOUT } = JAM;
   const list = $('#cp-items'); if (!list) return;
   const unchecked = new Set();            // 기본은 모두 선택. 해제한 key 만 기억
   const sel = () => cart.items.filter(x => !unchecked.has(x.key));
-  // 예전에 담긴 3단 항목은 st 가 없어 key(29-두께-사이즈-색상)에서 읽는다
-  const stOf = x => x.st || (x.id === 29 && /^29-/.test(x.key) ? (([, t, s, c]) => ({ t, s, c }))(x.key.split('-')) : null);
+  // 옵션 상품이면 key(상품번호-값-값…)에서 고른 값을 읽는다
+  const stOf = x => { const p = SHOP.P(x.id), y = p && OPT.parse(p, x.key); return y ? y.vals : null; };
 
   function render() {
     const items = cart.items;
@@ -86,23 +86,21 @@
     removeWithUndo(keys, `${keys.length}개 상품을 삭제했습니다.`);
   });
 
-  // 3단 옵션 변경 시트
-  let editing = null;
-  const est = { t: '12', s: 'SS', c: 'gray' };
+  // 옵션 변경 시트(그 상품의 옵션 묶음)
+  let editing = null, ep = null, est = [];
   function openChange(it, opener) {
-    editing = it.key; Object.assign(est, stOf(it));
-    const body = $('#optm-body');
-    body.innerHTML = `<div class="field"><p class="field__label">두께</p><div class="seg" role="radiogroup" data-k="t" aria-label="두께">${SHOP.optButtons('t', O.thickness, est.t)}</div></div>
-      <div class="field"><p class="field__label">사이즈</p><div class="sizes" role="radiogroup" data-k="s" aria-label="사이즈">${SHOP.optButtons('s', O.size, est.s)}</div></div>
-      <div class="field"><p class="field__label">색상</p><div class="colors" role="radiogroup" data-k="c" aria-label="색상">${SHOP.optButtons('c', O.color, est.c)}</div></div>`;
-    const sync = () => { $('#optm-price').textContent = won(O.price[`${est.t}-${est.s}`] * it.qty); };
-    SHOP.bindRadios(body, (k, v) => { est[k] = v; sync(); });
+    editing = it.key; ep = SHOP.P(it.id); est = stOf(it).slice();
+    const o = OPT.of(ep), body = $('#optm-body');
+    body.innerHTML = o.groups.map((g, i) => SHOP.groupField(g, est[i])).join('');
+    const sync = () => { const x = OPT.info(ep, est); $('#optm-price').textContent = !x ? '-' : x.off ? '품절' : won(x.price * it.qty); };
+    SHOP.bindRadios(body, (k, v) => { const i = o.groups.findIndex(g => g.id === k); if (i >= 0) est[i] = v; sync(); });
     sync();
     openLayer('optm', opener);
   }
   $('#optm-ok').addEventListener('click', () => {
     const i = cart.items.findIndex(x => x.key === editing); if (i < 0) return;
-    const old = cart.items[i], next = SHOP.itemFor(SHOP.P(29), est, old.qty);
+    const x = OPT.info(ep, est); if (!x || x.off) { toast('품절된 옵션입니다. 다른 옵션을 골라 주세요.'); return; }
+    const old = cart.items[i], next = SHOP.itemFor(ep, est, old.qty);
     if (next.key !== old.key) {
       const dup = cart.items.find(x => x.key === next.key);
       if (dup) { dup.qty = Math.min(99, dup.qty + old.qty); cart.items.splice(i, 1); }

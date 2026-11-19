@@ -693,27 +693,25 @@
   async function productList() {
     const v = shell('상품·상세페이지', { desc: '상품을 누르면 이름·가격·사진과 상세페이지(긴 설명 사진)를 한 화면에서 고칩니다.' });
     const { products } = await api('GET', '/api/admin/products');
-    v.innerHTML = `<div class="grid">${products.map(p => `<div class="pcard"><a href="#/products/${p.id}"><img src="${h(site(p.img))}" alt="" loading="lazy"></a><div><a href="#/products/${p.id}"><b>${h(p.short)}</b></a><span>${won(p.price)}${p.full ? '부터' : ''}</span>
-      <p class="pc-links"><a href="#/products/${p.id}">기본 정보</a><a href="#/products/${p.id}/detail">상세페이지</a></p></div></div>`).join('')}</div>`;
+    v.innerHTML = `<div class="grid">${products.map(p => `<div class="pcard"><a href="#/products/${p.id}"><img src="${h(site(p.img))}" alt="" loading="lazy"></a><div><a href="#/products/${p.id}"><b>${h(p.short)}</b></a><span>${won(p.price)}${p.from ? '부터' : ''}</span>${p.opts.length ? `<span class="sm">옵션: ${h(p.opts.join('·'))}</span>` : ''}
+      <p class="pc-links"><a href="#/products/${p.id}">기본 정보</a><a href="#/products/${p.id}/options">옵션</a><a href="#/products/${p.id}/detail">상세페이지</a></p></div></div>`).join('')}</div>`;
   }
-  const ptabs = (id, on) => `<nav class="ptabs" aria-label="상품 편집"><a href="#/products/${id}" class="${on === 'info' ? 'on' : ''}">기본 정보·사진</a><a href="#/products/${id}/detail" class="${on === 'detail' ? 'on' : ''}">상세페이지</a><a href="#/products/${id}/notice" class="${on === 'notice' ? 'on' : ''}">상품정보 제공고시</a></nav>`;
+  const ptabs = (id, on) => `<nav class="ptabs" aria-label="상품 편집"><a href="#/products/${id}" class="${on === 'info' ? 'on' : ''}">기본 정보·사진</a><a href="#/products/${id}/options" class="${on === 'options' ? 'on' : ''}">옵션</a><a href="#/products/${id}/detail" class="${on === 'detail' ? 'on' : ''}">상세페이지</a><a href="#/products/${id}/notice" class="${on === 'notice' ? 'on' : ''}">상품정보 제공고시</a></nav>`;
   async function productEdit(id) {
     const v = shell('상품', { back: ['#/products', '상품 목록'] });
-    const { product: p, options29: o } = await api('GET', `/api/admin/products/${id}`);
+    const { product: p, priceByOpts: o } = await api('GET', `/api/admin/products/${id}`);
     $('#ttl').textContent = p.short;
     let imgs = p.imgs.map(src => ({ src }));
     const BADGES = ['BEST', 'SALE', 'MD', 'NEW', '오늘출발'];
-    const keys = o ? o.thickness.flatMap(t => o.size.map(s => [`${t.id}-${s.id}`, `${t.label} ${t.sub} · ${s.label}`])) : [];
     v.innerHTML = `${ptabs(id, 'info')}<div class="card"><h2>기본 정보</h2><p class="h-sub">상품 카드와 상품 페이지 위쪽에 보이는 내용</p>
       <label for="p-name">상품명 <small>상품 페이지 제목에 쓰입니다</small></label><input type="text" id="p-name" value="${h(p.name)}">
       <div class="row"><div><label for="p-short">짧은 이름 <small>카드·메뉴</small></label><input type="text" id="p-short" value="${h(p.short)}"></div>
         <div><label for="p-store">스마트스토어 링크 <small>있으면 N Pay 버튼</small></label><input type="text" id="p-store" value="${h(p.store)}"></div></div>
       <label for="p-sum">한 줄 요약</label><input type="text" id="p-sum" value="${h(p.summary)}">
       <div class="row"><div><label for="p-rating">평점 <small>별점 평균(0~5, 예: 4.87)</small></label><input type="number" id="p-rating" step="0.01" min="0" max="5" value="${h(p.rating)}"></div><div><label for="p-reviews">구매평 수 <small>상품 카드·상품 페이지에 보임</small></label><input type="number" id="p-reviews" min="0" value="${h(p.reviews)}"></div></div>
-      ${o ? '' : `<div class="row"><div><label for="p-list">정가</label><input type="number" id="p-list" value="${h(p.list)}"></div><div><label for="p-price">판매가</label><input type="number" id="p-price" value="${h(p.price)}"></div></div>`}
+      ${o ? `<p class="box">판매가·정가는 <a href="#/products/${p.id}/options">옵션</a> 탭의 조합별 가격표에서 정합니다. 가장 싼 조합 가격(지금 ${won(p.price)})이 '~원부터'로 보입니다.</p>` : `<div class="row"><div><label for="p-list">정가</label><input type="number" id="p-list" value="${h(p.list)}"></div><div><label for="p-price">판매가</label><input type="number" id="p-price" value="${h(p.price)}"></div></div>`}
       <label>배지</label><div class="checks">${BADGES.map(b => `<label><input type="checkbox" value="${b}" class="p-badge" ${p.badges.includes(b) ? 'checked' : ''}>${b}</label>`).join('')}</div>
       <label for="p-points">특징 <small>한 줄에 하나씩, 상품 카드·상세 위에 보입니다</small></label><textarea id="p-points" style="min-height:110px">${h(p.points.join('\n'))}</textarea></div>
-      ${o ? `<div class="card"><h2>옵션별 가격(3단 접이식)</h2><table class="opt"><tr><th>옵션</th><th>판매가</th><th>정가</th></tr>${keys.map(([k, t]) => `<tr><td>${h(t)}</td><td><input type="number" data-op="price" data-k="${k}" value="${o.price[k]}"></td><td><input type="number" data-op="list" data-k="${k}" value="${o.list[k]}"></td></tr>`).join('')}</table><p class="help">가장 싼 옵션의 가격이 '~원부터'로 보입니다.</p></div>` : ''}
       <div class="card"><h2>상품 사진</h2><p class="h-sub">첫 번째 사진이 대표 사진입니다. 화살표로 순서를 바꾸세요. 정사각형(1000×1000)이 가장 잘 보입니다.</p><div class="thumbs" id="imgs"></div><div class="actions static"><button class="btn sm" id="p-add" type="button">사진 추가</button></div></div>
       <div class="actions"><button class="btn ok" id="p-save">저장하기</button><a class="btn" href="#/products/${p.id}/detail">상세페이지 고치기</a><a class="btn" href="#/site/reviews/REVIEWS/${p.id}">이 상품 구매평</a><a class="btn" href="/product-${p.id}.html" target="_blank" rel="noopener">상품 페이지 보기 ↗</a></div>`;
     const drawImgs = () => {
@@ -726,10 +724,8 @@
     $('#p-save').onclick = async () => {
       const product = { name: $('#p-name').value, short: $('#p-short').value, summary: $('#p-sum').value, store: $('#p-store').value, rating: $('#p-rating').value, reviews: $('#p-reviews').value, list: o ? 0 : $('#p-list').value, price: o ? 0 : $('#p-price').value,
         badges: [...v.querySelectorAll('.p-badge:checked')].map(x => x.value), points: $('#p-points').value.split('\n'), imgs: imgs.map(x => x.data ? { data: x.data } : x.src) };
-      const options29 = o ? { price: {}, list: {} } : null;
-      if (o) v.querySelectorAll('[data-op]').forEach(i => { options29[i.dataset.op][i.dataset.k] = +i.value; });
       $('#p-save').disabled = true;
-      try { const r = await api('POST', `/api/admin/products/${id}`, { product, options29 }); saved(r, '상품 정보를'); productEdit(id); } catch (e) { fail(e); } finally { $('#p-save').disabled = false; }
+      try { const r = await api('POST', `/api/admin/products/${id}`, { product }); saved(r, '상품 정보를'); productEdit(id); } catch (e) { fail(e); } finally { $('#p-save').disabled = false; }
     };
   }
 
@@ -978,7 +974,87 @@
     };
   }
 
-  // ── 상품정보 제공고시(상품 안 세 번째 탭)
+  // ── 상품 옵션(상품 안 '옵션' 탭): 묶음(사이즈·두께·색상 등)과 선택지, 가격이 달라지는 묶음의 조합별 판매가·정가·품절
+  async function optionsEdit(id) {
+    const v = shell('상품', { back: ['#/products', '상품 목록'] });
+    const d = await api('GET', `/api/admin/products/${id}`), p = d.product;
+    $('#ttl').textContent = p.short;
+    const o = clone(d.opts) || { groups: [], prices: {} };
+    o.prices = o.prices || {};
+    const rid = (pre, used) => { let x; do { x = pre + Math.random().toString(36).slice(2, 7); } while (used.has(x)); return x; };
+    const combos = gs => gs.reduce((acc, g) => acc.flatMap(a => g.values.map(x => [...a, x])), [[]]);
+    const nImg = p.imgs.length;
+    const priceRows = () => { const pg = o.groups.filter(g => g.price); return pg.length ? combos(pg) : []; };
+    const rowKey = vs => vs.map(x => x.id).join('-');
+    function draw() {
+      const rows = priceRows(), all = o.groups.length ? combos(o.groups).length : 0;
+      v.innerHTML = `${ptabs(id, 'options')}<div class="card"><h2>옵션</h2><p class="h-sub">손님이 고르는 항목입니다. 사이즈·두께·색상처럼 <b>옵션 묶음</b>을 만들고 묶음마다 <b>선택지</b>를 넣습니다. 묶음마다 '가격이 달라짐'을 켜면 아래에 조합별 가격표가 생깁니다(색상처럼 값이 같으면 꺼 두세요).</p>
+        ${o.groups.length ? '' : `<div class="box">지금은 옵션이 없어 상품 페이지에서 수량만 고릅니다(판매가 ${won(p.price)}). '옵션 묶음 추가'를 누르면 시작합니다.</div>`}
+        <div class="og-list">${o.groups.map((g, gi) => `<section class="og" data-g="${gi}">
+          <div class="og-h"><input type="text" class="og-name" data-gk="name" value="${h(g.name)}" placeholder="묶음 이름(예: 사이즈)" maxlength="12" aria-label="옵션 묶음 이름">
+            <label class="og-pr"><input type="checkbox" data-gk="price" ${g.price ? 'checked' : ''}>가격이 달라짐</label>
+            <span class="og-ctl"><button class="btn sm" type="button" data-gmv="-1" ${gi ? '' : 'disabled'} aria-label="묶음 위로">↑</button><button class="btn sm" type="button" data-gmv="1" ${gi < o.groups.length - 1 ? '' : 'disabled'} aria-label="묶음 아래로">↓</button><button class="btn sm danger" type="button" data-grm>묶음 빼기</button></span></div>
+          <input type="text" data-gk="note" value="${h(g.note || '')}" placeholder="묶음 안내(선택) — 예: 폭 × 길이 200cm" maxlength="40" aria-label="묶음 안내">
+          <table class="ov"><thead><tr><th>선택지 이름</th><th>보조 글 <small>(선택)</small></th><th>색상 칩</th><th>사진</th><th>품절</th><th></th></tr></thead><tbody>
+          ${g.values.map((x, vi) => `<tr data-v="${vi}"><td><input type="text" data-vk="label" value="${h(x.label)}" placeholder="예: 슈퍼싱글" maxlength="20" aria-label="선택지 이름"></td>
+            <td><input type="text" data-vk="sub" value="${h(x.sub || '')}" placeholder="예: 110 × 200" maxlength="20" aria-label="보조 글"></td>
+            <td class="ov-hex"><label><input type="checkbox" data-vk="hexon" ${x.hex ? 'checked' : ''}>칩</label>${x.hex ? `<input type="color" data-vk="hex" value="${h(x.hex)}" aria-label="칩 색">` : ''}</td>
+            <td><select data-vk="img" aria-label="고르면 보일 사진"><option value="">대표 사진</option>${Array.from({ length: nImg }, (_, i) => `<option value="${i}" ${x.img === i ? 'selected' : ''}>${i + 1}번 사진</option>`).join('')}</select></td>
+            <td><label class="ov-off"><input type="checkbox" data-vk="off" ${x.off ? 'checked' : ''}>품절</label></td>
+            <td class="ov-ctl"><button class="btn sm" type="button" data-vmv="-1" ${vi ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" type="button" data-vmv="1" ${vi < g.values.length - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm danger" type="button" data-vrm aria-label="선택지 빼기">빼기</button></td></tr>`).join('')}
+          </tbody></table>
+          <div class="actions static"><button class="btn sm" type="button" data-vadd>선택지 추가</button></div>
+        </section>`).join('')}</div>
+        <div class="actions static">${o.groups.length < 4 ? '<button class="btn sm" type="button" id="og-add">옵션 묶음 추가</button>' : '<span class="help">옵션 묶음은 4개까지입니다</span>'}</div></div>
+        ${o.groups.length ? `<div class="card"><h2>조합별 가격</h2>${rows.length ? `<p class="h-sub">가격이 달라지는 묶음(${h(o.groups.filter(g => g.price).map(g => g.name).join(' × '))})의 조합마다 판매가를 넣습니다. 정가를 넣으면 할인율과 함께 삭선으로 보입니다(할인이 없으면 비워 두세요). 가장 싼 조합이 상품 카드에 '~원부터'로 보입니다.</p>
+          <div class="ov-bulk"><input type="number" id="ob-price" placeholder="판매가" min="0"><input type="number" id="ob-list" placeholder="정가" min="0"><button class="btn sm" type="button" id="ob-empty">빈 칸에 넣기</button><button class="btn sm" type="button" id="ob-all">모두 바꾸기</button></div>
+          <table class="ov ov-price"><thead><tr><th>조합</th><th>판매가</th><th>정가</th><th>품절</th></tr></thead><tbody>${rows.map(vs => { const k = rowKey(vs), r = o.prices[k] || {}; return `<tr><td>${h(vs.map(x => x.label || '(이름 없음)').join(' · '))}</td><td><input type="number" min="0" data-pk="${h(k)}" data-pf="price" value="${r.price ?? ''}"></td><td><input type="number" min="0" data-pk="${h(k)}" data-pf="list" value="${r.list && r.list !== r.price ? r.list : ''}"></td><td><label class="ov-off"><input type="checkbox" data-pk="${h(k)}" data-pf="off" ${r.off ? 'checked' : ''}>품절</label></td></tr>`; }).join('')}</tbody></table>`
+          : `<p class="h-sub">가격이 달라지는 묶음이 없어 모든 조합을 기본 정보의 판매가 <b>${won(p.price)}</b>로 팝니다.</p>`}
+          <p class="help">전체 조합 ${all}개${rows.length ? ` · 가격 조합 ${rows.length}개` : ''}. 선택지를 품절로 두면 그 선택지가 들어간 조합은 모두 살 수 없습니다.</p></div>` : ''}
+        <div class="actions"><button class="btn ok" id="o-save" type="button">저장하기</button>${d.optsChanged ? '<button class="btn" id="o-reset" type="button">처음 값으로 되돌리기</button>' : ''}<a class="btn" href="/product-${id}.html" target="_blank" rel="noopener">상품 페이지 보기 ↗</a></div>`;
+      bind();
+    }
+    function bind() {
+      const G = el => o.groups[+el.closest('.og').dataset.g], V = el => G(el).values[+el.closest('tr').dataset.v];
+      v.querySelectorAll('[data-gk]').forEach(el => el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+        const g = G(el); dirty = true;
+        if (el.type === 'checkbox') { g.price = el.checked; draw(); } else g[el.dataset.gk] = el.value;
+      }));
+      v.querySelectorAll('[data-vk]').forEach(el => el.addEventListener(el.type === 'text' ? 'input' : 'change', () => {
+        const x = V(el), k = el.dataset.vk; dirty = true;
+        if (k === 'hexon') { if (el.checked) x.hex = x.hex || '#D5DCE3'; else delete x.hex; draw(); return; }
+        if (k === 'off') { if (el.checked) x.off = true; else delete x.off; return; }
+        if (k === 'img') { if (el.value === '') delete x.img; else x.img = +el.value; return; }
+        x[k] = el.value;
+      }));
+      // 선택지 이름이 바뀌면 가격표 이름도 다시(입력을 마친 뒤)
+      v.querySelectorAll('[data-vk="label"]').forEach(el => el.addEventListener('change', () => { if (G(el).price) draw(); }));
+      v.querySelectorAll('[data-gmv]').forEach(b => b.onclick = () => { const i = +b.closest('.og').dataset.g, j = i + +b.dataset.gmv; [o.groups[i], o.groups[j]] = [o.groups[j], o.groups[i]]; dirty = true; draw(); });
+      v.querySelectorAll('[data-grm]').forEach(b => b.onclick = () => { const g = G(b); if (!confirm(`「${g.name || '이름 없는 묶음'}」 묶음을 뺄까요?`)) return; o.groups.splice(o.groups.indexOf(g), 1); dirty = true; draw(); });
+      v.querySelectorAll('[data-vmv]').forEach(b => b.onclick = () => { const g = G(b), i = +b.closest('tr').dataset.v, j = i + +b.dataset.vmv; [g.values[i], g.values[j]] = [g.values[j], g.values[i]]; dirty = true; draw(); });
+      v.querySelectorAll('[data-vrm]').forEach(b => b.onclick = () => { const g = G(b); if (g.values.length < 2) return toast('선택지는 하나 이상 있어야 합니다. 묶음을 통째로 빼려면 \'묶음 빼기\'를 누르세요'); g.values.splice(+b.closest('tr').dataset.v, 1); dirty = true; draw(); });
+      v.querySelectorAll('[data-vadd]').forEach(b => b.onclick = () => { const g = G(b); g.values.push({ id: rid('v', new Set(g.values.map(x => x.id))), label: '' }); dirty = true; draw(); v.querySelector(`.og[data-g="${o.groups.indexOf(g)}"] tr:last-child [data-vk="label"]`)?.focus(); });
+      const add = $('#og-add'); if (add) add.onclick = () => { o.groups.push({ id: rid('g', new Set(o.groups.map(g => g.id))), name: '', note: '', price: false, values: [{ id: rid('v', new Set()), label: '' }] }); dirty = true; draw(); v.querySelector('.og:last-child .og-name')?.focus(); };
+      v.querySelectorAll('[data-pk]').forEach(el => el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', () => {
+        const r = o.prices[el.dataset.pk] = o.prices[el.dataset.pk] || {}; dirty = true;
+        if (el.type === 'checkbox') { if (el.checked) r.off = true; else delete r.off; } else r[el.dataset.pf] = el.value === '' ? '' : +el.value;
+      }));
+      const bulk = all => { const pr = $('#ob-price').value, li = $('#ob-list').value; if (!pr && !li) return toast('넣을 판매가나 정가를 적어 주세요');
+        priceRows().forEach(vs => { const k = rowKey(vs), r = o.prices[k] = o.prices[k] || {}; if (pr && (all || r.price === '' || r.price == null)) r.price = +pr; if (li && (all || r.list === '' || r.list == null)) r.list = +li; }); dirty = true; draw(); };
+      const be = $('#ob-empty'), ba = $('#ob-all'); if (be) be.onclick = () => bulk(false); if (ba) ba.onclick = () => bulk(true);
+      $('#o-save').onclick = async () => {
+        const live = new Set(priceRows().map(rowKey));
+        const prices = Object.fromEntries(Object.entries(o.prices).filter(([k]) => live.has(k)).map(([k, r]) => [k, { price: r.price, list: r.list === '' || r.list == null ? r.price : r.list, ...(r.off ? { off: true } : {}) }]));
+        $('#o-save').disabled = true;
+        try { const r = await api('POST', `/api/admin/products/${id}/options`, { opts: o.groups.length ? { groups: o.groups, prices } : null }); saved(r, '옵션을'); dirty = false; optionsEdit(id); }
+        catch (e) { fail(e); $('#o-save').disabled = false; }
+      };
+      const rb = $('#o-reset'); if (rb) rb.onclick = async () => { if (!confirm('옵션을 처음 값으로 되돌릴까요? 지금까지 고친 옵션·가격이 사이트에서 사라집니다.')) return; try { const r = await api('POST', `/api/admin/products/${id}/options`, { reset: true }); saved(r, '되돌리기를'); dirty = false; optionsEdit(id); } catch (e) { fail(e); } };
+    }
+    draw();
+  }
+
+  // ── 상품정보 제공고시(상품 안 탭)
   async function noticeEdit(id) {
     const v = shell('상품', { back: ['#/products', '상품 목록'] });
     const [{ product: p }, n] = await Promise.all([api('GET', `/api/admin/products/${id}`), api('GET', `/api/admin/notice/${id}`)]);
@@ -1127,6 +1203,7 @@
       else if (a === 'blog') await blogList();
       else if (a === 'products' && b && route()[2] === 'detail') await detailEdit(b);
       else if (a === 'products' && b && route()[2] === 'notice') await noticeEdit(b);
+      else if (a === 'products' && b && route()[2] === 'options') await optionsEdit(b);
       else if (a === 'site') await siteBlocks(b, route()[2], route()[3]);
       else if (a === 'texts') await texts(b);
       else if (a === 'products' && b) await productEdit(b);

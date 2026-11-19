@@ -259,3 +259,11 @@ td.ell{max-width:0;width:100%;overflow:hidden;text-overflow:ellipsis;white-space
   table.rtbl td:nth-child(2){grid-column:1;grid-row:2;max-width:none;width:auto;min-width:0}
   table.rtbl td:nth-child(3){grid-column:2;grid-row:2}
 }
+/* 상품 옵션 탭 */
+.og{border:1px solid var(--line-2);border-radius:12px;padding:14px;margin:0 0 14px;background:#fff}
+.og-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.og-h .og-name{flex:1 1 180px;font-weight:700}.og-pr{display:flex;gap:6px;align-items:center;white-space:nowrap;font-weight:600}.og-ctl{display:flex;gap:4px}
+.ov{border-collapse:collapse;width:100%;margin-top:8px}.ov th,.ov td{padding:6px;border-bottom:1px solid var(--line-2);text-align:left;vertical-align:middle;font-size:14px}.ov th{font-weight:600;color:var(--sub);white-space:nowrap}.ov input[type=text],.ov input[type=number],.ov select{width:100%;min-width:0}
+.ov-hex label{display:inline-flex;gap:4px;align-items:center;margin-right:6px}.ov-hex input[type=color]{width:36px;height:28px;padding:0;border:1px solid var(--line-2);border-radius:6px;vertical-align:middle}.ov-ctl{white-space:nowrap}
+.ov-bulk{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 6px}.ov-bulk input{width:130px}.ov-price td:first-child{min-width:160px}
+@media (max-width:700px){.ov thead{display:none}.ov tr{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 0;border-bottom:1px solid var(--line-2)}.ov td{border:0;padding:0}.ov td:first-child{grid-column:1/-1}.ov-ctl{grid-column:1/-1}.ov-price tr{grid-template-columns:1fr 1fr auto}}
+.ov-off{display:inline-flex;gap:4px;align-items:center;white-space:nowrap;font-size:13px;color:var(--sub)}
