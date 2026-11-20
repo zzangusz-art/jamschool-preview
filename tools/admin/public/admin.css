@@ -320,3 +320,6 @@ tr.sub>td{background:var(--soft);padding:6px 10px 12px}
 .rvm__rd{margin-top:10px}
 .rvm__rd summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--sub)}
 .rvm__rd textarea{width:100%;margin-top:6px}
+/* 직접 방문 자세히: 이름이 길어 막대 칸을 줄임 */
+#dr-how td.bar-td,#dr-land td.bar-td{width:24%}
+#dr-how td:first-child,#dr-land td:first-child{word-break:keep-all}

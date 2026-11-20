@@ -371,6 +371,9 @@
           <details class="tbl"><summary>숫자로 보기</summary><div id="rw-tbl"></div></details>` : '<h2>요일별 방문 레이더</h2><p class="h-sub">최근 7일 이상을 고르면 요일별로 보입니다.</p>'}</div></div>
       <div class="cols"><div class="card"><h2>기기</h2><p class="h-sub" id="dv-sub">방문자 기준 · 조각에 마우스를 올리면 비율</p><div class="dcbox" id="dv"></div></div>
         <div class="card"><h2>어디서 왔나</h2><p class="h-sub" id="src-sub">들어온 경로별(사이트 안 이동은 빼고)</p><div id="src-bars">${bars(top(t.sources, 12), t.entries)}</div></div></div>
+      <div class="cols"><div class="card"><h2>직접 방문 — 어떻게 들어왔나</h2><p class="h-sub" id="dr-sub"></p><div id="dr-how"></div>
+          <details class="tbl"><summary>직접 방문이란?</summary><p class="help">브라우저가 <b>이전 페이지 주소를 보내지 않은</b> 방문입니다. 주소를 직접 치거나 즐겨찾기로 오는 것 말고도 카카오톡·문자·메모에서 링크를 누를 때, 인스타그램·네이버 앱 같은 앱 안 브라우저, 이전 사이트가 주소를 숨길 때, 포장·전단의 QR, 입소문으로 검색 없이 주소를 친 경우가 모두 여기로 잡힙니다.<br>그래서 링크에 붙은 표시, 앱 이름, 브라우저가 알려 주는 '주소 입력·즐겨찾기 여부'로 한 번 더 나눴습니다(숫자만 남기고 개인정보는 쓰지 않음).<br><b>홍보 링크에는 꼬리표를 붙이세요</b> — 예: 카카오톡 채널 공지 링크 끝에 <code>?utm_source=kakao_channel</code>, 인스타 프로필 링크에 <code>?utm_source=instagram_bio</code>, 포장 QR에 <code>?utm_source=qr_box</code>. 그러면 직접 방문이 아니라 「캠페인(이름)」으로 따로 보입니다.</p><table class="list"><tbody><tr><td class="nw"><b>카카오톡 안 브라우저</b></td><td>카카오톡 대화방·채널·선물하기 등에서 링크를 눌러 카카오톡 안에서 연 것(공유·입소문이 많은 경로)</td></tr><tr><td class="nw"><b>네이버·인스타그램·페이스북·밴드 앱 안 브라우저</b></td><td>그 앱 안에서 링크를 연 것. 앱이 이전 주소를 안 보내 직접 방문이 됨</td></tr><tr><td class="nw"><b>휴대폰 주소 입력·즐겨찾기·문자</b></td><td>휴대폰 브라우저에서 주소를 치거나 즐겨찾기·홈 화면 바로가기, 또는 문자·메모·이메일 앱에서 링크를 연 것</td></tr><tr><td class="nw"><b>PC 주소 입력·즐겨찾기</b></td><td>PC에서 주소를 치거나 즐겨찾기·북마크로 온 것(새로고침 포함)</td></tr><tr><td class="nw"><b>주문 조회·구매평 쓰기 링크</b></td><td>우리가 보낸 결제·배송 문자나 결제 완료 화면의 링크</td></tr><tr><td class="nw"><b>구글 광고·인스타·페이스북·네이버 광고·쇼핑 링크</b></td><td>링크에 그 서비스가 붙인 클릭 표시(gclid·fbclid·NaPm 등)가 있는 것</td></tr><tr><td class="nw"><b>출처를 숨긴 다른 사이트</b></td><td>다른 사이트에서 눌렀지만 그 사이트가 주소를 숨긴 것</td></tr><tr><td class="nw"><b>알 수 없음</b></td><td>브라우저가 출처 정보를 보내지 않음(오래된 브라우저 등)</td></tr></tbody></table></details></div>
+        <div class="card"><h2>직접 방문 — 처음 연 페이지</h2><p class="h-sub">직접 방문이 어느 페이지로 들어왔는지</p><div id="dr-land"></div></div></div>
       <div class="cols"><div class="card"><h2>많이 본 페이지</h2><p class="h-sub">페이지 열림 순</p>${bars(top(t.pages, 12), t.pv, x => pageName(x, s))}</div>
         <div class="card"><h2>들어온 사이트</h2><p class="h-sub">검색·블로그·카페 등 주소별</p>${bars(top(t.refs, 10), sum(t.refs))}</div></div>
       <div class="card"><h2>검색엔진·AI 로봇 방문</h2><p class="h-sub">사람이 아닌 수집 로봇이 읽어간 횟수(방문자 숫자에는 안 들어감)</p>${bars(top(t.bots, 10), sum(t.bots))}</div>
@@ -396,6 +399,11 @@
       donut($('#dv'), [['휴대폰', curDev['휴대폰'] || 0, C1], ['PC', curDev.PC || 0, C2], ['태블릿', curDev['태블릿'] || 0, C3]]);
       $('#dv-sub').textContent = day ? `${day.date} 하루 방문자 기준` : '방문자 기준 · 조각에 마우스를 올리면 비율';
       $('#src-bars').innerHTML = bars(top(curSrc, 12), curEnt); $('#src-sub').textContent = day ? `${day.date} 하루 들어온 경로` : '들어온 경로별(사이트 안 이동은 빼고)';
+      // 직접 방문 자세히(2026-11-20부터 모음 — 그 전 날짜는 직접 방문 숫자만 있음)
+      const dr = (day ? day.direct : t.direct) || { how: {}, land: {} }, drN = sum(dr.how), drAll = curSrc['직접 방문'] || 0;
+      $('#dr-how').innerHTML = drN ? bars(top(dr.how, 12), drN) : `<p class="help">${s.directFrom || day ? '이 날은 자세히 기록된 직접 방문이 없습니다.' : '직접 방문 자세히는 2026-11-20부터 모읍니다. 그 전 날짜는 직접 방문 숫자만 있습니다.'}</p>`;
+      $('#dr-land').innerHTML = drN ? bars(top(dr.land, 10), drN, x => pageName(x, s)) : '<p class="help">아직 기록이 없습니다.</p>';
+      $('#dr-sub').textContent = `${day ? day.date + ' 하루 ' : ''}직접 방문 ${num(drAll)}번${drN < drAll ? ` 중 자세히 기록된 ${num(drN)}번(${s.directFrom || '2026-11-20'}부터)` : ''}`;
       $('#pickbar').innerHTML = day ? `<div class="box info pick"><b>${h(day.date)}(${WD[wdOf(day.date)]})만 보는 중</b> — 방문자 ${num(day.uv)} · 페이지 ${num(day.pv)} · 들어옴 ${num(day.entries)} <button class="btn sm" id="unpick" type="button">기간 전체로</button></div>` : '';
       if (day) $('#unpick').onclick = () => { pick = null; fill(); if (lcDraw) lcDraw(); };
     };

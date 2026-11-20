@@ -13,7 +13,7 @@ export const persistent = () => !!DIR;
 const kst = (t = Date.now()) => new Date(t + 9 * 3600e3).toISOString().slice(0, 10);
 const days = new Map();   // 날짜 → 집계(오늘·최근 것만 메모리에)
 
-const blank = date => ({ date, pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} }, _salt: crypto.randomBytes(16).toString('hex'), _seen: [] });
+const blank = date => ({ date, pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} }, direct: { how: {}, land: {} }, _salt: crypto.randomBytes(16).toString('hex'), _seen: [] });
 function day(date = kst()) {
   if (!days.has(date)) {
     let d = null;
@@ -68,6 +68,28 @@ const BOT_RE = /bot|crawl|spider|slurp|yeti|daumoa|preview|facebookexternalhit|k
 const BOT_NAMES = [[/gptbot|oai-searchbot|chatgpt-user/i, 'OpenAI(ChatGPT)'], [/claudebot|claude-|anthropic/i, 'Anthropic(Claude)'], [/perplexity/i, 'Perplexity'], [/google-extended|googleother/i, 'Google AI'], [/googlebot|google-inspectiontool/i, 'Googlebot'], [/yeti/i, '네이버 Yeti'], [/bingbot|bingpreview/i, 'Bingbot'], [/daumoa|daum/i, '다음'], [/bytespider/i, 'ByteDance'], [/ccbot/i, 'Common Crawl']];
 const device = ua => /ipad|tablet/i.test(ua) ? '태블릿' : /mobi|iphone|android/i.test(ua) ? '휴대폰' : 'PC';
 
+// 직접 방문(이전 페이지 주소 없음·utm 없음)을 한 번 더 나눈다 — 숫자만 남김(2026-11-20부터)
+//   ① 링크에 붙은 표시: 주문 조회·구매평 쓰기 주소(우리 문자·화면), 광고·앱이 붙이는 클릭 표시(gclid·fbclid·NaPm 등)
+//   ② 앱 안 브라우저(브라우저 이름표 User-Agent): 카카오톡·네이버 앱·인스타그램 등은 이전 주소를 안 보내는 일이 많다
+//   ③ 브라우저가 알려 주는 요청 출처(Sec-Fetch-Site): none = 주소 입력·즐겨찾기·새로고침·다른 앱(문자 등)에서 열기, cross-site = 다른 사이트인데 주소를 숨김
+const IN_APP = [[/KAKAOTALK/i, '카카오톡 안 브라우저'], [/NAVER\(inapp|NAVER\/\d/i, '네이버 앱 안 브라우저'], [/Instagram/i, '인스타그램 앱 안 브라우저'], [/FBAN|FBAV|FB_IAB|FBIOS/i, '페이스북 앱 안 브라우저'],
+  [/BAND\//i, '밴드 앱 안 브라우저'], [/\bLine\//i, '라인 앱 안 브라우저'], [/DaumApps|DaumDevice/i, '다음 앱 안 브라우저'], [/KAKAOSTORY/i, '카카오스토리 앱 안 브라우저'], [/; wv\)|WebView/i, '그 밖의 앱 안 브라우저']];
+export function directHow(req, ua, p) {
+  let q; try { q = new URL(req.url, 'http://x').searchParams; } catch { q = new URLSearchParams(); }
+  if (p === '/order-complete' && q.get('o')) return '주문 조회 링크(문자·결제 화면)';
+  if (q.get('write') === '1') return '구매평 쓰기 링크(문자·주문 조회)';
+  if (q.has('gclid') || q.has('gbraid') || q.has('wbraid')) return '구글 광고';
+  if (q.has('fbclid')) return '인스타·페이스북 링크';
+  if (q.has('NaPm') || q.has('n_media') || q.has('n_query')) return '네이버 광고·쇼핑 링크';
+  if (q.has('ttclid')) return '틱톡 링크';
+  const app = IN_APP.find(([re]) => re.test(ua)); if (app) return app[1];
+  const sf = String((req.headers || {})['sec-fetch-site'] || '');
+  if (sf === 'none') return device(ua) === 'PC' ? 'PC 주소 입력·즐겨찾기' : '휴대폰 주소 입력·즐겨찾기·문자';
+  if (sf === 'cross-site') return '출처를 숨긴 다른 사이트';
+  if (sf === 'same-origin' || sf === 'same-site') return '사이트 안 이동(주소 없음)';
+  return '알 수 없음';
+}
+
 // 페이지 보기 1건(serve.mjs 가 html 200 응답 때 부른다)
 export function countPage(req, pathname, selfHost) {
   try {
@@ -83,6 +105,7 @@ export function countPage(req, pathname, selfHost) {
     const s = source(String(req.headers.referer || ''), selfHost, utm);
     if (!d._set.has(id)) { d._set.add(id); d.uv++; inc(d.devices, device(ua)); }
     if (s) { d.entries++; inc(d.sources, s.group); if (s.host) inc(s.group === 'AI 답변' ? d.ai : d.refs, s.host); }
+    if (s && s.group === '직접 방문') { const x = d.direct || (d.direct = { how: {}, land: {} }); inc(x.how, directHow(req, ua, p)); inc(x.land, p); }
     touch();
   } catch { /* 집계 실패가 페이지를 막지 않게 */ }
 }
@@ -143,12 +166,15 @@ export function summary(n = 7, offset = 0) {
     list.push(d || { date, pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} } });
   }
   const add = (a, b) => { for (const [k, v] of Object.entries(b || {})) a[k] = (a[k] || 0) + v; return a; };
-  const tot = { pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} } };
+  const tot = { pv: 0, uv: 0, entries: 0, pages: {}, sources: {}, refs: {}, ai: {}, devices: {}, bots: {}, events: {}, products: {}, orders: { n: 0, sum: 0, items: {}, pay: {} }, direct: { how: {}, land: {} } };
   for (const d of list) {
     tot.pv += d.pv; tot.uv += d.uv; tot.entries += d.entries;
+    if (d.direct) { add(tot.direct.how, d.direct.how); add(tot.direct.land, d.direct.land); }
     for (const k of ['pages', 'sources', 'refs', 'ai', 'devices', 'bots', 'events']) add(tot[k], d[k]);
     for (const [id, p] of Object.entries(d.products || {})) { tot.products[id] = tot.products[id] || { views: 0, buy: 0 }; tot.products[id].views += p.views; tot.products[id].buy += p.buy; }
     tot.orders.n += d.orders.n; tot.orders.sum += d.orders.sum; add(tot.orders.items, d.orders.items); add(tot.orders.pay, d.orders.pay);
   }
-  return { days: list.map(d => ({ date: d.date, pv: d.pv, uv: d.uv, entries: d.entries, ai: Object.values(d.ai || {}).reduce((a, b) => a + b, 0), orders: d.orders.n, events: d.events, sources: d.sources || {}, devices: d.devices || {} })), total: tot, persistent: persistent(), ordersSince: since };
+  // directFrom: 직접 방문 자세히를 모으기 시작한 날(이 기간 안에서 처음 기록이 있는 날)
+  const df = list.find(d => d.direct);
+  return { days: list.map(d => ({ date: d.date, pv: d.pv, uv: d.uv, entries: d.entries, ai: Object.values(d.ai || {}).reduce((a, b) => a + b, 0), orders: d.orders.n, events: d.events, sources: d.sources || {}, devices: d.devices || {}, direct: d.direct || null })), total: tot, persistent: persistent(), ordersSince: since, directFrom: df ? df.date : '' };
 }
