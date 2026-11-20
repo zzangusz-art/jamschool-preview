@@ -23,8 +23,8 @@
     const pauseBtn = $('.hs__pause', hero), replay = $('.hs__replay', hero);
     const isPortrait = () => matchMedia('(max-aspect-ratio: 1/1)').matches;
     const saveData = navigator.connection && navigator.connection.saveData;
-    const SEEN = 'jam_reel_seen', DUR = 5500;
-    let mode = '', src = '', idx = 0, elapsed = 0, last = 0, userPaused = !!reduce, hold = false, visible = true;
+    const SEEN = 'jam_reel_seen', DUR = 5500, END_HOLD = 3000;   // END_HOLD: 휴대폰에서 영상이 끝난 뒤 슬라이드로 넘어가기까지
+    let mode = '', src = '', idx = 0, elapsed = 0, last = 0, userPaused = !!reduce, hold = false, visible = true, endT = 0;
 
     function setSrc() {
       const pt = isPortrait(), s = pt ? 'assets/video/hero-mobile.mp4' : 'assets/video/hero-desktop.mp4';
@@ -40,7 +40,7 @@
     }
     function setMode(m, instant) {
       if (m === mode) return;
-      mode = m;
+      mode = m; clearTimeout(endT); endT = 0;
       if (instant) hero.classList.add('no-anim');
       hero.dataset.mode = m;
       if (instant) requestAnimationFrame(() => requestAnimationFrame(() => hero.classList.remove('no-anim')));
@@ -57,9 +57,22 @@
       }
     }
     ctrl.addEventListener('click', () => { if (video.paused) video.play().catch(() => {}); else video.pause(); });
-    video.addEventListener('play', () => setCtrl(true));
-    video.addEventListener('pause', () => setCtrl(false));
-    video.addEventListener('ended', () => setMode('slides'));
+    // 영상이 끝나면: 휴대폰(세로 화면)은 마지막 장면을 3초 보여 준 뒤 슬라이드로, PC 는 바로(2026-11-20).
+    //   일부 휴대폰 브라우저는 'ended' 를 늦게 주거나 안 주므로, 끝(0.3초 안)에서 멈추거나 1초 넘게 그대로면 끝난 것으로 본다
+    const nearEnd = () => video.duration > 0 && video.currentTime >= video.duration - 0.3;
+    function reelDone() {
+      if (mode !== 'reel' || endT) return;
+      endT = setTimeout(() => { endT = 0; if (mode === 'reel') setMode('slides'); }, isPortrait() ? END_HOLD : 0);
+    }
+    let lastT = -1, still = 0;
+    setInterval(() => {
+      if (mode !== 'reel' || endT) { still = 0; return; }
+      const t = video.currentTime; still = t === lastT ? still + 500 : 0; lastT = t;
+      if (nearEnd() && still >= 1000) reelDone();
+    }, 500);
+    video.addEventListener('play', () => { setCtrl(true); clearTimeout(endT); endT = 0; });   // 끝난 뒤 다시 재생하면 넘김 취소
+    video.addEventListener('pause', () => { setCtrl(false); if (nearEnd()) reelDone(); });
+    video.addEventListener('ended', reelDone);
     video.addEventListener('timeupdate', () => { if (video.duration) bar.style.transform = `scaleX(${(video.currentTime / video.duration).toFixed(4)})`; });
     skip.addEventListener('click', () => { setMode('slides'); setTimeout(() => region.focus({ preventScroll: true }), 60); });
     replay.addEventListener('click', () => { setMode('reel'); setTimeout(() => skip.focus({ preventScroll: true }), 80); });
