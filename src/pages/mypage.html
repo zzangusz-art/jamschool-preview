@@ -1,0 +1,78 @@
+<main id="main" class="mem mem--my">
+  <div class="wrap">
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a><svg aria-hidden="true"><use href="#i-right"/></svg><span aria-current="page">마이페이지</span></nav>
+    <p class="mem-wait" id="my-wait" role="status">불러오는 중…</p>
+    <div id="my" hidden>
+      <div class="my-head">
+        <div><h1 class="page-t" style="margin:0"><span id="my-name"></span>님</h1><p class="my-head__id" id="my-id"></p></div>
+        <div class="my-head__pt"><span>적립금</span><b id="my-points">0원</b><small id="my-points-s"></small></div>
+        <button class="btn btn--line btn--sm" type="button" id="my-logout">로그아웃</button>
+      </div>
+      <p class="my-temp" id="my-temp" hidden>임시 비밀번호로 로그인했습니다. <button type="button" data-go="pw">비밀번호를 바꿔 주세요</button></p>
+      <div class="mem-tabs mem-tabs--wide" role="tablist" aria-label="마이페이지">
+        <button type="button" role="tab" aria-selected="true" data-sec="orders">주문 내역</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" data-sec="points">적립금</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" data-sec="info">내 정보·배송지</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" data-sec="pw">비밀번호</button>
+        <button type="button" role="tab" aria-selected="false" tabindex="-1" data-sec="out">회원 탈퇴</button>
+      </div>
+
+      <section class="my-sec" data-sec="orders" aria-label="주문 내역"><div id="my-orders"><p class="note">불러오는 중…</p></div></section>
+
+      <section class="my-sec" data-sec="points" aria-label="적립금" hidden>
+        <div class="my-ptbox"><div><span>보유 적립금</span><b id="pt-bal">0원</b></div><div><span>지금 쓸 수 있는 적립금</span><b id="pt-av">0원</b></div></div>
+        <p class="note" id="pt-rule"></p>
+        <div id="pt-log"></div>
+      </section>
+
+      <section class="my-sec" data-sec="info" aria-label="내 정보" hidden>
+        <form class="mem-card mem-card--wide" id="if-form" novalidate>
+          <div class="fld-grid fld-grid--2">
+            <div class="fld"><label class="fld__l" for="if-name">이름</label><input class="inp" id="if-name" autocomplete="name" maxlength="20"></div>
+            <div class="fld"><label class="fld__l" for="if-tel">휴대폰 번호</label><input class="inp" id="if-tel" type="tel" inputmode="numeric" autocomplete="tel-national"></div>
+            <div class="fld fld--full"><label class="fld__l" for="if-mail">이메일<span>선택</span></label><input class="inp" id="if-mail" type="email" autocomplete="email" maxlength="60"></div>
+          </div>
+          <h2 class="my-h2">기본 배송지 <span>주문서에 자동으로 들어갑니다</span></h2>
+          <div class="fld-grid fld-grid--2">
+            <div class="fld"><label class="fld__l" for="if-rname">받는 분</label><input class="inp" id="if-rname" maxlength="20"></div>
+            <div class="fld"><label class="fld__l" for="if-rtel">받는 분 휴대폰</label><input class="inp" id="if-rtel" type="tel" inputmode="numeric"></div>
+            <div class="fld fld--full"><label class="fld__l" for="if-zip">주소</label>
+              <div class="zip-row"><input class="inp" id="if-zip" placeholder="우편번호" readonly maxlength="5"><button class="btn btn--ink btn--sm" type="button" id="if-zipbtn">주소 검색</button></div>
+              <input class="inp" id="if-a1" placeholder="주소 검색을 눌러 주소를 고르세요" readonly style="margin-top:8px" aria-label="기본 주소">
+              <input class="inp" id="if-a2" placeholder="동·호수 등 상세 주소" maxlength="60" style="margin-top:8px" aria-label="상세 주소">
+              <button class="btn btn--line btn--sm" type="button" id="if-addr-del" style="margin-top:8px" hidden>기본 배송지 지우기</button></div>
+          </div>
+          <h2 class="my-h2">광고 수신</h2>
+          <label class="ck ck--sm"><input type="checkbox" id="if-mk-sms"><span class="ck__box" aria-hidden="true"></span><span>할인·이벤트 문자 받기</span></label>
+          <label class="ck ck--sm" style="margin-left:14px"><input type="checkbox" id="if-mk-mail"><span class="ck__box" aria-hidden="true"></span><span>이메일 받기</span></label>
+          <p class="mem-msg" id="if-msg" role="alert"></p>
+          <button class="btn btn--primary" type="submit">저장하기</button>
+        </form>
+      </section>
+
+      <section class="my-sec" data-sec="pw" aria-label="비밀번호" hidden>
+        <form class="mem-card" id="pw-form" novalidate>
+          <div class="fld"><label class="fld__l" for="pw-cur">지금 비밀번호</label><input class="inp" id="pw-cur" type="password" autocomplete="current-password" maxlength="64"></div>
+          <div class="fld"><label class="fld__l" for="pw-new">새 비밀번호<span>영문·숫자를 섞어 8자 이상</span></label><input class="inp" id="pw-new" type="password" autocomplete="new-password" maxlength="64"></div>
+          <div class="fld"><label class="fld__l" for="pw-new2">새 비밀번호 확인</label><input class="inp" id="pw-new2" type="password" autocomplete="new-password" maxlength="64"></div>
+          <p class="mem-msg" id="pw-msg" role="alert"></p>
+          <button class="btn btn--primary btn--block" type="submit">비밀번호 바꾸기</button>
+        </form>
+      </section>
+
+      <section class="my-sec" data-sec="out" aria-label="회원 탈퇴" hidden>
+        <form class="mem-card" id="out-form" novalidate>
+          <ul class="my-warn">
+            <li>탈퇴하면 이름·연락처·이메일·배송지와 남은 적립금(<b id="out-pt">0원</b>)이 바로 없어지고 되돌릴 수 없습니다.</li>
+            <li>주문·결제·환불 기록은 전자상거래법에 따라 5년 보관한 뒤 파기합니다. 진행 중인 주문은 비회원 주문 조회(주문번호+휴대폰)로 확인할 수 있습니다.</li>
+            <li>같은 아이디로 다시 가입할 수 있지만 지난 주문·적립금은 이어지지 않습니다.</li>
+          </ul>
+          <div class="fld"><label class="fld__l" for="out-pw">비밀번호</label><input class="inp" id="out-pw" type="password" autocomplete="current-password" maxlength="64"></div>
+          <label class="ck ck--sm"><input type="checkbox" id="out-ok"><span class="ck__box" aria-hidden="true"></span><span>위 내용을 확인했고 탈퇴합니다</span></label>
+          <p class="mem-msg" id="out-msg" role="alert"></p>
+          <button class="btn btn--line btn--block" type="submit">회원 탈퇴</button>
+        </form>
+      </section>
+    </div>
+  </div>
+</main>

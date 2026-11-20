@@ -366,6 +366,9 @@
   }
   addEventListener('load', () => fitReviews());
 
+  // 회원 로그인 상태(화면용 표시 쿠키 jam_mn — 값은 1뿐, 로그인 확인은 서버가 jam_m 으로): 머리글·메뉴의 '로그인'을 '마이페이지'로
+  if (/(?:^|;\s*)jam_mn=1/.test(document.cookie)) document.addEventListener('DOMContentLoaded', () => $$('.header__login, .mnav__login').forEach(a => { a.href = 'mypage.html'; a.textContent = '마이페이지'; }));
+
   window.UI = { $, $$, won, esc, I, toast, photoStrip, fitReviews, openLayer, closeLayer, accordion, accItem, tabs, reveal, cart, wish, renderCart, lightbox, productCard, readyThumbs, rate, store, reduce };
   document.addEventListener('DOMContentLoaded', initChrome);
 })();

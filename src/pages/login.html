@@ -1,0 +1,50 @@
+<main id="main" class="mem">
+  <div class="wrap mem__wrap">
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a><svg aria-hidden="true"><use href="#i-right"/></svg><span aria-current="page">로그인</span></nav>
+    <h1 class="page-t">로그인</h1>
+
+    <div class="mem-tabs" role="tablist" aria-label="로그인·찾기">
+      <button type="button" role="tab" id="tab-login" aria-controls="lg-form" aria-selected="true" data-tab="login">로그인</button>
+      <button type="button" role="tab" id="tab-fid" aria-controls="fi-form" aria-selected="false" tabindex="-1" data-tab="fid">아이디 찾기</button>
+      <button type="button" role="tab" id="tab-fpw" aria-controls="fp-form" aria-selected="false" tabindex="-1" data-tab="fpw">비밀번호 찾기</button>
+    </div>
+
+    <form class="mem-card" id="lg-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+      <div class="fld"><label class="fld__l" for="lg-id">아이디</label><input class="inp" id="lg-id" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required></div>
+      <div class="fld"><label class="fld__l" for="lg-pw">비밀번호</label><input class="inp" id="lg-pw" type="password" autocomplete="current-password" maxlength="64" required></div>
+      <label class="ck ck--sm"><input type="checkbox" id="lg-keep"><span class="ck__box" aria-hidden="true"></span><span>로그인 상태 유지(30일)</span></label>
+      <p class="mem-msg" id="lg-msg" role="alert"></p>
+      <button class="btn btn--primary btn--block" type="submit">로그인</button>
+      <p class="mem-links"><a href="join.html" id="lg-join">회원가입</a><span aria-hidden="true">·</span><button type="button" data-tab="fid">아이디 찾기</button><span aria-hidden="true">·</span><button type="button" data-tab="fpw">비밀번호 찾기</button></p>
+    </form>
+
+    <form class="mem-card" id="fi-form" role="tabpanel" aria-labelledby="tab-fid" novalidate hidden>
+      <p class="note">가입할 때 적은 이름과 휴대폰 번호를 넣어 주세요. 아이디 일부를 가려서 보여 드립니다.</p>
+      <div class="fld"><label class="fld__l" for="fi-name">이름</label><input class="inp" id="fi-name" autocomplete="name" maxlength="20" required></div>
+      <div class="fld"><label class="fld__l" for="fi-tel">휴대폰 번호</label><input class="inp" id="fi-tel" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="010-0000-0000" required></div>
+      <p class="mem-msg" id="fi-msg" role="alert"></p>
+      <button class="btn btn--primary btn--block" type="submit">아이디 찾기</button>
+      <div class="mem-found" id="fi-out" aria-live="polite"></div>
+    </form>
+
+    <form class="mem-card" id="fp-form" role="tabpanel" aria-labelledby="tab-fpw" novalidate hidden>
+      <p class="note">아이디·이름·휴대폰 번호가 맞으면 가입한 휴대폰으로 임시 비밀번호를 문자로 보내 드립니다.</p>
+      <div class="fld"><label class="fld__l" for="fp-id">아이디</label><input class="inp" id="fp-id" autocapitalize="none" spellcheck="false" maxlength="20" required></div>
+      <div class="fld"><label class="fld__l" for="fp-name">이름</label><input class="inp" id="fp-name" autocomplete="name" maxlength="20" required></div>
+      <div class="fld"><label class="fld__l" for="fp-tel">휴대폰 번호</label><input class="inp" id="fp-tel" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="010-0000-0000" required></div>
+      <p class="mem-msg" id="fp-msg" role="alert"></p>
+      <button class="btn btn--primary btn--block" type="submit">임시 비밀번호 받기</button>
+    </form>
+
+    <div class="mem-perk">
+      <p class="mem-perk__t">회원이 되면</p>
+      <ul class="mem-perk__l">
+        <li><b>결제 금액 <span data-rate>1</span>% 적립</b> 다음 주문에서 현금처럼 사용</li>
+        <li><b>주문·배송 내역</b> 주문번호 없이 마이페이지에서</li>
+        <li><b>배송지 자동 입력</b> 다음 주문부터 빠르게</li>
+      </ul>
+      <a class="btn btn--line btn--block" href="join.html" id="lg-join2">회원가입</a>
+      <p class="note" style="margin-top:12px">비회원으로 주문하셨나요? <a href="order-complete.html">비회원 주문 조회</a></p>
+    </div>
+  </div>
+</main>

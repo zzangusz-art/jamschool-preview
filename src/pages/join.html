@@ -1,0 +1,43 @@
+<main id="main" class="mem">
+  <div class="wrap mem__wrap">
+    <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a><svg aria-hidden="true"><use href="#i-right"/></svg><span aria-current="page">회원가입</span></nav>
+    <h1 class="page-t">회원가입</h1>
+    <p class="mem-lead">잠스쿨 공식 홈페이지 회원이 되면 결제 금액의 <b><span data-rate>1</span>%</b>를 적립해 드립니다.</p>
+
+    <form class="mem-card" id="jn-form" novalidate>
+      <div class="fld"><label class="fld__l" for="jn-id">아이디<em>필수</em><span>영문 소문자·숫자 4~20자</span></label>
+        <input class="inp" id="jn-id" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required><p class="fld__ok" id="jn-id-ok" aria-live="polite"></p><p class="fld__err" id="jn-id-e"></p></div>
+      <div class="fld"><label class="fld__l" for="jn-pw">비밀번호<em>필수</em><span>영문·숫자를 섞어 8자 이상</span></label>
+        <input class="inp" id="jn-pw" type="password" autocomplete="new-password" maxlength="64" required><p class="fld__err" id="jn-pw-e"></p></div>
+      <div class="fld"><label class="fld__l" for="jn-pw2">비밀번호 확인<em>필수</em></label>
+        <input class="inp" id="jn-pw2" type="password" autocomplete="new-password" maxlength="64" required><p class="fld__err" id="jn-pw2-e"></p></div>
+      <div class="fld"><label class="fld__l" for="jn-name">이름<em>필수</em></label>
+        <input class="inp" id="jn-name" autocomplete="name" maxlength="20" required><p class="fld__err" id="jn-name-e"></p></div>
+      <div class="fld"><label class="fld__l" for="jn-tel">휴대폰 번호<em>필수</em><span>주문·배송 안내와 아이디 찾기에 씁니다</span></label>
+        <input class="inp" id="jn-tel" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="010-0000-0000" required><p class="fld__err" id="jn-tel-e"></p></div>
+      <div class="fld"><label class="fld__l" for="jn-mail">이메일<span>선택</span></label>
+        <input class="inp" id="jn-mail" type="email" autocomplete="email" maxlength="60"><p class="fld__err" id="jn-mail-e"></p></div>
+
+      <div class="mem-agree">
+        <label class="ck ck--all"><input type="checkbox" id="jn-all"><span class="ck__box" aria-hidden="true"></span><span>아래 내용에 모두 동의합니다</span></label>
+        <div class="agree">
+          <div class="agree__item"><label class="ck"><input type="checkbox" class="jn-ag" id="ag-terms"><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>이용약관에 동의합니다</span></label>
+            <details class="mem-more"><summary>내용 보기</summary><div class="agree__d"><p>회원 가입·탈퇴, 적립금, 주문과 결제, 청약철회·환불 등은 <a href="terms.html#t-member" target="_blank" rel="noopener">이용약관</a>을 따릅니다. 적립금은 결제 금액(적립금으로 낸 금액 제외)의 <span data-rate>1</span>%를 배송 완료 <span data-earn>7</span>일 뒤 적립하며, 탈퇴하면 남은 적립금은 없어집니다.</p></div></details></div>
+          <div class="agree__item"><label class="ck"><input type="checkbox" class="jn-ag" id="ag-priv"><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>개인정보 수집·이용에 동의합니다(회원)</span></label>
+            <details class="mem-more"><summary>내용 보기</summary><div class="agree__d"><dl class="agree__dl">
+              <div><dt>수집 항목</dt><dd>아이디, 비밀번호(암호화), 이름, 휴대폰 번호 · 선택: 이메일, 기본 배송지(받는 분·연락처·주소), 광고 수신 여부</dd></div>
+              <div><dt>이용 목적</dt><dd>회원 확인·로그인, 주문·배송·결제·환불, 적립금 관리, 아이디·비밀번호 찾기, 고객 상담</dd></div>
+              <div><dt>보유 기간</dt><dd>회원 탈퇴 때까지. 탈퇴하면 바로 지웁니다. 단, 주문·결제·환불 기록은 전자상거래법에 따라 5년, 불만·분쟁 기록은 3년 보관한 뒤 파기합니다.</dd></div>
+            </dl><p>동의하지 않을 수 있으며, 동의하지 않으면 회원가입을 할 수 없습니다(비회원 주문은 할 수 있습니다). 자세한 내용은 <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>을 확인해 주세요.</p></div></details></div>
+          <div class="agree__item"><label class="ck"><input type="checkbox" class="jn-ag" id="ag-14"><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>만 14세 이상입니다</span></label></div>
+          <div class="agree__item"><label class="ck"><input type="checkbox" class="jn-ag jn-opt" id="ag-mk"><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req agree__req--opt">선택</em>할인·이벤트 소식을 문자·이메일로 받겠습니다</span></label>
+            <details class="mem-more"><summary>내용 보기</summary><div class="agree__d"><p>신상품·할인·이벤트 안내를 문자와 이메일로 보내 드립니다. 동의하지 않아도 가입할 수 있고, 마이페이지에서 언제든 끌 수 있습니다. 주문·배송 안내 문자는 이 동의와 관계없이 보냅니다.</p></div></details></div>
+        </div>
+        <p class="fld__err" id="jn-ag-e"></p>
+      </div>
+      <p class="mem-msg" id="jn-msg" role="alert"></p>
+      <button class="btn btn--primary btn--block" type="submit">가입하기</button>
+      <p class="mem-links">이미 회원이신가요? <a href="login.html" id="jn-login">로그인</a></p>
+    </form>
+  </div>
+</main>

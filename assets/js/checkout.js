@@ -46,6 +46,53 @@
   $$('.co-pay, #co-bar-pay').forEach(b => { b.textContent = `${won(total)} 결제하기`; });
   if (hasMat) $$('.agree__item[data-mat]').forEach(el => { el.hidden = false; $('input', el).disabled = false; });
 
+  // ───────── 회원: 로그인했으면 주문자·기본 배송지를 채우고 적립금을 쓸 수 있게 한다
+  //   적립금은 홈페이지 결제(씨드페이먼츠)가 켜졌을 때만 — 스마트스토어 결제로 넘어가면 못 쓴다. 쓸 금액은 서버(/api/pay/ready)가 다시 확인
+  let MEM = null, use = 0;
+  const payAmt = () => total - use;
+  function paint() {
+    const a = payAmt();
+    $('#co-total').textContent = won(a); $('#co-bar-total').textContent = won(a);
+    $$('.co-pay, #co-bar-pay').forEach(b => { b.textContent = `${won(a)} 결제하기`; });
+    $('#co-pt-sum').textContent = use ? `-${won(use)}` : '0원';
+    if (MEM) { const c = MEM.cfg; $('#co-pt-earn').textContent = c.on && c.rate && PG ? `이 주문으로 ${won(Math.floor(a * c.rate / 100))} 적립 예정(배송 완료 ${c.earnDays}일 뒤)` : ''; }
+  }
+  const backTo = encodeURIComponent('checkout.html' + location.search);
+  $$('#co-login, #co-join').forEach(x => { x.href = `${x.id === 'co-login' ? 'login' : 'join'}.html?next=${backTo}`; });
+  const ptMax = () => MEM ? Math.max(0, Math.min(MEM.available, total - MEM.cfg.minPay)) : 0;
+  function setUse(v, final) {
+    const c = MEM.cfg; let n = Math.floor(+String(v).replace(/\D/g, '') || 0);
+    if (!c.on || !PG) n = 0;
+    n = Math.min(n, ptMax());
+    if (final && n > 0 && n < c.minUse) { toast(`적립금은 ${won(c.minUse)} 이상부터 쓸 수 있습니다.`); n = 0; }
+    use = n; f('co-pt-in').value = String(n); paint();
+  }
+  function pointsUI() {
+    if (!MEM) return;
+    const c = MEM.cfg, inp = f('co-pt-in'), off = !c.on || !PG || ptMax() < c.minUse;
+    f('co-pt-guest').hidden = true; f('co-pt').hidden = false;
+    inp.disabled = off; f('co-pt-all').disabled = off;
+    f('co-pt-note').textContent = !c.on ? '지금은 적립금을 쓸 수 없습니다.' : !PG ? '적립금은 홈페이지 결제(카드·네이버페이·카카오페이)에서 쓸 수 있습니다.'
+      : `쓸 수 있는 적립금 ${won(MEM.available)} · ${won(c.minUse)} 이상부터 사용 · 결제 금액이 ${won(c.minPay)} 이상 남아야 합니다.`;
+    if (off && use) setUse(0); else paint();
+  }
+  $('#co-pt-in').addEventListener('input', e => setUse(e.target.value, false));
+  $('#co-pt-in').addEventListener('change', e => setUse(e.target.value, true));
+  $('#co-pt-all').addEventListener('click', () => setUse(ptMax(), true));
+  fetch('/api/member/me', { cache: 'no-store', credentials: 'same-origin' }).then(r => (r.ok ? r.json() : null)).then(j => {
+    if (!j) return;
+    if (j.cfg) $$('[data-rate]').forEach(x => { x.textContent = j.cfg.rate; });
+    if (!j.member) return;
+    MEM = j.member; f('co-guest').hidden = true; f('co-mem').hidden = false;
+    f('co-mem-name').textContent = MEM.name; f('co-mem-pt').textContent = won(MEM.available);
+    if (!f('b-name').value) f('b-name').value = MEM.name;
+    if (!f('b-tel').value) f('b-tel').value = fmtTel(MEM.tel);
+    if (!f('b-mail').value && MEM.email) f('b-mail').value = MEM.email;
+    const a = MEM.addr;
+    if (a && !f('r-zip').value) { f('r-name').value = a.name || MEM.name; f('r-tel').value = fmtTel(a.tel || MEM.tel); f('r-zip').value = a.zip; f('r-addr1').value = a.addr1; f('r-addr2').value = a.addr2 || ''; $('#co-jeju').hidden = !/^63/.test(a.zip); }
+    pointsUI();
+  }).catch(() => { /* 회원 정보를 못 읽으면 비회원 주문 그대로 */ });
+
   // ───────── 입력 보조
   const f = id => document.getElementById(id);
   const digits = v => v.replace(/\D/g, '').slice(0, 11);
@@ -87,6 +134,7 @@
     PG = c;
     $$('.co-pv').forEach(x => x.remove());   // '스마트스토어에서 결제' 안내
     setupPay(c.methods);
+    pointsUI();
     if (pgTest && !c.enabled) toast(c.test ? '시험 결제 모드입니다(씨드페이먼츠 테스트 서버).' : '시험 결제 모드입니다. 실제로 결제되니 확인 후 관리자 화면에서 취소해 주세요.');
   }).catch(() => { /* 설정을 못 읽으면 스마트스토어 결제 그대로 */ });
 
@@ -196,14 +244,14 @@
       const res = await fetch('/api/pay/ready', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          method: pay, buyNow, items: items.map(x => ({ key: x.key, qty: x.qty })),
+          method: pay, buyNow, items: items.map(x => ({ key: x.key, qty: x.qty })), points: use,
           buyer: { name: f('b-name').value.trim(), tel: f('b-tel').value, email: f('b-mail').value.trim() },
           receiver: { name: f('r-name').value.trim(), tel: f('r-tel').value, zip: f('r-zip').value, addr1: f('r-addr1').value.trim(), addr2: f('r-addr2').value.trim(), memo, jeju: !$('#co-jeju').hidden },
         }),
       });
       const r = await res.json().catch(() => ({}));
       if (!res.ok || !r.fields) throw new Error(r.error || '결제를 시작하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
-      if (+r.fields.goodsAmt !== total) { toast(`상품 가격이 바뀌어 결제 금액이 ${won(+r.fields.goodsAmt)}입니다. 주문서를 새로 불러옵니다.`); setTimeout(() => location.reload(), 1800); return; }
+      if (+r.fields.goodsAmt !== payAmt()) { toast(`상품 가격이 바뀌어 결제 금액이 ${won(+r.fields.goodsAmt)}입니다. 주문서를 새로 불러옵니다.`); setTimeout(() => location.reload(), 1800); return; }
       await loadPg(r.script).catch(() => { throw new Error('결제 창을 불러오지 못했습니다. 네트워크를 확인하고 다시 시도해 주세요.'); });
       pgSet = r;
       document.getElementById('seed-pay-form')?.remove();

@@ -111,7 +111,7 @@ export function countPage(req, pathname, selfHost) {
 }
 
 // 사이트 스크립트 이벤트: POST /api/t {e, id?, total?, items?, pay?}
-const EVENTS = new Set(['buy_click', 'cart_click', 'store_click', 'mall_click', 'call_click', 'kakao_click', 'checkout_submit']);
+const EVENTS = new Set(['buy_click', 'cart_click', 'store_click', 'mall_click', 'call_click', 'kakao_click', 'checkout_submit', 'member_join']);
 const rate = new Map();
 export function countEvent(req, body) {
   const ua = String(req.headers['user-agent'] || '');

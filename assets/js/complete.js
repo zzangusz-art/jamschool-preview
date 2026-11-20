@@ -12,10 +12,11 @@
     $('#done-pv').hidden = !pv;
     $('#done-body').hidden = false;
     $('#done-t').textContent = pv ? '주문 완료 화면 미리보기' : '주문이 접수되었습니다';
-    if (pv) document.title = '주문 완료(미리보기) | 잠스쿨 공식몰';
+    if (pv) document.title = '주문 완료(미리보기) | 잠스쿨';
     $('#done-no').textContent = o.no;
     $('#done-pay').textContent = o.payLabel;
     $('#done-total').textContent = won(o.total);
+    if (o.points) { $('#done-pt-w').hidden = false; $('#done-pt').textContent = `-${won(o.points)} (주문 금액 ${won(o.orderTotal)})`; }
     $('#done-bank').hidden = !pv || o.pay !== 'bank';
     $('#done-name').textContent = o.name;
     $('#done-tel').textContent = o.tel;

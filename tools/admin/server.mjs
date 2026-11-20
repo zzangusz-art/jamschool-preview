@@ -24,6 +24,7 @@ import { BLOCKS, MENUS, ICONS, IMG_PATH, cleanBlock } from './blocks.mjs';
 import { EDIT_FILES, listEdits, normText } from './edits.mjs';
 import * as RVAPI from '../reviews/api.mjs';
 import * as RVSITE from '../reviews/site.mjs';
+import * as MEMBER from '../member/store.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -407,6 +408,44 @@ route('POST', '/api/admin/reviews-best', 'client', async ({ data, user }) => {
   site.blocks.REVIEWS = await cleanBlock('REVIEWS', list, ctx);
   const c = await saveSite(site, files, user, `구매평 관리 · BEST 구매평으로 올림 「${item.text.slice(0, 20)}…」`);
   return { ok: true, commit: c.sha };
+});
+// ── 회원·적립금(홈페이지 회원 — 서버 볼륨 DATA_DIR/members, tools/member/store.mjs). 비밀번호는 보이지 않고 임시 비밀번호만 새로 만든다
+const memRow = m => ({ id: m.id, login: m.login, name: m.name, tel: m.tel, email: m.email || '', created: m.created, lastLogin: m.lastLogin || '', points: m.points || 0,
+  orders: (m.orders || []).length, status: m.status, marketing: m.marketing || {}, tempPw: !!m.tempPw, withdrawnAt: m.withdrawnAt || '' });
+route('GET', '/api/admin/members', 'client', async ({ query }) => {
+  const q = String(query.get('q') || '').trim().toLowerCase(), qd = q.replace(/\D/g, ''), st = query.get('st') === 'out' ? 'withdrawn' : 'active';
+  const all = MEMBER.list(), today = kst();
+  const list = all.filter(m => m.status === st && (!q || [m.login, m.name, m.email].some(v => String(v || '').toLowerCase().includes(q)) || (qd.length >= 4 && String(m.tel || '').includes(qd))))
+    .sort((a, b) => String(b.created).localeCompare(String(a.created)));
+  const act = all.filter(m => m.status === 'active');
+  return { cfg: MEMBER.pointCfg(), total: act.length, out: all.length - act.length, today: act.filter(m => new Date(Date.parse(m.created) + 9 * 3600e3).toISOString().slice(0, 10) === today).length,
+    pointsSum: act.reduce((a, m) => a + Math.max(0, m.points || 0), 0), n: list.length, list: list.slice(0, 200).map(memRow) };
+});
+route('GET', '/api/admin/members/:id', 'client', async ({ params }) => {
+  const m = MEMBER.get(params.id); need(m, 404, '회원을 찾을 수 없습니다');
+  if (m.status === 'active') PAY.earnSweep(m.id);
+  const x = MEMBER.get(m.id);
+  return { member: { ...memRow(x), addr: x.addr || null, agree: x.agree || {}, available: x.status === 'active' ? MEMBER.available(x) : 0 }, log: (x.log || []).slice(0, 200), orders: PAY.memberOrders(x.id) };
+});
+route('POST', '/api/admin/members/:id/points', 'client', async ({ params, data, user }) => {
+  const m = MEMBER.adjust(params.id, data.amount, data.memo, user);
+  console.log(`[admin] 적립금 조정 ${m.id} ${data.amount} — ${user.id}`);
+  return { ok: true, points: m.points };
+});
+route('POST', '/api/admin/members/:id/reset', 'client', async ({ params, user }) => {
+  const pw = MEMBER.adminReset(params.id);
+  console.log(`[admin] 회원 임시 비밀번호 ${params.id} — ${user.id}`);
+  return { ok: true, password: pw };
+});
+route('POST', '/api/admin/members/:id/withdraw', 'client', async ({ params, user }) => {
+  MEMBER.withdraw(params.id, '', user);
+  console.log(`[admin] 회원 탈퇴 처리 ${params.id} — ${user.id}`);
+  return { ok: true };
+});
+route('POST', '/api/admin/member-settings', 'client', async ({ data, user }) => {
+  const c = MEMBER.savePointCfg(data || {}, user);
+  console.log(`[admin] 적립금 규칙 ${JSON.stringify({ on: c.on, rate: c.rate, minUse: c.minUse, minPay: c.minPay, earnDays: c.earnDays, joinBonus: c.joinBonus })} — ${user.id}`);
+  return { ok: true, cfg: c };
 });
 // 페이지 문구·사진
 route('GET', '/api/admin/texts', 'client', async () => {

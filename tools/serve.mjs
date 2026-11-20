@@ -12,6 +12,8 @@ import { handleAdmin } from './admin/server.mjs';
 import { countEvent, countPage } from './admin/stats.mjs';
 import { handlePay } from './pay/seedpay.mjs';
 import { handleReviews, connect as connectReviews } from './reviews/api.mjs';
+import { handleMember } from './member/api.mjs';
+import { earnSweep } from './pay/seedpay.mjs';
 import { reviewOrder } from './pay/seedpay.mjs';
 import { notifyReview } from './pay/notify.mjs';
 connectReviews({ reviewOrder, notifyReview });   // 구매평 쓰기: 홈페이지 주문 구매 확인 · 새 구매평 텔레그램 알림
@@ -54,11 +56,17 @@ function gzipped(f) {
   return body;
 }
 
+// 회원 구매 적립: 배송 완료 + 반품 기간이 지난 주문을 한 시간마다 확인(마이페이지를 열 때도 그 회원 것은 바로 확인)
+const sweep = () => { try { earnSweep(); } catch (x) { console.error('[member] 적립 확인', x.message); } };
+setTimeout(sweep, 60e3).unref(); setInterval(sweep, 3600e3).unref();
+
 http.createServer(async (req, res) => {
   // 관리자 어드민(/admin, /api/admin/*) — 정식 주소 이동·정적 파일보다 먼저
   if (await handleAdmin(req, res)) return;
   // 홈페이지 결제(/api/pay/*) — 씨드페이먼츠 결제창·결제통보, tools/pay/seedpay.mjs
   if (await handlePay(req, res)) return;
+  // 홈페이지 회원(/api/member/*) — 가입·로그인·마이페이지·적립금, tools/member/
+  if (await handleMember(req, res)) return;
   // 구매평 모아 보기(/api/reviews) — tools/reviews/api.mjs, 데이터 content/reviews
   if (await handleReviews(req, res)) return;
   // 사이트 자체 집계: 클릭·주문서 제출 이벤트(개인정보 없음) — tools/admin/stats.mjs

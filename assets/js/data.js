@@ -6,7 +6,6 @@
   // 스마트스토어 상품 썸네일(대표 → 추가 순). 공식몰 사진 01~ 은 홈·스토리·블로그에서 계속 쓴다.
   const ssGallery = (id, n) => Array.from({ length: n }, (_, i) => `${IMG}${id}/ss-${String(i + 1).padStart(2, '0')}.jpg`);
 
-  const MALL = 'https://jamschool.co.kr/shop_view/?idx=';
   const STORE = 'https://smartstore.naver.com/healingq';   // 스마트스토어 홈(상품 링크가 없는 상품은 여기로)
   const STORE_29 = STORE + '/products/7338124791';
 
@@ -20,7 +19,7 @@
       rating: 4.87, reviews: 6832, qna: 52,
       imgs: ssGallery(29, 9),
       points: ['14일 무료체험', '2년 폼 무상 교체', '100% 국내 생산', '밀도 31kg/m³'],
-      mall: MALL + 29, store: STORE_29, full: true,
+      store: STORE_29, full: true,
     },
     {
       id: 30, cat: 'mattress', key: '떡실신 매트리스 푹신 폭신 접이식 8cm',
@@ -29,7 +28,7 @@
       list: 105000, price: 64000, badges: ['BEST', '오늘출발'],
       rating: 4.83, reviews: 32194, imgs: ssGallery(30, 10),
       points: ['몸을 감싸주는 폭신한 쿠션감', '미끌림 방지 기능', '편리한 보관을 위한 스트랩 부착', '부드러운 커버 촉감'],
-      mall: MALL + 30, store: STORE + '/products/4673873956',
+      store: STORE + '/products/4673873956',
     },
     {
       id: 39, cat: 'mattress', key: '폭신탄탄 양면 매트리스 폭탄 리버시블',
@@ -38,7 +37,7 @@
       list: 189000, price: 109000, badges: ['MD'],
       rating: 4.83, reviews: 1855, imgs: ssGallery(39, 9),
       points: ['폭신한 쿠션감과 탄탄한 쿠션감 선택', '미끌림 방지 기능', '고정 벨트 증정'],
-      mall: MALL + 39, store: STORE + '/products/5649123568',
+      store: STORE + '/products/5649123568',
     },
     {
       id: 40, cat: 'mattress', key: '엄마품 메모리폼 토퍼 매트리스',
@@ -47,24 +46,21 @@
       list: 297000, price: 209000, badges: ['MD'],
       rating: 4.84, reviews: 856, imgs: gallery(40, 9),
       points: ['체압을 받쳐주는 60kg 고밀도 메모리폼', '천연 텐셀 겉커버', '보관용 고리 부착'],
-      mall: MALL + 40,
-    },
+          },
     {
       id: 43, cat: 'bedding', key: '정착베개 경추 베개 거북목 목',
       name: '잠스쿨 정착베개 기능성 목디스크 거북목 경추 베개', short: '정착베개',
       summary: '경추 라인을 따라 받쳐 주는 베개',
       list: 89200, price: 39900, badges: ['SALE'],
       rating: 4.80, reviews: 194, imgs: gallery(43, 10, { 1: 'png' }),
-      points: [], mall: MALL + 43,
-    },
+      points: [],     },
     {
       id: 36, cat: 'bedding', key: '다리베개 다리 쿠션 발베개',
       name: '잠스쿨 다리베개', short: '다리베개',
       summary: '다리를 올리고 쉬는 20cm 높이 쿠션',
       list: 80000, price: 42600, badges: ['MD'],
       rating: 4.86, reviews: 4575, imgs: gallery(36, 12, { 3: 'png', 4: 'png', 5: 'png', 10: 'png' }),
-      points: ['폭신한 쿠션감'], mall: MALL + 36,
-    },
+      points: ['폭신한 쿠션감'],     },
     {
       id: 37, cat: 'bedding', key: '거북목 경추 베개 비즈 순면',
       name: '잠스쿨 거북목 경추 베개', short: '거북목 경추 베개',
@@ -72,32 +68,28 @@
       list: 19900, price: 12900, badges: ['오늘출발'],
       rating: 4.79, reviews: 522, imgs: gallery(37, 12),
       points: ['순면 100% 겉커버', '메쉬커버로 숨쉬는 속통', '비즈 충전제 양 조절로 높이 조절'],
-      mall: MALL + 37,
-    },
+          },
     {
       id: 38, cat: 'bedding', key: '삼각 등받이쿠션 쇼파 허리 침대',
       name: '잠스쿨 삼각 등받이쿠션', short: '삼각 등받이쿠션',
       summary: '소파·침대에서 기대어 쉬는 삼각 쿠션',
       list: 54900, price: 29900, badges: ['MD'],
       rating: 4.79, reviews: 1366, imgs: gallery(38, 15, { 2: 'png' }),
-      points: [], mall: MALL + 38,
-    },
+      points: [],     },
     {
       id: 44, cat: 'bedding', key: '듀라론 쿨매트 여름 냉감',
       name: '잠스쿨 듀라론 쿨매트', short: '듀라론 쿨매트',
       summary: '여름용 냉감 매트',
       list: 79000, price: 44900, badges: ['SALE'],
       rating: 4.66, reviews: 559, imgs: gallery(44, 8),
-      points: [], mall: MALL + 44,
-    },
+      points: [],     },
     {
       id: 41, cat: 'bedding', key: '하픽 손목보호대 손목아대',
       name: '하픽 손목보호대', short: '하픽 손목보호대', brand: '하픽',
       summary: '얇은 스트랩형 손목 밴드',
       list: 20900, price: 15900, badges: ['MD'],
       rating: 4.87, reviews: 171, imgs: gallery(41, 9),
-      points: [], mall: MALL + 41,
-    },
+      points: [],     },
   ];
 
   // 3단 접이식 옵션 — 단위 cm, kg, 원. 가격은 3단 상세페이지(스마트스토어 상세와 같은) EVENT 01 가격표의 정가(list)·할인가(price), 2026-10-22 사용자 결정으로 사이트 전체 통일.
@@ -326,7 +318,6 @@
     shipFee: 0,
     shipNote: '제주·도서산간 지역은 추가 배송비가 있으며, 주문 확인 후 고객센터에서 안내합니다.',
     pointRate: 0.01,
-    memberCoupon: 10000,
     couriers: '로젠택배, 대신택배',
     pay: [
       { id: 'card', label: '신용·체크카드', note: '결제 창에서 카드사와 할부 개월을 고릅니다.' },
@@ -424,7 +415,7 @@
   PHOTOS.splice(0, PHOTOS.length, ...PHOTOS.map(s => typeof s === 'string' ? { pid: 29, src: s } : s));
 
   // 구매평 수·평점의 기준(공식몰 상품 페이지 값. 공식몰 구매평에는 스마트스토어에서 연동된 구매평이 함께 들어 있다)
-  const REVIEW_BASIS = B.REVIEW_BASIS || '2026년 11월 16일 공식몰 기준(스마트스토어 연동 구매평 포함)';
+  const REVIEW_BASIS = B.REVIEW_BASIS || '2026년 11월 16일 기준(스마트스토어 구매평 포함)';
 
   window.JAM = { REVIEW_BASIS, PRODUCTS, OPTIONS_29, OPT, REVIEWS, SHORT_REVIEWS, PHOTOS, TESTS, FAQ, USES, CS, FEATURES, MARKET, CHECKS, CATEGORIES, CHECKOUT, NOTICE, HERO_SLIDES, TRUST, POPUPS, EVENTS };
 })();

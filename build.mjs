@@ -9,7 +9,7 @@ import { loadPosts } from './tools/blog/lib.mjs';
 import { applyEdits, stripEditAttrs } from './tools/admin/edits.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
-// 공식 홈 주소(정식 주소·사이트맵·구조화 데이터 기준). 공식몰(jamschool.co.kr, 로그인·약관·구매평)은 다른 사이트라 따로 링크한다
+// 공식 홈 주소(정식 주소·사이트맵·구조화 데이터 기준). 회원가입·로그인·주문·구매평 모두 이 홈페이지에서 한다(예전 법인 공식몰 jamschool.co.kr 연결은 2026-11-20 정리)
 const SITE = 'https://jamschool.kr/';
 // 템플릿(src/**/*.html)은 읽을 때 어드민에서 고친 문구·사진(content/site.json text·img)을 덮어쓴다(tools/admin/edits.mjs)
 let EDITS = {};
@@ -531,12 +531,12 @@ function shopMain() {
   <div class="wrap">
     <nav class="crumb" aria-label="현재 위치"><a href="index.html">홈</a>${svg('i-right')}<span aria-current="page">전체 상품</span></nav>
     <header class="shop-head">
-      <div class="shop-head__txt"><p class="eyebrow">SHOP</p><h1 class="shop-head__t">잠스쿨 전체 상품</h1><p class="shop-head__d">매트리스부터 베개·쿠션까지, 공식몰에서 파는 상품 ${PRODUCTS.length}가지를 한곳에 모았습니다.</p></div>
+      <div class="shop-head__txt"><p class="eyebrow">SHOP</p><h1 class="shop-head__t">잠스쿨 전체 상품</h1><p class="shop-head__d">매트리스부터 베개·쿠션까지, 공식 홈페이지에서 파는 상품 ${PRODUCTS.length}가지를 한곳에 모았습니다.</p></div>
       <ul class="shop-perks">
         <li>${svg('i-truck')}<span><b>기본 무료배송</b>오후 1시 이전 결제 시 당일 출고</span></li>
         <li>${svg('i-cal')}<span><b>14일 무료체험</b>3단 접이식 매트리스 · 기간 한정</span></li>
         <li>${svg('i-shield')}<span><b>2년 폼 교체 보증</b>3단 접이식 매트리스</span></li>
-        <li>${svg('i-star')}<span><b>결제 금액 1% 적립</b>공식몰 회원 주문</span></li>
+        <li>${svg('i-star')}<span><b>결제 금액 ${CHECKOUT.pointRate * 100}% 적립</b>홈페이지 회원 주문</span></li>
       </ul>
     </header>
     <a class="shop-feat" href="${R.href(p29)}">
@@ -592,12 +592,12 @@ page('shop.html', {
   const dl = rows => `<dl class="agree__dl">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>`;
   const AGREE = [
     { id: 'ag-order', t: '주문할 상품의 정보와 결제 금액을 확인했으며, 결제에 동의합니다' },
-    { id: 'ag-priv', t: '개인정보 수집·이용에 동의합니다 (비회원 주문)', body: dl([
+    { id: 'ag-priv', t: '개인정보 수집·이용에 동의합니다 (주문·배송)', body: dl([
       ['수집 항목', '주문하는 분 이름·휴대폰 번호·이메일(선택), 받는 분 이름·휴대폰 번호·주소·배송 메모, 결제 기록'],
       ['이용 목적', '주문 확인, 상품 배송, 결제·환불, 교환·반품과 고객 상담'],
       ['보유 기간', '전자상거래법에 따라 계약·청약철회·대금결제·재화 공급 기록은 5년, 소비자 불만·분쟁 처리 기록은 3년 보관한 뒤 파기합니다.'],
       ['처리 위탁', `상품 배송을 위해 ${CHECKOUT.couriers}에 받는 분 정보를, 홈페이지에서 카드로 결제할 때는 결제 처리를 위해 결제대행사(씨드페이먼츠)에 주문하는 분 정보와 결제 정보를 맡깁니다.`],
-    ]) + '<p>동의하지 않을 수 있으며, 동의하지 않으면 비회원으로 주문할 수 없습니다. 자세한 내용은 <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>을 확인해 주세요.</p>' },
+    ]) + '<p>동의하지 않을 수 있으며, 동의하지 않으면 주문할 수 없습니다. 자세한 내용은 <a href="privacy.html" target="_blank" rel="noopener">개인정보처리방침</a>을 확인해 주세요.</p>' },
     { id: 'ag-mat', mat: true, t: '매트리스는 압축 포장으로 배송되며, 포장을 연 뒤에는 단순 변심 반품이 어려울 수 있음을 확인했습니다', body: '<p>14일 무료체험 대상 상품은 체험 조건을 따릅니다(반품 시 왕복 배송비 매트리스 36,000원 고객 부담). 교환·반품은 받은 날부터 7일 이내에 고객센터(010-9610-8868)로 먼저 요청해 주세요. 제품 하자는 배송비를 받지 않습니다.</p>' },
   ];
   const agree = AGREE.map(a => `<div class="agree__item"${a.mat ? ' data-mat hidden' : ''}><label class="ck"><input type="checkbox" class="ag" id="${a.id}"${a.mat ? ' disabled' : ''}><span class="ck__box" aria-hidden="true"></span><span><em class="agree__req">필수</em>${esc(a.t)}</span></label>${a.body ? `<button class="agree__more" type="button" aria-expanded="false" aria-controls="${a.id}-d">내용 보기</button><div class="agree__d" id="${a.id}-d" hidden>${a.body}</div>` : ''}</div>`).join('');
@@ -612,6 +612,9 @@ page('shop.html', {
   main = fill(main, 'steps', steps(3));
   page('order-complete.html', { title: '주문 완료 | 잠스쿨', desc: '잠스쿨 주문 완료', noindex: true, bodyclass: 'page-done', main, js: ['complete.js'] });
 }
+// 회원: 로그인(아이디·비밀번호 찾기) · 회원가입 · 마이페이지 — 검색 노출 안 함. 동작은 assets/js/member.js, 서버는 tools/member/
+for (const [file, title, cls] of [['login.html', '로그인 | 잠스쿨', 'page-login'], ['join.html', '회원가입 | 잠스쿨', 'page-join'], ['mypage.html', '마이페이지 | 잠스쿨', 'page-my']])
+  page(file, { title, desc: '잠스쿨 공식 홈페이지 회원', noindex: true, bodyclass: `${cls} page-member`, main: rd(`src/pages/${file}`), js: ['member.js'] });
 // 이용약관·개인정보처리방침: 이 홈페이지(jamschool.kr) 운영자 기준. 본문은 src/pages/terms.html · privacy.html
 for (const [file, title, desc] of [
   ['terms.html', '이용약관 | 잠스쿨 공식 홈페이지', '잠스쿨 공식 홈페이지(jamschool.kr) 이용약관'],
@@ -708,7 +711,7 @@ wr('llms.txt', `# 잠스쿨 (JAMSCHOOL)
 - 특허: 제10-2378668호 「다층구조의 침대 매트리스」(2022-03-22 등록).
 - 색상: 그레이, 아이보리. 커버는 3개 지퍼로 분리, 바닥 미끄럼 방지 코팅. 전기장판과 함께 사용 가능.
 - 이런 분께: 허리에 부담 없는 탄탄한(하드) 매트리스를 찾는 분, 원룸·자취방에서 1인용(멀티싱글·슈퍼싱글)으로 바닥·침대 겸용할 매트리스나 토퍼를 찾는 분.
-- 구매평: ${P29.reviews.toLocaleString('ko-KR')}건, 평균 ${P29.rating.toFixed(2)}점 (공식몰).
+- 구매평: ${P29.reviews.toLocaleString('ko-KR')}건, 평균 ${P29.rating.toFixed(2)}점.
 - 상세: ${SITE}product-29.html
 
 ## 구매평에서 많이 나온 이야기 (네이버 스마트스토어 구매평, 상품별)
@@ -733,7 +736,7 @@ ${MARKET.bands.map(b => `- ${b.k}(${b.sub}): ${won(b.lo)}~${won(b.hi)}`).join('\
 ${POSTS.map(p => `- ${p.title}: ${p.description} ${SITE}blog/${p.slug}.html`).join('\n') || '- 준비 중'}
 
 ## 판매처
-공식 홈페이지 ${SITE}, 공식몰 https://jamschool.co.kr/ (회원·구매평), 네이버 스마트스토어 https://smartstore.naver.com/healingq, 11번가, 오늘의집, GS샵, 현대Hmall
+공식 홈페이지 ${SITE}, 네이버 스마트스토어 https://smartstore.naver.com/healingq, 11번가, 오늘의집, GS샵, 현대Hmall
 
 ## 공식 채널
 네이버 공식 블로그 「잠스쿨이 들려주는 잠 이야기」 https://blog.naver.com/jamschoolzone

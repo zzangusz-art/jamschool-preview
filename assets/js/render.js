@@ -115,7 +115,7 @@
   function reviewRollHTML(best, shorts, names = {}) {
     const pn = r => r.pid && +r.pid !== 29 && names[r.pid] ? `${esc(names[r.pid])} · ` : '';
     const card1 = (r, i, dup) => `<button class="roll-card" type="button" data-rv="${i}"${dup ? ' tabindex="-1" aria-hidden="true"' : ''}><span class="roll-card__top"><span class="stars" style="--v:5" aria-hidden="true"></span><span class="rv__best">BEST</span></span><span class="roll-card__text">${esc(r.text)}</span><span class="roll-card__foot">${pn(r)}${esc(r.id)}${r.opt ? ` · ${esc(r.opt)}` : ''} · 스마트스토어 구매평</span></button>`;
-    const card2 = (t, dup) => `<p class="roll-quote"${dup ? ' aria-hidden="true"' : ''}>“${esc(typeof t === 'string' ? t : t.text)}”<span>${typeof t === 'object' ? pn(t) : ''}공식몰 포토 구매평</span></p>`;
+    const card2 = (t, dup) => `<p class="roll-quote"${dup ? ' aria-hidden="true"' : ''}>“${esc(typeof t === 'string' ? t : t.text)}”<span>${typeof t === 'object' ? pn(t) : ''}포토 구매평</span></p>`;
     const row1 = best.map((r, i) => card1(r, i)).join('') + best.map((r, i) => card1(r, i, true)).join('');
     const row2 = shorts.map(t => card2(t)).join('') + shorts.map(t => card2(t, true)).join('');
     return `<div class="roll" aria-label="구매평 롤링"><div class="roll__row"><div class="roll__track">${row1}</div></div><div class="roll__row roll__row--rev"><div class="roll__track">${row2}</div></div></div>`;

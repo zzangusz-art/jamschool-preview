@@ -86,14 +86,14 @@
   // ───────── 구매평 쓰기
   const name = (document.querySelector('.pd-info__name, .pd-info h1, h1') || {}).textContent || '이 상품';
   let lay = null, ctx = { o: '', t: '', verified: false, src: '', who: '', opt: '' }, photos = [];
-  const SRC = [['mall', '공식몰(jamschool.co.kr)'], ['smartstore', '네이버 스마트스토어'], ['etc', '그 밖의 판매처']];
+  const SRC = [['smartstore', '네이버 스마트스토어'], ['mall', '이전 공식몰(jamschool.co.kr)'], ['etc', '그 밖의 판매처']];
   function layer() {
     if (lay) return lay;
     lay = document.createElement('div');
     lay.className = 'layer modal'; lay.id = 'rvw'; lay.setAttribute('role', 'dialog'); lay.setAttribute('aria-modal', 'true'); lay.setAttribute('aria-labelledby', 'rvw-t'); lay.setAttribute('aria-hidden', 'true'); lay.hidden = true;
     lay.innerHTML = `<div class="layer__dim"></div><div class="modal__box rvw"><div class="modal__head"><h2 id="rvw-t">구매평 쓰기</h2><button class="icon-btn" type="button" data-close aria-label="닫기">${UI.I.x}</button></div><div class="modal__body">
       <div class="rvw__step" data-step="who"><p class="rvw__q">어디서 구매하셨나요?</p>
-        <div class="rvw__who"><button class="btn btn--line" type="button" data-who="site">이 홈페이지에서 구매</button><button class="btn btn--line" type="button" data-who="other">공식몰·스마트스토어 등에서 구매</button></div>
+        <div class="rvw__who"><button class="btn btn--line" type="button" data-who="site">이 홈페이지에서 구매</button><button class="btn btn--line" type="button" data-who="other">스마트스토어 등 다른 곳에서 구매</button></div>
         <form class="rvw__f" data-form="site" hidden novalidate><p class="note">주문번호(JS로 시작)와 주문하신 분 또는 받는 분 휴대폰 번호로 구매를 확인합니다.</p>
           <label class="sr-only" for="rvw-no">주문번호</label><input id="rvw-no" type="text" placeholder="주문번호(JS로 시작)" autocapitalize="characters" autocomplete="off">
           <label class="sr-only" for="rvw-tel">휴대폰 번호</label><input id="rvw-tel" type="tel" inputmode="tel" placeholder="휴대폰 번호">

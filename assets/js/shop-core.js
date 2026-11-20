@@ -103,7 +103,7 @@
   const BUY_K = 'jam_buynow', SEL_K = 'jam_checkout_keys';
   function openOrderModal(items, opener) {
     const p = P(items && items[0] ? items[0].id : 29) || P(29);
-    $('#order-mall').href = p.mall;
+    $('#order-mall').href = RENDER.href(p);
     const np = $('#order-npay');
     if (p.store) { np.hidden = false; np.href = p.store; } else np.hidden = true;
     openLayer('order', opener);

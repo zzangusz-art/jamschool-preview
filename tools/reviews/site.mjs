@@ -13,7 +13,7 @@ const DIR = () => process.env.DATA_DIR ? path.join(process.env.DATA_DIR, 'review
 const FILE = () => path.join(DIR(), 'site.json'), IMG = () => path.join(DIR(), 'img');
 export class ReviewError extends Error { constructor(m, status = 400) { super(m); this.status = status; } }
 const bad = (m, s) => { throw new ReviewError(m, s); };
-export const SOURCES = { site: '홈페이지', mall: '공식몰(jamschool.co.kr)', smartstore: '네이버 스마트스토어', etc: '그 밖의 판매처' };
+export const SOURCES = { site: '홈페이지', mall: '이전 공식몰(jamschool.co.kr)', smartstore: '네이버 스마트스토어', etc: '그 밖의 판매처' };
 export const STATUS = { shown: '게시', pending: '승인 대기', hidden: '숨김' };
 
 let CACHE = { m: -1, list: [] }, VER = 0;   // VER: 이 서버가 고친 횟수(파일 시각이 같아도 목록 캐시를 새로)

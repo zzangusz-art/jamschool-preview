@@ -19,7 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { clientIp } from '../client-ip.mjs';
 import { notifyOrder } from './notify.mjs';
 import { applyFulfil, applyClaim, addRefund, refundedOf, stageOf, fulfilNow, customerView, shipSettings, saveShipSettings, saveSettleSettings, settleSettings, settlement, tplItemName, courierName, trackUrl, claimLabel, claimOpen, refundSuggest, FulfilError, COURIERS, CLAIM_TYPE, shipDue, isLate, dueLabel, customerClaim } from './fulfil.mjs';
-import { notifyClaim } from './notify.mjs';   // 손님이 직접 한 취소·반품·교환 요청을 텔레그램으로
+import { notifyClaim } from './notify.mjs';
+import * as MEMBER from '../member/store.mjs';   // 홈페이지 회원·적립금(주문에 회원 표시, 적립금 사용·적립·회수)   // 손님이 직접 한 취소·반품·교환 요청을 텔레그램으로
 import { sendSms, msgSettings, saveMsgSettings, smsStatus, orderVars, fill, MSG_EVENTS } from './sms.mjs';   // 손님 안내 문자(솔라피)   // 배송·취소·반품·교환·환불·정산   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -272,21 +273,29 @@ async function ready(req) {
   if (!m) throw new PayError(400, '결제 수단을 다시 골라 주세요.');
   if (!Array.isArray(d.items) || !d.items.length || d.items.length > 20) throw new PayError(400, '주문 상품을 확인해 주세요.');
   const items = d.items.map(x => lineFor(J, x && x.key, x && x.qty));
-  const sub = items.reduce((a, x) => a + x.price * x.qty, 0), ship = toInt(J.CHECKOUT.shipFee) > 0 ? toInt(J.CHECKOUT.shipFee) : 0, amount = sub + ship;
-  if (!(amount > 0 && amount <= 99999999)) throw new PayError(400, '결제 금액을 확인해 주세요.');
+  const sub = items.reduce((a, x) => a + x.price * x.qty, 0), ship = toInt(J.CHECKOUT.shipFee) > 0 ? toInt(J.CHECKOUT.shipFee) : 0, total = sub + ship;
+  if (!(total > 0 && total <= 99999999)) throw new PayError(400, '결제 금액을 확인해 주세요.');
   const b = d.buyer || {}, r = d.receiver || {};
   const name = clean(b.name).slice(0, 20), tel = digits(b.tel), mail = String(b.email || '').trim().slice(0, 60);
   const rname = clean(r.name).slice(0, 20), rtel = digits(r.tel), zip = digits(r.zip), a1 = String(r.addr1 || '').trim().slice(0, 200), a2 = String(r.addr2 || '').trim().slice(0, 100);
   const tel_ok = t => /^01[016789]\d{7,8}$/.test(t);
   if (name.length < 2 || !tel_ok(tel) || rname.length < 2 || !tel_ok(rtel) || zip.length !== 5 || !a1 || !a2) throw new PayError(400, '주문자·배송지 정보를 확인해 주세요.');
   if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)) throw new PayError(400, '이메일 주소 형식을 확인해 주세요.');
+  // 회원 주문: 로그인 쿠키로 회원을 알아보고, 쓰려는 적립금은 잡아 둔다(결제 승인 때 차감, 실패하면 풀어 줌). 결제창 금액 = 주문 금액 - 적립금
+  const moid = newId(), mem = MEMBER.fromReq(req), wantPts = Math.max(0, toInt(d.points) || 0);
+  if (wantPts > 0 && !mem) throw new PayError(401, '로그인이 풀렸습니다. 다시 로그인한 뒤 적립금을 써 주세요.');
+  let used = 0;
+  if (mem && wantPts > 0) { try { used = MEMBER.hold(mem.id, moid, wantPts, total); } catch (e) { throw new PayError(e.status || 400, e.message); } }
+  const amount = total - used, pc = MEMBER.pointCfg();
   const o = {
-    moid: newId(), token: crypto.randomBytes(24).toString('base64url'), status: 'ready', method: m.id, payMethod: METHOD[m.id], payLabel: m.label,
-    amount, sub, ship, items, buyNow: !!d.buyNow, createdAt: nowIso(), pgEnv: TEST() ? 'test' : 'real',
+    moid, token: crypto.randomBytes(24).toString('base64url'), status: 'ready', method: m.id, payMethod: METHOD[m.id], payLabel: m.label,
+    amount, total, pointsUsed: used, sub, ship, items, buyNow: !!d.buyNow, createdAt: nowIso(), pgEnv: TEST() ? 'test' : 'real',
+    ...(mem ? { member: { id: mem.id, login: mem.login }, pointRate: pc.on ? pc.rate : 0 } : {}),
     buyer: { name, tel, email: mail }, receiver: { name: rname, tel: rtel, zip, addr1: a1, addr2: a2, memo: String(r.memo || '').trim().slice(0, 100), jeju: !!r.jeju || /^63/.test(zip) },
     fulfil: { status: 'new' }, history: [],
   };
-  hist(o, 'ready', `${m.label} ${amount}원`); save(o);
+  hist(o, 'ready', `${m.label} ${amount}원${used ? ` (주문 ${total}원 - 적립금 ${used}원)` : ''}${mem ? ` · 회원 ${mem.login}` : ''}`); save(o);
+  if (mem) MEMBER.addOrder(mem.id, moid);
   const first = clean(items.length > 1 ? items[0].gname : items[0].name), more = items.length > 1 ? ` 외 ${items.length - 1}건` : '';
   const edi = kstStamp(), amt = String(amount), u = URLS();
   log('ready', o.moid, amt, m.id, TEST() ? 'test' : '');
@@ -312,6 +321,7 @@ async function approve(data) {
   try {
     const fail = (status, msg) => {
       o.status = status; o.fail = { msg: String(msg || '').slice(0, 300) }; hist(o, status, msg);
+      if (status === 'failed' && o.member && o.pointsUsed) try { MEMBER.release(o.member.id, o.moid); } catch { /* 3시간 뒤 저절로 풀림 */ }
       if (status === 'check') notifyOrder(o, 'check', o.fail.msg);   // 돈이 빠져나갔을 수 있는 주문 — 저장이 실패해도 알리도록 저장보다 먼저
       save(o); log(status, o.moid, msg); return done;
     };
@@ -354,6 +364,7 @@ async function approve(data) {
       return `/order-complete.html?e=save`;
     }
     log('paid', o.moid, o.amount, o.pg.authCode);
+    memberPaid(o);
     notifyOrder(o, 'paid');
     tell(o, 'paid', { 출고예정: dueLabel(shipDue(o, shipSettings(DIR()), holidays())) });
     return done;
@@ -381,7 +392,7 @@ async function noti(req) {
     const full = str(d.partCanFlg) !== '1';
     if (o.pg && o.pg.tid && otid === o.pg.tid && o.status !== 'cancelled' && !(o.refunds || []).some(r => r.tid && r.tid === tid)) {
       const amt = full ? o.amount - refundedOf(o) : toInt(d.ccAmt);
-      if (amt > 0) { addRefund(o, { amount: amt, part: !full, reason: st === '9' ? '망취소(결제통보)' : '가맹점 관리자 취소(결제통보)', by: 'seed', via: 'seed', tid, ccSeq: str(d.ccSeq) }); if (st !== '9') tell(o, 'refunded', { 환불금액: wonK(amt) }); }
+      if (amt > 0) { addRefund(o, { amount: amt, part: !full, reason: st === '9' ? '망취소(결제통보)' : '가맹점 관리자 취소(결제통보)', by: 'seed', via: 'seed', tid, ccSeq: str(d.ccSeq) }); memberRefunded(o, amt); if (st !== '9') tell(o, 'refunded', { 환불금액: wonK(amt) }); }
     }
     hist(o, '결제통보 · 취소', `${toInt(d.ccAmt) >= 0 ? toInt(d.ccAmt) + '원' : ''} ${full ? '전체' : '부분'} 취소 · ${tid}`); save(o); return 200;
   }
@@ -390,6 +401,7 @@ async function noti(req) {
     o.status = 'paid'; o.paidAt = nowIso(); o.fail = undefined;
     o.pg = { ...o.pg, authCode: str(d.appNo), authDate: `${str(d.trDt)}${str(d.trTm)}`, cardName: str(d.fnNm), cardNo: str(d.cardNo), cardQuota: str(d.quotaMon) };
     hist(o, '결제통보 · 결제 완료로 맞춤', `${o.amount}원 승인 ${o.pg.authCode}`); save(o);
+    memberPaid(o);
     notifyOrder(o, 'paid');
     tell(o, 'paid', { 출고예정: dueLabel(shipDue(o, shipSettings(DIR()), holidays())) });
     return 200;
@@ -401,6 +413,46 @@ async function noti(req) {
   }
   hist(o, '결제통보', `승인 ${tid}`); save(o);
   return 200;
+}
+
+// ───────── 회원 주문과 적립금
+// 결제 완료 → 잡아 둔 적립금 차감
+function memberPaid(o) { if (o.member && o.pointsUsed) try { MEMBER.useHold(o.member.id, o.moid, o.pointsUsed); } catch (e) { log('적립금 차감 실패', o.moid, e.message); } }
+// 환불 뒤: 전부 취소면 쓴 적립금을 돌려주고, 이미 적립했으면 환불 금액 × 적립률만큼 회수(부분 환불은 쓴 적립금을 돌려주지 않음)
+function memberRefunded(o, amount) {
+  if (!o.member) return;
+  try {
+    if (o.status === 'cancelled' && o.pointsUsed) { const n = MEMBER.restoreUse(o.member.id, o.moid, '주문 취소로 돌려줌'); if (n) hist(o, '적립금', `사용한 ${n}원 돌려줌`); }
+    if (o.pointRate) { const n = MEMBER.revoke(o.member.id, o.moid, Math.floor(amount * o.pointRate / 100), '환불로 적립 회수'); if (n) hist(o, '적립금', `적립 ${n}원 회수`); }
+  } catch (e) { log('적립금 환불 처리 실패', o.moid, e.message); }
+}
+// 적립: 배송 완료 뒤 정한 날 수(기본 7일 = 반품 기간)가 지나고 진행 중인 취소·반품·교환이 없으면 (결제 금액 - 환불) × 주문 때 적립률. 주문마다 한 번
+export function earnSweep(memberId) {
+  const cfg = shipSettings(DIR()), pc = MEMBER.pointCfg(), now = Date.now(); let n = 0;
+  for (const id of memberId ? [memberId] : MEMBER.allIds()) {
+    const m = MEMBER.get(id); if (!m || m.status !== 'active') continue;
+    for (const moid of m.orders || []) {
+      if ((m.earned || {})[moid] != null) continue;
+      const o = load(moid); if (!o || o.status !== 'paid' || !o.pointRate || !o.member || o.member.id !== id) continue;
+      const f = fulfilNow(o, cfg); if (f.status !== 'delivered' || !f.deliveredAt || now < Date.parse(f.deliveredAt) + pc.earnDays * 864e5) continue;
+      if (o.claim && claimOpen(o.claim)) continue;
+      const amt = Math.floor((o.amount - refundedOf(o)) * o.pointRate / 100);
+      if (amt > 0 && MEMBER.earn(id, moid, amt)) { hist(o, '적립금', `구매 적립 ${amt}원`); save(o); n++; }
+    }
+  }
+  return n;
+}
+// 마이페이지 주문 내역(결제 완료·취소·확인 필요만). t = 주문 조회 키(본인에게만 보냄)
+export function memberOrders(memberId) {
+  const m = MEMBER.get(memberId); if (!m) return [];
+  const cfg = { ...shipSettings(DIR()), holidays: holidays() };
+  return (m.orders || []).map(load).filter(o => o && o.member && o.member.id === memberId && ['paid', 'cancelled', 'check'].includes(o.status)).map(o => {
+    const v = ['paid', 'cancelled'].includes(o.status) ? customerView(o, cfg) : null, earned = (m.earned || {})[o.moid], refunded = refundedOf(o);
+    return { no: o.moid, t: o.token, at: o.paidAt || o.createdAt, status: o.status, stage: v ? v.stage : LABEL[o.status], total: o.total || o.amount, amount: o.amount, points: o.pointsUsed || 0, refunded,
+      items: o.items.map(({ id, name, opt, qty, img }) => ({ id, name, opt, qty, img })), earned: earned || 0,
+      earnPlan: earned == null && o.status === 'paid' && o.pointRate ? Math.floor((o.amount - refunded) * o.pointRate / 100) : 0,
+      canReview: o.status === 'paid' && ['shipped', 'delivered'].includes(fulfilNow(o, cfg).status) };
+  });
 }
 
 // 주문 조회 횟수 제한(IP 마다 10분에 10번)
@@ -415,7 +467,7 @@ function publicView(o) {
     no: o.moid, status: o.status, mode: 'pg', pay: o.method,
     canReview: o.status === 'paid' && ['shipped', 'delivered'].includes(fulfilNow(o, shipSettings(DIR())).status),   // 보낸 뒤부터 구매평(반품·교환 요청 중이어도)
     payLabel: o.status === 'paid' && o.pg && o.pg.cardName ? `${o.payLabel} (${o.pg.cardName} · ${QUOTA(o.pg.cardQuota)})` : o.payLabel,
-    total: o.amount, sub: o.sub, ship: o.ship, items: o.items.map(({ id, name, opt, qty, price, img, cat }) => ({ id, name, opt, qty, price, img, cat })),
+    total: o.amount, orderTotal: o.total || o.amount, points: o.pointsUsed || 0, member: !!o.member, sub: o.sub, ship: o.ship, items: o.items.map(({ id, name, opt, qty, price, img, cat }) => ({ id, name, opt, qty, price, img, cat })),
     name: mask(o.receiver.name), tel: `${o.receiver.tel.slice(0, 3)}-****-${o.receiver.tel.slice(-4)}`, addr: `(${o.receiver.zip}) ${o.receiver.addr1} · 상세 주소 생략`,
     memo: o.receiver.memo, jeju: o.receiver.jeju, buyNow: o.buyNow, ship: ['paid', 'cancelled'].includes(o.status) ? customerView(o, { ...shipSettings(DIR()), holidays: holidays() }) : null, fail: o.status === 'paid' ? '' : (o.fail && o.fail.msg) || '',
   };
@@ -666,6 +718,7 @@ export async function refundOrder(id, d, user) {
   const reason = clean((d && d.reason) || '').slice(0, 40) || '관리자 환불', who = `${user.name}(${user.id})`;
   if (via === 'manual') {
     addRefund(o, { amount, part: amount < remain || refunded > 0, reason, by: user.id, via, memo: clean((d && d.memo) || '').slice(0, 100) });
+    memberRefunded(o, amount);
     hist(o, '환불 기록(결제 밖 환불)', `${amount}원 · ${reason} — ${who}`); save(o); log('refund-manual', o.moid, amount);
     tell(o, 'refunded', { 환불금액: wonK(amount) });
     return getOrderAdmin(id);
@@ -689,6 +742,7 @@ export async function refundOrder(id, d, user) {
     const check = got === amount && tidOk ? 'ok' : '응답 금액·원거래 불일치(가맹점 관리자에서 확인)';
     addRefund(o, { amount, part: !full, reason, by: user.id, via: 'pg', tid: str(r.tid), ccSeq: str(r.ccSeq), check });
     if (o.status === 'cancelled') o.cancel = { at: nowIso(), by: user.id, msg: reason, code: '0000', cancelNum: str(r.tid), check };
+    memberRefunded(o, amount);
     hist(o, full ? 'cancelled' : '부분 환불', `${amount}원 · ${reason} — ${who}${check === 'ok' ? '' : ' · ' + check}`); save(o);
     log(full ? 'cancelled' : 'refund-part', o.moid, amount, str(r.tid));
     tell(o, 'refunded', { 환불금액: wonK(amount) });

@@ -60,7 +60,7 @@
 
   // ── 화면 틀(메뉴는 글자만)
   const NAV = [
-    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['shipset', '배송 설정'], ['orders', '주문 흐름']]],
+    ['현황', [['', '홈'], ['traffic', '방문·유입'], ['payments', '결제 주문'], ['members', '회원·적립금'], ['shipset', '배송 설정'], ['orders', '주문 흐름']]],
     ['사이트 꾸미기', [['site/home', '홈 화면'], ['site/event', '팝업·이벤트'], ['texts', '페이지 문구·사진'], ['products', '상품·상세페이지'], ['reviewsmgr', '구매평 관리'], ['site/reviews', 'BEST 구매평·사진'], ['site/faq', '자주 묻는 질문'], ['site/info', '기본 정보']]],
     ['글', [['blog', '블로그']]],
   ];
@@ -460,14 +460,14 @@
     v.innerHTML = `${persistNote(s)}${ME.user.role === 'owner' ? `<div class="box info"><b>주문서까지 온 흐름입니다.</b> 홈페이지 결제로 실제 결제된 주문은 <a href="#/payments">결제 주문</a>에서 봅니다. 홈페이지 결제가 꺼져 있을 때는 '결제하기'를 누르면 같은 상품의 잠스쿨 스마트스토어로 넘어가 거기서 결제합니다. 실제 결제·배송은 <a href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어 판매자센터</a>에서 확인하세요.${s.ordersSince ? ` <br><small>주문 흐름은 ${h(s.ordersSince)}부터 셉니다(그 전은 시험 기록).</small>` : ''}</div>` : ''}
       <div class="funnel">${step('상품 페이지 조회', views, null, '상품 상세를 연 수')}${step('구매·장바구니 클릭', buy, views, '조회 대비')}${step('주문서 제출', t.orders.n, buy || null, buy ? '클릭 대비' : '주문서에서 결제하기')}${step('스마트스토어로 이동', sent, null, 'N Pay·스마트스토어 버튼 포함')}</div>
       <div class="kpis"><div class="kpi"><span>주문서 금액 합계</span><b>${won(t.orders.sum)}</b><small>참고용 — 실제 결제 금액 아님</small></div>
-        <div class="kpi"><span>공식몰로 이동</span><b>${num(e.mall_click)}</b><small>jamschool.co.kr</small></div>
+        <div class="kpi"><span>회원가입</span><b>${num(e.member_join)}</b><small>홈페이지 회원</small></div>
         <div class="kpi"><span>전화 걸기</span><b>${num(e.call_click)}</b><small>휴대폰에서 번호 누름</small></div>
         <div class="kpi"><span>카카오톡 문의</span><b>${num(e.kakao_click)}</b><small>상담 버튼</small></div></div>
       ${n !== '1' ? `<div class="card"><h2>날짜별 주문서</h2><p class="h-sub">주문서를 내고 스마트스토어로 넘어간 수</p>${chart(s.days, [['orders', '#0B8ED2', '주문서 제출']])}</div>` : ''}
       <div class="card"><h2>상품별</h2><p class="h-sub">조회 많은 순 · 구매 클릭률이 낮으면 가격·사진·상세페이지를 먼저 보세요</p>
         ${rows.length ? `<table class="list"><thead><tr><th>상품</th><th class="r">조회</th><th class="r">구매 클릭</th><th class="r">클릭률</th><th class="r">주문서 수량</th><th></th></tr></thead><tbody>${rows.map(([id, p, q]) => `<tr><td><b>${h(s.names[id] || '상품 ' + id)}</b></td><td class="r">${num(p.views)}</td><td class="r">${num(p.buy)}</td><td class="r">${pct(p.buy, p.views)}</td><td class="r">${num(q)}</td><td class="r nw"><a class="btn sm" href="#/products/${h(id)}">고치기</a></td></tr>`).join('')}</tbody></table>` : empty('아직 상품을 본 기록이 없습니다.')}</div>
       <div class="cols"><div class="card"><h2>고른 결제 수단</h2><p class="h-sub">주문서에서 고른 것(실제 결제는 스마트스토어)</p>${bars(top(t.orders.pay), t.orders.n, k => h(PAY_NAME[k] || k))}</div>
-        <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(top({ '구매하기': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '스마트스토어·N Pay': e.store_click || 0, '공식몰': e.mall_click || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]), sum(e) - (e.checkout_submit || 0))}</div></div>`;
+        <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(top({ '구매하기': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '스마트스토어·N Pay': e.store_click || 0, '회원가입': e.member_join || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]), sum(e) - (e.checkout_submit || 0))}</div></div>`;
   }
 
   // ── 결제 주문(홈페이지 결제: 씨드페이먼츠) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
@@ -708,7 +708,8 @@
     const refundCard = paid || refunds.length ? `<div class="card"><h2>환불</h2><p class="h-sub">결제 ${won(o.amount)} · 환불 ${won(o.refunded)} · 남은 금액 ${won(o.remain)}</p>${refundList}${refundForm}</div>` : '';
     v.innerHTML = `${bar}<div class="cols"><div class="card"><h2>결제</h2><p class="h-sub">주문번호 ${h(o.moid)}</p>${dl([
         ['상태', `<span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? ` ${h(o.fail.msg)}` : ''}`],
-        ['결제 금액', `<b>${won(o.amount)}</b>${o.ship ? ` (배송비 ${won(o.ship)} 포함)` : ''}${o.refunded ? ` · 환불 ${won(o.refunded)}` : ''}`], ['결제 수단', h(o.payLabel)],
+        ['결제 금액', `<b>${won(o.amount)}</b>${o.ship ? ` (배송비 ${won(o.ship)} 포함)` : ''}${o.refunded ? ` · 환불 ${won(o.refunded)}` : ''}`],
+        ['회원', o.member ? `<a href="#/members/${encodeURIComponent(o.member.id)}">${h(o.member.login)}</a>${o.pointsUsed ? ` · 적립금 ${won(o.pointsUsed)} 사용(주문 금액 ${won(o.total)})` : ''}` : '비회원 주문'], ['결제 수단', h(o.payLabel)],
         ['카드', pg.cardName ? h(`${pg.cardName} ${pg.cardNo || ''} · ${!pg.cardQuota || +pg.cardQuota === 0 ? '일시불' : +pg.cardQuota + '개월'}`) : ''],
         ['승인번호', h(pg.authCode || '')], ['거래번호(TID)', h(pg.tid || '')], ['주문 일시', h(dt(o.createdAt))], ['결제 일시', h(dt(o.paidAt))],
         ['취소', o.cancel ? h(`${dt(o.cancel.at)} · ${o.cancel.msg} · ${o.cancel.by}`) : ''],
@@ -899,6 +900,76 @@
         else if (b.dataset.best != null) { if (!confirm('이 구매평을 BEST 구매평(홈 리뷰·상품 페이지 맨 위)으로 올릴까요?')) { b.disabled = false; return; } const r = await api('POST', '/api/admin/reviews-best', { pid: d.pid, no }); saved(r, 'BEST 구매평을'); b.textContent = 'BEST로 올림'; }
       } catch (err) { fail(err); b.disabled = false; }
     });
+  }
+  // ── 회원·적립금: 홈페이지 회원 목록·찾기, 회원 상세(정보·주문·적립금 내역·조정·임시 비밀번호·탈퇴), 적립금 규칙
+  const MEMF = { q: '', st: 'in' };
+  const kd = s => s ? new Date(Date.parse(s) + 9 * 3600e3).toISOString().slice(0, 10) : '';
+  const PT_TYPE = { earn: '구매 적립', use: '주문에 사용', restore: '취소로 돌려줌', revoke: '환불로 회수', admin: '관리자 조정', join: '가입 적립' };
+  async function members() {
+    const v = shell('회원·적립금', { desc: '홈페이지에서 가입한 회원과 적립금입니다. 회원 비밀번호는 누구도 볼 수 없고, 잊은 회원에게는 임시 비밀번호를 만들어 알려 줍니다.' });
+    const d = await api('GET', `/api/admin/members?q=${encodeURIComponent(MEMF.q)}&st=${MEMF.st}`), c = d.cfg;
+    v.innerHTML = `<div class="kpis">
+        <div class="kpi"><span>회원</span><b>${num(d.total)}명</b><small>오늘 가입 ${num(d.today)}명</small></div>
+        <div class="kpi"><span>남은 적립금 합계</span><b>${won(d.pointsSum)}</b><small>회원이 아직 쓰지 않은 금액</small></div>
+        <div class="kpi"><span>적립 규칙</span><b>${c.on ? `${c.rate}%` : '꺼짐'}</b><small>${c.on ? `배송 완료 ${c.earnDays}일 뒤 적립 · ${won(c.minUse)}부터 사용` : '적립·사용 안 함'}</small></div>
+        <div class="kpi"><span>탈퇴</span><b>${num(d.out)}명</b><small>개인정보는 지움</small></div></div>
+      <div class="card"><div class="rvm-bar"><div class="seg">${[['in', '회원'], ['out', '탈퇴']].map(([k, t]) => `<a href="#" data-mst="${k}" class="${MEMF.st === k ? 'on' : ''}">${t}</a>`).join('')}</div>
+          <form id="mq-f"><input type="search" id="mq" value="${h(MEMF.q)}" placeholder="아이디·이름·이메일·전화번호 4자리 이상" aria-label="회원 찾기"><button class="btn sm">찾기</button></form></div>
+        ${d.list.length ? `<table class="list"><thead><tr><th>아이디</th><th>이름</th><th>휴대폰</th><th>가입일</th><th class="r">주문</th><th class="r">적립금</th><th></th></tr></thead><tbody>${d.list.map(m => m.status === 'active'
+          ? `<tr><td><b>${h(m.login)}</b>${m.tempPw ? ' <span class="tag draft">임시 비밀번호</span>' : ''}</td><td>${h(m.name)}</td><td class="nw">${h(telFmt(m.tel))}</td><td class="nw">${h(kd(m.created))}</td><td class="r">${num(m.orders)}</td><td class="r">${won(m.points)}</td><td><a class="btn sm" href="#/members/${h(m.id)}">자세히</a></td></tr>`
+          : `<tr><td class="sub">(탈퇴 회원)</td><td></td><td></td><td class="nw">${h(kd(m.created))}</td><td class="r">${num(m.orders)}</td><td class="r sub">탈퇴 ${h(kd(m.withdrawnAt))}</td><td></td></tr>`).join('')}</tbody></table>
+          ${d.n > d.list.length ? `<p class="help">${num(d.n)}명 중 최근 ${d.list.length}명입니다. 찾기로 좁혀 보세요.</p>` : ''}` : `<p class="help">${MEMF.q ? '찾는 회원이 없습니다.' : '아직 회원이 없습니다.'}</p>`}</div>
+      <details class="card"><summary><b>적립금 규칙</b> — 적립률·적립 시점·최소 사용 금액</summary>
+        <label class="chk"><input type="checkbox" id="pc-on" ${c.on ? 'checked' : ''}> 적립금 적립·사용 켜기</label>
+        <div class="fgrid">
+          <div><label for="pc-rate">적립률(%) <small>회원 결제 금액 기준</small></label><input type="number" id="pc-rate" step="0.1" min="0" max="20" value="${c.rate}"></div>
+          <div><label for="pc-days">적립 시점 <small>배송 완료 뒤 며칠(반품 기간)</small></label><input type="number" id="pc-days" min="0" max="60" value="${c.earnDays}"></div>
+          <div><label for="pc-min">최소 사용 금액(원)</label><input type="number" id="pc-min" min="0" step="100" value="${c.minUse}"></div>
+          <div><label for="pc-pay">최소 결제 금액(원) <small>적립금을 써도 남아야 하는 금액</small></label><input type="number" id="pc-pay" min="100" step="100" value="${c.minPay}"></div>
+          <div><label for="pc-join">가입 적립금(원) <small>0이면 없음</small></label><input type="number" id="pc-join" min="0" step="100" value="${c.joinBonus}"></div>
+        </div>
+        <p class="help">적립률은 바꾼 뒤 들어온 주문부터 적용됩니다(이미 받은 주문은 주문할 때 적립률). 이용약관 제4조의2에 적힌 숫자(1%·7일·1,000원)와 다르게 바꾸면 약관 문구도 고쳐야 하니 총괄 관리자에게 알려 주세요.</p>
+        <div class="actions static"><button class="btn sm ok" id="pc-save" type="button">규칙 저장</button></div></details>`;
+    v.querySelectorAll('[data-mst]').forEach(a => a.onclick = e => { e.preventDefault(); MEMF.st = a.dataset.mst; members(); });
+    $('#mq-f').onsubmit = e => { e.preventDefault(); MEMF.q = $('#mq').value.trim(); members(); };
+    $('#pc-save').onclick = async () => {
+      try { await api('POST', '/api/admin/member-settings', { on: $('#pc-on').checked, rate: $('#pc-rate').value, earnDays: $('#pc-days').value, minUse: $('#pc-min').value, minPay: $('#pc-pay').value, joinBonus: $('#pc-join').value }); toast('적립금 규칙을 저장했습니다. 바로 적용됩니다.'); members(); }
+      catch (err) { fail(err); }
+    };
+  }
+  async function memberDetail(id) {
+    const v = shell('회원 상세', { back: ['#/members', '회원·적립금'] });
+    const d = await api('GET', `/api/admin/members/${encodeURIComponent(id)}`), m = d.member;
+    const rows = r => `<table class="list"><tbody>${r.filter(x => x[1] !== '' && x[1] != null).map(([k, val]) => `<tr><th style="width:130px">${h(k)}</th><td>${val}</td></tr>`).join('')}</tbody></table>`;
+    if (m.status !== 'active') { v.innerHTML = `<div class="box info">탈퇴한 회원입니다(${h(kd(m.withdrawnAt))}). 개인정보는 지웠고, 주문 기록은 결제 주문에 남아 있습니다.</div>`; return; }
+    const a = m.addr;
+    v.innerHTML = `<div class="cols"><div class="card"><h2>회원 정보</h2>${rows([['아이디', `<b>${h(m.login)}</b>${m.tempPw ? ' <span class="tag draft">임시 비밀번호로 로그인 중</span>' : ''}`], ['이름', h(m.name)], ['휴대폰', h(telFmt(m.tel))], ['이메일', h(m.email)],
+        ['기본 배송지', a ? h(`${a.name || ''} ${telFmt(a.tel || '')} (${a.zip}) ${a.addr1} ${a.addr2 || ''}`) : ''], ['광고 수신', `문자 ${m.marketing.sms ? '받음' : '안 받음'} · 이메일 ${m.marketing.email ? '받음' : '안 받음'}`],
+        ['가입', h(dt(m.created))], ['마지막 로그인', h(dt(m.lastLogin))]])}</div>
+      <div class="card"><h2>적립금</h2><p style="font-size:26px;font-weight:800">${won(m.points)}</p><p class="help">지금 쓸 수 있는 금액 ${won(m.available)}(결제 중인 주문에 잡아 둔 금액 제외)</p>
+        <div class="fgrid"><div><label for="pa-amt">더하기·빼기(원) <small>빼려면 -5000 처럼</small></label><input type="number" id="pa-amt" step="1"></div><div><label for="pa-memo">사유 <small>회원 마이페이지에 보임</small></label><input type="text" id="pa-memo" maxlength="100" placeholder="예: 배송 지연 보상"></div></div>
+        <div class="actions static"><button class="btn sm ok" id="pa-go" type="button">적립금 조정</button></div></div></div>
+      <div class="card"><h2>주문 <small class="sub">${num(d.orders.length)}건</small></h2>${d.orders.length ? `<table class="list"><thead><tr><th>결제일</th><th>주문</th><th>단계</th><th class="r">결제</th><th class="r">적립금</th></tr></thead><tbody>${d.orders.map(o => `<tr><td class="nw">${h(dt(o.at))}</td><td><a href="#/payments/${h(o.no)}">${h(o.items[0] ? o.items[0].name : o.no)}${o.items.length > 1 ? ` 외 ${o.items.length - 1}건` : ''}</a></td><td>${h(o.stage || '')}</td><td class="r nw">${won(o.amount)}${o.refunded ? `<br><small class="sub">환불 ${won(o.refunded)}</small>` : ''}</td><td class="r nw">${o.points ? `사용 ${won(o.points)}<br>` : ''}${o.earned ? `적립 ${won(o.earned)}` : o.earnPlan ? `<span class="sub">적립 예정 ${won(o.earnPlan)}</span>` : ''}</td></tr>`).join('')}</tbody></table>` : '<p class="help">회원으로 결제한 주문이 없습니다.</p>'}</div>
+      <div class="card"><h2>적립금 내역</h2>${d.log.length ? `<table class="list"><thead><tr><th>일시</th><th>내용</th><th class="r">금액</th><th class="r">잔액</th></tr></thead><tbody>${d.log.map(l => `<tr><td class="nw">${h(dt(l.at))}</td><td>${h(PT_TYPE[l.type] || l.type)}${l.memo ? ` · ${h(l.memo)}` : ''}${l.by ? ` <small class="sub">(${h(l.by)})</small>` : ''}${l.moid ? `<br><a href="#/payments/${h(l.moid)}" class="sub">${h(l.moid)}</a>` : ''}</td><td class="r nw">${l.amount > 0 ? '+' : ''}${won(l.amount)}</td><td class="r nw">${won(l.balance)}</td></tr>`).join('')}</tbody></table>` : '<p class="help">아직 내역이 없습니다.</p>'}</div>
+      <div class="card"><h2>계정</h2><p class="help">회원이 비밀번호를 잊었다고 연락하면, 본인인지 확인(이름·휴대폰·최근 주문)한 뒤 임시 비밀번호를 만들어 알려 주세요. 회원이 로그인하면 마이페이지에서 바꾸라는 안내가 보입니다.</p>
+        <div class="actions static"><button class="btn sm" id="mr-reset" type="button">임시 비밀번호 만들기</button><button class="btn sm" id="mr-out" type="button">회원 탈퇴 처리</button></div>
+        <div class="box info" id="mr-pw" hidden></div></div>`;
+    $('#pa-go').onclick = async () => {
+      const amt = Math.round(+$('#pa-amt').value || 0), memo = $('#pa-memo').value.trim();
+      if (!amt) { toast('더하거나 뺄 금액을 넣어 주세요'); return; }
+      if (!memo) { toast('사유를 적어 주세요(회원 마이페이지에 보입니다)'); return; }
+      if (!confirm(`${m.login} 회원 적립금을 ${amt > 0 ? '+' : ''}${won(amt)} 조정할까요?`)) return;
+      try { await api('POST', `/api/admin/members/${encodeURIComponent(m.id)}/points`, { amount: amt, memo }); toast('적립금을 조정했습니다.'); memberDetail(m.id); } catch (err) { fail(err); }
+    };
+    $('#mr-reset').onclick = async () => {
+      if (!confirm(`${m.login} 회원의 비밀번호를 임시 비밀번호로 바꿀까요? 지금 쓰던 비밀번호와 로그인은 끊깁니다.`)) return;
+      try { const r = await api('POST', `/api/admin/members/${encodeURIComponent(m.id)}/reset`); const box = $('#mr-pw'); box.hidden = false; box.innerHTML = `임시 비밀번호 <b style="font-size:18px;letter-spacing:1px">${h(r.password)}</b> — 회원에게 전화·카카오톡으로 알려 주세요. 이 화면을 벗어나면 다시 볼 수 없습니다.`; } catch (err) { fail(err); }
+    };
+    $('#mr-out').onclick = async () => {
+      if (!confirm(`${m.login} 회원을 탈퇴 처리할까요? 개인정보와 적립금 ${won(m.points)}이 바로 지워지고 되돌릴 수 없습니다.`)) return;
+      if (!confirm('한 번 더 확인합니다. 정말 탈퇴 처리할까요?')) return;
+      try { await api('POST', `/api/admin/members/${encodeURIComponent(m.id)}/withdraw`); toast('탈퇴 처리했습니다.'); location.hash = '#/members'; } catch (err) { fail(err); }
+    };
   }
   async function settle() {
     const v = shell('정산', { desc: '홈페이지 결제(씨드페이먼츠) 정산 예정과 환불 차감입니다. 실제 입금액은 씨드페이먼츠 가맹점 관리자 정산 내역과 맞춰 확인해 주세요.' });
@@ -1540,6 +1611,8 @@
       else if (a === 'detail') { location.replace(b ? `#/products/${b}/detail` : '#/products'); return; }
       else if (a === 'traffic') await traffic();
       else if (a === 'orders') await orders();
+      else if (a === 'members' && b) await memberDetail(b);
+      else if (a === 'members') await members();
       else if (a === 'payments' && b && b !== 'all') await payDetail(b);
       else if (a === 'payments') await payments();
       else if (a === 'settle') await settle();
