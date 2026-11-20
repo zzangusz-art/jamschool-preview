@@ -646,7 +646,9 @@
     "angle": "수명을 몇 년이라고 단정하지 않는다. 대신 반복 압축 10만 회 영구 줄음률 1% 시험, 밀도 31.30, 2년 폼 교체 보증, 관리법.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "topper-lifespan",
+    "date": "2026-11-20"
   },
   {
     "id": "folding-mattress-compressed",
@@ -659,7 +661,9 @@
     "angle": "압축 포장 상태 배송, 원래 크기 복원 약 2일, 개봉 전 사이즈 확인, 개봉 후 반품 어려울 수 있음, 14일 체험 조건.",
     "category": "사용 팁",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-compressed",
+    "date": "2026-11-20"
   },
   {
     "id": "tri-fold-electric-blanket",
@@ -672,7 +676,9 @@
     "angle": "열에 강한 소재, 전기장판·돌침대·온열 제품 사용 가능, 커버 관리. 화재·안전 수치는 만들지 않음.",
     "category": "사용 팁",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-electric-blanket",
+    "date": "2026-11-20"
   },
   {
     "id": "living-room-mattress",
