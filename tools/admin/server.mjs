@@ -133,12 +133,20 @@ route('GET', '/api/admin/dashboard', 'client', async () => {
 route('GET', '/api/admin/status/:sha', 'client', async ({ params }) => store.status(params.sha));
 
 // 유입·주문 집계(사이트 자체 집계, 개인정보 없음)
+// 기간: days=n(오늘까지 n일) 또는 from·to(YYYY-MM-DD, 한국 날짜, 최대 366일). 비교 기간은 바로 앞 같은 날 수
 route('GET', '/api/admin/stats', 'client', async ({ query }) => {
-  const n = Math.min(90, Math.max(1, +query.get('days') || 7));
+  let n = Math.min(90, Math.max(1, +query.get('days') || 7)), off = 0;
+  const DAY = /^\d{4}-\d{2}-\d{2}$/, f = query.get('from') || '', t0 = query.get('to') || '';
+  if (DAY.test(f) && DAY.test(t0)) {
+    const D = s => Date.parse(s + 'T00:00:00Z'), today = kst(), to = t0 > today ? today : t0;
+    need(f <= to, 400, '시작일이 끝일보다 늦습니다');
+    n = Math.round((D(to) - D(f)) / 864e5) + 1; off = Math.round((D(today) - D(to)) / 864e5);
+    need(n <= 366, 400, '한 번에 1년(366일)까지 볼 수 있습니다');
+  }
   const { cur } = await products();
   const posts = await listPosts();
-  const prev = statsSummary(n, n);   // 바로 앞 같은 기간(증감 비교)
-  return { ...statsSummary(n), prev: { days: prev.days, total: { pv: prev.total.pv, uv: prev.total.uv, entries: prev.total.entries, sources: prev.total.sources, devices: prev.total.devices, events: prev.total.events } }, names: Object.fromEntries(cur.PRODUCTS.map(p => [p.id, p.short])), titles: Object.fromEntries(posts.map(p => [`/blog/${p.slug}`, p.title])) };
+  const prev = statsSummary(n, n + off);   // 바로 앞 같은 기간(증감 비교)
+  return { ...statsSummary(n, off), range: { n, off }, prev: { days: prev.days, total: { pv: prev.total.pv, uv: prev.total.uv, entries: prev.total.entries, sources: prev.total.sources, devices: prev.total.devices, events: prev.total.events } }, names: Object.fromEntries(cur.PRODUCTS.map(p => [p.id, p.short])), titles: Object.fromEntries(posts.map(p => [`/blog/${p.slug}`, p.title])) };
 });
 
 // 블로그

@@ -128,8 +128,27 @@
     const last = days.length - 1, labels = days.map((d, i) => (i % every === 0 && last - i >= every / 2) || i === last ? `<text x="${i === last && days.length > 1 ? W - R : L + i * bw + bw / 2}" y="${H - 8}" text-anchor="${i === last && days.length > 1 ? 'end' : 'middle'}">${md(d.date)}</text>` : '').join('');
     return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="날짜별 그래프">${grid}${rects}${labels}</svg><div class="legend">${series.map(([, c, t]) => `<span style="--c:${c}">${t}</span>`).join('')}</div>`;
   }
-  const PERIODS = [['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['90', '최근 90일']];
-  const period = base => { const n = PERIODS.some(([k]) => k === route()[1]) ? route()[1] : '7'; return { n, seg: `<div class="seg">${PERIODS.map(([k, t]) => `<a href="#/${base}/${k}" class="${k === n ? 'on' : ''}">${t}</a>`).join('')}</div>` }; };
+  const PERIODS = [['1', '오늘'], ['7', '최근 7일'], ['30', '최근 30일'], ['90', '최근 90일'], ['pick', '날짜 고르기']];
+  // 기간: #/<화면>/<1|7|30|90> 또는 #/<화면>/pick/<시작일>/<끝일>(최대 1년). q = 통계 API 조건, label = 이 기간 이름
+  const period = base => {
+    const r = route(), DAY = /^\d{4}-\d{2}-\d{2}$/;
+    const seg = (cur, from, to) => `<div class="prd"><div class="seg">${PERIODS.map(([k, t]) => `<a href="#/${base}/${k === 'pick' ? `pick/${kToday(13)}/${kToday(0)}` : k}" class="${k === cur ? 'on' : ''}">${t}</a>`).join('')}</div>${cur === 'pick' ? `<div class="ofpick"><input type="date" id="pf-from" value="${from}" max="${kToday(0)}" aria-label="시작일"> ~ <input type="date" id="pf-to" value="${to}" max="${kToday(0)}" aria-label="끝일"><button class="btn sm" type="button" id="pf-go" data-base="${base}">보기</button></div>` : ''}</div>`;
+    if (r[1] === 'pick') {
+      const to = DAY.test(r[3] || '') && r[3] <= kToday(0) ? r[3] : kToday(0), from = DAY.test(r[2] || '') && r[2] <= to ? r[2] : kToday(13);
+      const n = String(Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1);
+      return { n, pick: true, from, to, q: `from=${from}&to=${to}`, label: from === to ? md(from) : `${md(from)}~${md(to)}`, seg: seg('pick', from, to) };
+    }
+    const n = PERIODS.some(([k]) => k === r[1] && k !== 'pick') ? r[1] : '7';
+    return { n, q: `days=${n}`, label: n === '1' ? '오늘' : `${n}일`, seg: seg(n) };
+  };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('#pf-go'); if (!b) return;
+    const f = $('#pf-from').value, t = $('#pf-to').value;
+    if (!f || !t) { toast('시작일과 끝일을 골라 주세요'); return; }
+    if (f > t) { toast('시작일이 끝일보다 늦습니다'); return; }
+    if ((Date.parse(t) - Date.parse(f)) / 864e5 > 365) { toast('한 번에 1년까지 볼 수 있습니다'); return; }
+    location.hash = `#/${b.dataset.base}/pick/${f}/${t}`;
+  });
   const PAGE_NAME = { '/': '첫 화면', '/shop': '전체 상품', '/blog/': '수면 가이드(블로그 목록)', '/cart': '장바구니', '/checkout': '주문서', '/order-complete': '주문 완료' };
   const pageName = (p, s) => { const m = p.match(/^\/product-(\d+)$/); return h(PAGE_NAME[p] || (m && s.names[m[1]] ? `상품 · ${s.names[m[1]]}` : '') || (s.titles[p] ? `글 · ${s.titles[p]}` : '') || p) + ` <small class="sub">${h(p)}</small>`; };
   const persistNote = s => s.persistent || ME.user.role !== 'owner' ? '' : '<div class="box warn">Railway 볼륨(DATA_DIR)이 아직 없어 방문 숫자가 메모리에만 있습니다. 다시 배포하면 0부터 셉니다.</div>';
@@ -353,10 +372,10 @@
   }
 
   async function traffic() {
-    const { n, seg } = period('traffic');
+    const P = period('traffic'), { n, seg } = P;
     const v = shell('방문·유입', { desc: '사이트에 몇 명이 어디서 들어왔는지. 같은 사람은 하루 한 번만 셉니다(쿠키·개인정보 없이). 그래프에 마우스를 올리거나 눌러 보세요.', tool: seg });
-    const s = await api('GET', `/api/admin/stats?days=${n}`), t = s.total, p = s.prev.total;
-    const vs = n === '1' ? '어제' : `직전 ${n}일`;
+    const s = await api('GET', `/api/admin/stats?${P.q}`), t = s.total, p = s.prev.total;
+    const vs = n === '1' && !P.pick ? '어제' : `직전 ${n}일`;
     const pages = t.uv ? (t.pv / t.uv).toFixed(1) : '-', ppages = p.uv ? (p.pv / p.uv).toFixed(1) : '-';
     v.innerHTML = `${persistNote(s)}<div class="kpis">
         <div class="kpi"><span>방문자</span><b>${num(t.uv)}</b><small>${delta(t.uv, p.uv)} ${vs} ${num(p.uv)}명</small></div>
@@ -390,8 +409,8 @@
       const curSrc = day ? day.sources : t.sources, curDev = day ? day.devices : t.devices, curEnt = day ? day.entries : t.entries;
       const cmpSrc = day ? t.sources : p.sources;
       const a = srcProfile(curSrc), b = srcProfile(cmpSrc), sa = a.reduce((x, y) => x + y, 0), sb = b.reduce((x, y) => x + y, 0);
-      rsSeries[0].name = day ? `${md(day.date)}(그날)` : `이번 ${n === '1' ? '오늘' : `${n}일`}`; rsSeries[0].values = a.map(x => sa ? x / sa * 100 : 0); rsSeries[0].counts = a;
-      rsSeries[1].name = day ? `이번 ${n}일 전체` : vs; rsSeries[1].values = b.map(x => sb ? x / sb * 100 : 0); rsSeries[1].counts = b;
+      rsSeries[0].name = day ? `${md(day.date)}(그날)` : P.pick ? P.label : `이번 ${P.label}`; rsSeries[0].values = a.map(x => sa ? x / sa * 100 : 0); rsSeries[0].counts = a;
+      rsSeries[1].name = day ? `${P.pick ? P.label : `이번 ${n}일`} 전체` : vs; rsSeries[1].values = b.map(x => sb ? x / sb * 100 : 0); rsSeries[1].counts = b;
       rsDraw = radarChart($('#rs'), SRC_AX.map(x => x[0]), rsSeries, shareFmt, { label: '유입 경로 비율 레이더', short: ['네이버 검색', '블로그·카페', '구글', '직접 방문', 'SNS·영상', 'AI 답변', '공식몰', '그 밖'] });
       legend($('#rs-lg'), rsSeries, () => rsDraw());
       $('#rs-tbl').innerHTML = tbl(SRC_AX.map(x => x[0]), rsSeries, (x, i) => `${num(x.counts[i])}번 · ${shareFmt(x.values[i])}`);
@@ -418,7 +437,7 @@
     fill();
     let rwDraw = null;
     if (+n >= 7) {
-      const rwSeries = [{ name: `이번 ${n}일`, color: C1, on: true, values: weekdayAvg(s.days) }, { name: vs, color: C2, dash: true, on: true, values: weekdayAvg(s.prev.days) }];
+      const rwSeries = [{ name: P.pick ? P.label : `이번 ${n}일`, color: C1, on: true, values: weekdayAvg(s.days) }, { name: vs, color: C2, dash: true, on: true, values: weekdayAvg(s.prev.days) }];
       const fmt = x => `${Math.round(x * 10) / 10}명`;
       rwDraw = radarChart($('#rw'), WD, rwSeries, fmt, { label: '요일별 평균 방문자 레이더' });
       legend($('#rw-lg'), rwSeries, () => rwDraw());
@@ -432,9 +451,9 @@
   // ── 주문(결제 연동 전: 주문서 → 스마트스토어 결제)
   const PAY_NAME = { card: '카드', bank: '무통장입금', npay: '네이버페이', kakaopay: '카카오페이', 기타: '기타' };
   async function orders() {
-    const { n, seg } = period('orders');
+    const P = period('orders'), { n, seg } = P;
     const v = shell('주문', { desc: '사이트에서 구매 버튼을 누르고 주문서를 낸 흐름입니다.', tool: seg });
-    const s = await api('GET', `/api/admin/stats?days=${n}`), t = s.total, e = t.events || {};
+    const s = await api('GET', `/api/admin/stats?${P.q}`), t = s.total, e = t.events || {};
     const views = Object.values(t.products).reduce((a, p) => a + p.views, 0), buy = (e.buy_click || 0) + (e.cart_click || 0), sent = (e.store_click || 0) + (e.checkout_submit || 0);
     const step = (label, val, base, note) => `<div><span>${label}</span><b>${num(val)}</b><small>${base == null ? note : `${note} · ${pct(val, base)}`}</small></div>`;
     const rows = Object.entries(t.products).map(([id, p]) => [id, p, t.orders.items[id] || 0]).sort((a, b) => b[1].views - a[1].views);

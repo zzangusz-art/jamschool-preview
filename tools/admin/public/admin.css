@@ -323,3 +323,4 @@ tr.sub>td{background:var(--soft);padding:6px 10px 12px}
 /* 직접 방문 자세히: 이름이 길어 막대 칸을 줄임 */
 #dr-how td.bar-td,#dr-land td.bar-td{width:24%}
 #dr-how td:first-child,#dr-land td:first-child{word-break:keep-all}
+.prd{display:flex;flex-direction:column;align-items:flex-end;gap:8px}.prd .ofpick{justify-content:flex-end}
