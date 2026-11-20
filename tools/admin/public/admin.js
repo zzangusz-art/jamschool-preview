@@ -496,7 +496,7 @@
   const rangeDates = () => { const r = PAYF.range; if (r === 'pick') return [PAYF.from, PAYF.to]; if (r === 'all') return ['', '']; if (r === '0') return [kToday(), kToday()]; if (r === '1') return [kToday(1), kToday(1)]; return [kToday(+r - 1), kToday()]; };
   const open = o => !!(o.claim && o.claim.open);
   const stOk = (o, st) => st === 'todo' ? o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && !open(o) : st === 'ship' ? o.status === 'paid' && o.fulfil === 'shipped' && !open(o)
-    : st === 'done' ? o.status === 'paid' && o.fulfil === 'delivered' && !open(o) : st === 'claim' ? open(o) : st === 'refund' ? o.refunded > 0 : st === 'paid' ? o.status === 'paid'
+    : st === 'done' ? o.status === 'paid' && o.fulfil === 'delivered' && !open(o) : st === 'claim' ? !!o.claim || o.status === 'cancelled' || o.refunded > 0 : st === 'refund' ? o.refunded > 0 : st === 'paid' ? o.status === 'paid'
     : st === 'late' ? !!o.late : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : st === 'failed' ? !!o.failStage : true;
   // 서버가 준 엑셀 파일을 내려받기(이름은 Content-Disposition 의 filename*)
   async function download(url, data) {
@@ -532,10 +532,13 @@
           <div class="actions static" id="reset-box"><button class="btn sm danger" type="button" id="reset-1">시험 기록 정리하기</button></div></div></details>`;
     }
     // ── 이 기간 숫자
-    const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => stOk(o, 'todo')), shipIn = paidIn.filter(o => stOk(o, 'ship')), claimIn = d.orders.filter(o => stOk(o, 'claim'));
+    const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => stOk(o, 'todo')), shipIn = paidIn.filter(o => stOk(o, 'ship')), claimIn = d.orders.filter(o => stOk(o, 'claim')), claimOpenIn = claimIn.filter(open);
     const list = d.orders.filter(o => stOk(o, PAYF.st)), failIn = d.orders.filter(o => o.failStage), failCard = failIn.filter(o => o.failStage === 'approval');
     const days = []; for (const o of list) { let g = days.find(x => x.day === o.day); if (!g) days.push(g = { day: o.day, list: [] }); g.list.push(o); }
     // 숫자 칸의 건수: 누르면 그 상태 탭으로 바꾸고 주문 목록으로 내려간다(지금 보고 있는 탭이면 진하게)
+    const EMPTY = { todo: '이 기간에 보낼 주문이 없습니다.', late: '출고가 늦어진 주문이 없습니다.', ship: '이 기간에 배송 중인 주문이 없습니다.', done: '이 기간에 배송 완료된 주문이 없습니다.',
+      claim: '이 기간에 취소·반품·교환·환불 주문이 없습니다.', refund: '이 기간에 환불한 주문이 없습니다.', paid: '이 기간에 결제 완료된 주문이 없습니다.', issue: '이 기간에 확인 필요·결제 취소 주문이 없습니다.',
+      failed: '이 기간에 결제가 안 된 시도가 없습니다.', tries: '이 기간에 결제 시도가 없습니다.' };
     const kpiN = (st, label, n) => `<a href="#" class="kpi-n${PAYF.st === st ? ' on' : ''}" data-st="${st}" data-jump="1" aria-label="${h(label)} ${num(n)}건 — 주문 목록 보기">${num(n)}건</a>`;
     const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}" data-q="${h([o.moid, o.receiver, o.tel, o.invoice, o.memo2, ...o.items].join(' ').toLowerCase())}">
         <input type="checkbox" data-sel="${h(o.moid)}" ${o.status === 'paid' ? '' : 'disabled'} aria-label="${h(o.receiver)} 주문 고르기">
@@ -555,7 +558,7 @@
       <div class="kpis"><div class="kpi"><span>결제 완료</span>${kpiN('paid', '결제 완료', paidIn.length)}<small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
         <div class="kpi"><span>발송 전</span>${kpiN('todo', '발송 전', todoIn.length)}<small>${d.tasks && d.tasks.late ? `<b class="o-warn">출고 지연 ${num(d.tasks.late)}건</b> · ` : ''}${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
         <div class="kpi"><span>배송 중</span>${kpiN('ship', '배송 중', shipIn.length)}<small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div>
-        <div class="kpi"><span>취소·반품·교환 진행</span>${kpiN('claim', '취소·반품·교환 진행', claimIn.length)}<small>${d.tasks && d.tasks.claimCustomer ? `손님 새 요청 ${num(d.tasks.claimCustomer)}건 · ` : ''}${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
+        <div class="kpi"><span>취소·반품·교환</span>${kpiN('claim', '취소·반품·교환', claimIn.length)}<small>${d.tasks && d.tasks.claimCustomer ? `<b class="o-warn">손님 새 요청 ${num(d.tasks.claimCustomer)}건</b> · ` : ''}${claimOpenIn.length ? `<b class="o-warn">처리 중 ${num(claimOpenIn.length)}건</b>` : '처리 중인 요청 없음'}${claimIn.length > claimOpenIn.length ? ` · 끝난 것 ${num(claimIn.length - claimOpenIn.length)}건` : ''}</small></div></div>
       ${failIn.length && PAYF.st !== 'failed' ? `<p class="help">이 기간 결제가 안 된 시도 ${num(failIn.length)}건${failCard.length ? `(카드 승인 안 됨 <b class="o-warn">${num(failCard.length)}건</b>)` : ''} — <a href="#" data-st="failed">결제 실패 보기</a></p>` : ''}
       ${d.sms ? '' : '<p class="help">손님 안내 문자(결제 완료·발송·환불)가 아직 연결되지 않았습니다 — <a href="#/shipset">배송 설정 › 손님 안내 문자</a></p>'}
       <div class="obar"><label class="chk"><input type="checkbox" id="o-all"> 보이는 결제 완료 주문 모두 고르기</label><span class="o-n" id="o-n">0건 고름</span>
@@ -565,7 +568,7 @@
         <div class="fgrid"><div><label for="inv-c">택배사</label><select id="inv-c">${(d.couriers || []).map(([k, t]) => `<option value="${h(k)}" ${k === d.courier ? 'selected' : ''}>${h(t)}</option>`).join('')}</select></div></div>
         <textarea id="inv-t" rows="6" placeholder="JS20261119123456ABCDEF&#9;12345678901"></textarea><div class="actions static"><button class="btn sm pri" type="button" id="inv-go">송장 넣고 발송 처리</button></div><div id="inv-out"></div></div>
       ${days.length ? days.map(g => { const pd = g.list.filter(o => o.status === 'paid'); return `<section class="oday"><h3>${h(dayLabel(g.day))}<small>${g.list.length}건${pd.length ? ` · 결제 완료 ${pd.length}건 ${won(pd.reduce((a, o) => a + o.amount, 0))}` : ''}</small></h3>${g.list.map(row).join('')}</section>`; }).join('')
-        : `<div class="card">${empty(PAYF.st === 'todo' ? '이 기간에 보낼 주문이 없습니다.' : '이 기간에 주문이 없습니다.')}</div>`}
+        : `<div class="card">${empty(EMPTY[PAYF.st] || '이 기간에 주문이 없습니다.')}</div>`}
       <p class="help">엑셀: '택배 접수용'은 주문 1건이 1줄(로젠 iLOGEN 등 복수건 접수 화면에서 열과 항목을 한 번 맞춰 엑셀 타입으로 저장해 두면 계속 쓸 수 있습니다), '3PL 발주서'는 업체 양식 그대로 상품 1개가 1줄(품목명 규칙은 배송 설정)입니다. 손님 이름·연락처·주소가 들어 있으니 접수 뒤에는 PC 에서 지워 주세요.</p>`;
     // 고르기
     const sel = new Set();
@@ -583,6 +586,7 @@
     // 숫자 칸에서 왔으면 그 탭의 주문 목록 첫 줄로(위에 붙는 선택 막대·휴대폰 머리 메뉴 높이만큼 띄움)
     if (PAYF.jump) {
       PAYF.jump = false;
+      if (!list.length) toast(EMPTY[PAYF.st] || '이 기간에 주문이 없습니다.');   // 0건이면 목록이 비어 아무 일도 없어 보이므로 알려 준다
       const ib = $('#inv-box'), first = v.querySelector('.oday') || (ib && ib.nextElementSibling), bar = v.querySelector('.obar'), head = matchMedia('(max-width:820px)').matches ? 62 : 0;
       if (first) scrollTo({ top: Math.max(0, first.getBoundingClientRect().top + scrollY - (bar ? bar.offsetHeight : 0) - head - 8), behavior: 'smooth' });
     }

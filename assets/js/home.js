@@ -25,6 +25,7 @@
     const saveData = navigator.connection && navigator.connection.saveData;
     const SEEN = 'jam_reel_seen', DUR = 5500, END_HOLD = 3000;   // END_HOLD: 휴대폰에서 영상이 끝난 뒤 슬라이드로 넘어가기까지
     let mode = '', src = '', idx = 0, elapsed = 0, last = 0, userPaused = !!reduce, hold = false, visible = true, endT = 0;
+    let reelMs = 0, reelUserPause = false;   // 영상이 화면에 보이며 재생된 실제 시간(안전장치용) · 손님이 영상 멈춤 버튼을 눌렀는지
 
     function setSrc() {
       const pt = isPortrait(), s = pt ? 'assets/video/hero-mobile.mp4' : 'assets/video/hero-desktop.mp4';
@@ -40,7 +41,7 @@
     }
     function setMode(m, instant) {
       if (m === mode) return;
-      mode = m; clearTimeout(endT); endT = 0;
+      mode = m; clearTimeout(endT); endT = 0; reelMs = 0; reelUserPause = false;
       if (instant) hero.classList.add('no-anim');
       hero.dataset.mode = m;
       if (instant) requestAnimationFrame(() => requestAnimationFrame(() => hero.classList.remove('no-anim')));
@@ -56,7 +57,7 @@
         setTimeout(() => slides.forEach(sl => { const im = sl.querySelector('img'); if (im && im.loading === 'lazy') im.loading = 'eager'; }), 800);
       }
     }
-    ctrl.addEventListener('click', () => { if (video.paused) video.play().catch(() => {}); else video.pause(); });
+    ctrl.addEventListener('click', () => { if (video.paused) { reelUserPause = false; video.play().catch(() => {}); } else { reelUserPause = true; video.pause(); } });
     // 영상이 끝나면: 휴대폰(세로 화면)은 마지막 장면을 3초 보여 준 뒤 슬라이드로, PC 는 바로(2026-11-20).
     //   일부 휴대폰 브라우저는 'ended' 를 늦게 주거나 안 주므로, 끝(0.3초 안)에서 멈추거나 1초 넘게 그대로면 끝난 것으로 본다
     const nearEnd = () => video.duration > 0 && video.currentTime >= video.duration - 0.3;
@@ -68,7 +69,12 @@
     setInterval(() => {
       if (mode !== 'reel' || endT) { still = 0; return; }
       const t = video.currentTime; still = t === lastT ? still + 500 : 0; lastT = t;
-      if (nearEnd() && still >= 1000) reelDone();
+      if (nearEnd() && still >= 1000) { reelDone(); return; }
+      // 마지막 안전장치: 재생이 시작된 뒤 화면에 보이는 동안 흐른 실제 시간이 '영상 길이 + 3초 + 1.5초'를 넘으면 넘긴다
+      //   (끝 신호·재생 위치를 제대로 주지 않는 휴대폰 브라우저에서도 영상에 갇히지 않게). 손님이 멈춤을 누른 동안은 세지 않는다
+      if (t > 0 && !reelUserPause && visible && !document.hidden) reelMs += 500;
+      const len = (isFinite(video.duration) && video.duration > 0 ? video.duration : 15) * 1000;
+      if (reelMs >= len + END_HOLD + 1500) setMode('slides');
     }, 500);
     video.addEventListener('play', () => { setCtrl(true); clearTimeout(endT); endT = 0; });   // 끝난 뒤 다시 재생하면 넘김 취소
     video.addEventListener('pause', () => { setCtrl(false); if (nearEnd()) reelDone(); });
@@ -101,10 +107,13 @@
     }
     pauseBtn.addEventListener('click', () => setPaused(!userPaused));
     setPaused(userPaused);
-    // 마우스를 올리거나 키보드 포커스가 안에 있으면 잠시 멈춤
+    // 마우스를 올리거나 키보드(Tab) 포커스가 안에 있으면 잠시 멈춤.
+    //   손가락으로 슬라이드를 톡 누르면 슬라이드 영역(tabindex=-1)이 포커스를 받는데, 그때는 멈추지 않는다
+    //   (예전에는 한 번 누르면 자동 넘김이 계속 멈춰 있었음 — 2026-11-20)
+    const kbFocus = el => { try { return el.matches(':focus-visible'); } catch (e) { return true; } };
     region.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') hold = true; });
     region.addEventListener('pointerleave', () => { hold = false; });
-    region.addEventListener('focusin', () => { hold = true; });
+    region.addEventListener('focusin', e => { if (kbFocus(e.target)) hold = true; });
     region.addEventListener('focusout', e => { if (!region.contains(e.relatedTarget)) hold = false; });
     region.addEventListener('keydown', e => {
       if (e.key === 'ArrowRight') { e.preventDefault(); go(idx + 1); }
@@ -129,7 +138,8 @@
     })(0);
     new IntersectionObserver(([e]) => {
       visible = e.isIntersecting;
-      if (mode === 'reel') { if (visible) video.play().catch(() => {}); else video.pause(); }
+      // 영상 중에 화면 밖으로 나가면 멈추고 돌아오면 이어서(이미 끝났거나 슬라이드로 넘어가는 중이면 다시 틀지 않음)
+      if (mode === 'reel') { if (visible) { if (!video.ended && !endT && !reelUserPause) video.play().catch(() => {}); } else video.pause(); }
     }).observe(hero);
     // 히어로가 화면을 덮고 있으면 플로팅 버튼을 숨긴다(접기 시퀀스와 같은 규칙)
     loops.push(() => {
