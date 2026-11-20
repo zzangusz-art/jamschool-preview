@@ -33,7 +33,7 @@ function send(n,p){w.dataLayer.push(Object.assign({event:'jam_'+n},p));if(typeof
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a,button');if(!a)return;var h=a.getAttribute('href')||'',id=a.id||'',t=(a.textContent||'').replace(/\\s+/g,' ').trim().slice(0,40);
 if(/smartstore\\.naver\\.com/.test(h))send('store_click',{link_url:h,label:t});else if(/^tel:/.test(h))send('call_click',{link_url:h});
 else if(/kakao/.test(h))send('kakao_click',{link_url:h});else if(/jamschool\\.co\\.kr/.test(h))send('mall_click',{link_url:h,label:t});
-else if(/^(pd-buy|bb-buy|sh-buy)$/.test(id))send('buy_click',{label:t});else if(id==='sh-cart')send('cart_click',{label:t});},true);})();</script>`;
+else if(/^(pd-buy|pd-npay|bb-buy|sh-buy)$/.test(id))send('buy_click',{label:t});else if(id==='sh-cart')send('cart_click',{label:t});},true);})();</script>`;
 // 광고 픽셀(메타·카카오·구글 광고 전환·네이버 전환): 운영 주소(jamschool.kr)에서만 켠다. 페이지 보기는 자동, 상품 보기·장바구니·주문서·구매는 window.jamAd(종류, 값)로
 //   종류: view(상품 상세) · cart(장바구니 담기, ui.js) · checkout(주문서 제출, checkout.js) · purchase(결제 완료, complete.js — 주문번호당 한 번)
 const AD = { meta: tag('metaPixel'), kakao: tag('kakaoPixel'), ads: tag('googleAds'), label: tag('googleAdsPurchaseLabel') };
@@ -323,7 +323,7 @@ function infoHTML(p) {
       <button class="btn btn--primary" type="button" id="pd-buy">구매하기</button>
     </div>
     <div class="pd-btns2">
-      ${p.store ? `<a class="btn btn--npay btn--block" href="${esc(p.store)}" target="_blank" rel="noopener">N Pay 네이버페이로 구매</a>` : ''}
+      <button class="btn btn--npay btn--block" type="button" id="pd-npay">N Pay 네이버페이로 구매</button>
       <button class="btn btn--line btn--sm" type="button" id="pd-share">${svg('i-share')}공유하기</button>
     </div>
   </div>`;
@@ -604,7 +604,7 @@ page('shop.html', {
   let main = rd('src/pages/checkout.html');
   main = fill(main, 'steps', steps(2)); main = fill(main, 'shipnote', esc(CHECKOUT.shipNote)); main = fill(main, 'couriers', esc(CHECKOUT.couriers));
   main = fill(main, 'paym', PAY); main = fill(main, 'agree', agree);
-  main = fill(main, 'pvnote', CHECKOUT.mode === 'pg' ? '' : '<p class="co-pv" role="note"><b>결제는 잠스쿨 스마트스토어에서</b>‘결제하기’를 누르면 같은 상품의 공식 스마트스토어로 이동합니다. 거기서 같은 옵션을 골라 결제해 주세요(네이버페이·카드·카카오페이 등).</p>');
+  main = fill(main, 'pvnote', CHECKOUT.mode === 'pg' ? '' : '<p class="co-pv" role="note"><b>결제 서비스 점검 중</b>지금은 홈페이지 결제를 잠시 쉬고 있습니다. 고객센터 전화나 카카오톡으로 주문해 주세요.</p>');
   page('checkout.html', { title: '주문서 작성 | 잠스쿨', desc: '잠스쿨 주문서', noindex: true, bodyclass: 'page-checkout', main, js: ['checkout.js'] });
 }
 {

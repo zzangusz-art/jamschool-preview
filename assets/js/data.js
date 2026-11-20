@@ -314,7 +314,7 @@
   //       'pg'      : PG 계약 후. assets/js/checkout.js 의 requestPayment() 에 결제창 호출을 넣는다
   // 배송비·적립률은 공식몰 안내 기준(2026-10). 제주·도서산간 추가 배송비 금액은 공식몰에 적혀 있지 않아 금액을 표시하지 않는다.
   const CHECKOUT = {
-    mode: 'preview',
+    mode: 'pg',
     shipFee: 0,
     shipNote: '제주·도서산간 지역은 추가 배송비가 있으며, 주문 확인 후 고객센터에서 안내합니다.',
     pointRate: 0.01,
@@ -333,8 +333,6 @@
       { id: 'npay', label: '네이버페이', note: '휴대폰에서는 네이버페이 결제 창이 바로 열리고, PC에서는 결제 창의 N Pay 탭에서 결제합니다.' },
       { id: 'kakaopay', label: '카카오페이', note: '휴대폰에서는 카카오페이 결제 창이 바로 열리고, PC에서는 결제 창의 카카오페이 탭에서 결제합니다.' },
     ],
-    // 결제가 꺼져 있을 때: 결제 버튼을 누르면 스마트스토어로 보낸다(상품 링크가 없으면 스토어 홈)
-    storeHome: STORE,
   };
 
   // 관리자 어드민에서 고친 값(content/site.json → 빌드가 페이지마다 window.JAM_OVERRIDES 로 넣는다): 상품 기본 정보·사진, 3단 옵션 가격

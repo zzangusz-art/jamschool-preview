@@ -173,11 +173,15 @@ strong, b { font-weight: 700; color: var(--ink); }
 }
 
 /* ── hero: 15초 쇼릴 → 제품 슬라이드 배너 (영상 비율 그대로의 상자 안에서 교차) */
-.hero { --hero-top: var(--header-h); --hero-h: min(56.25vw, calc(100svh - var(--hero-top))); position: relative; height: var(--hero-h); overflow: hidden; background: #fff; }
+/* 높이: 첫 화면 크기(--hero-h)를 기본으로 하되, 글자가 커진 휴대폰(갤럭시 글자 크기·카카오톡 앱 안 브라우저 등)에서는
+   문구·버튼이 잘리거나 겹치지 않게 내용만큼 늘어난다(슬라이드는 흐름 안, 영상은 그 위에 겹침) — 2026-11-20 */
+.hero { --hero-top: var(--header-h); --hero-h: min(56.25vw, calc(100svh - var(--hero-top))); position: relative; min-height: var(--hero-h); overflow: hidden; background: #fff; }
 @media (max-aspect-ratio: 1/1) { .hero { --hero-h: min(177.78vw, calc(100svh - var(--hero-top))); } }
 /* 상단 띠 배너가 떠 있는 동안에는 그 높이도 빼서, 첫 화면에서 영상 아래끝까지 보이게 */
 :root:has(.topbar:not([hidden])) .hero { --hero-top: calc(var(--header-h) + var(--topbar-h)); }
-.hero__reel, .hero__slides { position: absolute; inset: 0; transition: opacity .7s var(--ease), visibility .7s; }
+.hero__reel, .hero__slides { transition: opacity .7s var(--ease), visibility .7s; }
+.hero__reel { position: absolute; inset: 0; }
+.hero__slides { position: relative; }
 .hero[data-mode="slides"] .hero__reel, .hero[data-mode="reel"] .hero__slides { opacity: 0; visibility: hidden; }
 .hero__reel { display: grid; place-items: center; background: #fff; }
 /* 영상은 상자에 꽉 맞추되 잘리지 않게(contain): 남는 쪽은 흰 여백 */
@@ -191,12 +195,13 @@ strong, b { font-weight: 700; color: var(--ink); }
 .hero__skip svg { width: 16px; height: 16px; }
 
 /* 슬라이드 */
-.hs__track { position: relative; height: 100%; }
-.hs { position: absolute; inset: 0; display: grid; grid-template-rows: 50% 1fr; background: var(--hs-bg, #EEF5F9); opacity: 0; visibility: hidden; transition: opacity .6s var(--ease), visibility .6s; }
+/* 슬라이드는 모두 한 칸에 겹쳐 쌓는다: 가장 긴 슬라이드 높이로 맞춰져 넘길 때 높이가 출렁이지 않는다 */
+.hs__track { position: relative; display: grid; }
+.hs { position: relative; grid-area: 1 / 1; min-height: var(--hero-h); display: grid; grid-template-rows: calc(var(--hero-h) * .5) 1fr; background: var(--hs-bg, #EEF5F9); opacity: 0; visibility: hidden; transition: opacity .6s var(--ease), visibility .6s; }
 .hs.is-on { opacity: 1; visibility: visible; }
 .hs__img { position: relative; overflow: hidden; }
 .hs__img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.hs__copy { display: flex; flex-direction: column; justify-content: flex-start; padding: 20px var(--gutter) 64px; }
+.hs__copy { display: flex; flex-direction: column; justify-content: flex-start; padding: 20px var(--gutter) 28px; }
 .hs__eyebrow { font-size: 13px; font-weight: 800; letter-spacing: .04em; color: var(--sky-ink); }
 .hs__title { margin-top: 6px; font-size: clamp(28px, 7.6vw, 56px); font-weight: 900; letter-spacing: -0.04em; line-height: 1.16; color: var(--ink); }
 .hs__title em { display: block; font-style: normal; color: var(--sky-2); }
@@ -214,7 +219,10 @@ strong, b { font-weight: 700; color: var(--ink); }
 .hs--dark .hs__sub { color: rgba(255, 255, 255, .78); }
 .hs--dark .hs__chips li { background: rgba(255, 255, 255, .12); color: #fff; }
 .hs--dark .btn--line { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .45); }
-/* 슬라이드 조작: 점(진행 막대) · 번호 · 이전/다음 · 멈춤 · 영상 다시 보기 */
+/* 슬라이드 조작: 점(진행 막대) · 번호 · 이전/다음 · 멈춤 · 영상 다시 보기
+   화면에는 띄우지 않는다(2026-11-20: 휴대폰에서 버튼과 겹침 — 진행 막대 없앰). 넘기기는 자동·밀기(스와이프)·키보드 ←/→.
+   키보드(Tab)로 들어오면 그때만 보인다 — 자동 넘김을 멈추거나 고를 수 있게(접근성) */
+.hs__ui:not(:focus-within) { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .hs__ui { position: absolute; left: var(--gutter); right: var(--gutter); bottom: 16px; z-index: 2; display: flex; align-items: center; gap: 10px; }
 .hs__dots { display: flex; gap: 6px; flex: 1; max-width: 300px; }
 .hs__dot { position: relative; flex: 1; height: 24px; }
@@ -234,15 +242,17 @@ strong, b { font-weight: 700; color: var(--ink); }
 @media (max-aspect-ratio: 1/1) {
   .hs--render .hs__img { background: var(--hs-img-bg); }
   .hs--render .hs__img img { object-fit: contain; }   /* 3D 컷은 잘리지 않게 전체를 보여 준다 */
-  .hs { grid-template-rows: 42% 1fr; }
-  .hs__copy { padding: 16px var(--gutter) 58px; }
+  /* 사진 칸은 화면 폭 기준(3:2) — 브라우저 위아래 막대 높이와 상관없이 같은 폭이면 같은 모양 */
+  .hs { grid-template-rows: auto 1fr; }
+  .hs__img { align-self: start; aspect-ratio: 3 / 2; }
+  .hs__copy { padding: 16px var(--gutter) 24px; }
   .hs__title { font-size: clamp(26px, 7vw, 40px); }
   .hs__sub { font-size: clamp(15px, 4vw, 19px); }
   .hs__chips { flex-wrap: nowrap; overflow: hidden; margin-top: 10px; }
   .hs__chips li { flex: none; }
   .hs__chips li:nth-child(n+3) { display: none; }
   .hs__price { margin-top: 10px; }
-  .hs__cta { margin-top: 12px; flex-wrap: nowrap; }
+  .hs__cta { margin-top: 12px; }   /* 폭이 모자라면(글자 큼) 버튼이 다음 줄로 — 화면 밖으로 밀리지 않게 */
   .hs__cta .btn { min-height: 46px; padding: 0 18px; font-size: 15px; }
 }
 /* 가로 화면: 왼쪽 문구 · 오른쪽 사진 */
@@ -252,7 +262,7 @@ strong, b { font-weight: 700; color: var(--ink); }
   .hs__img { order: 2; display: grid; place-items: center; padding: clamp(24px, 4vh, 48px) max(var(--gutter), calc((100vw - var(--wrap)) / 2)) clamp(24px, 4vh, 48px) 0; }
   .hs__img img { position: relative; inset: auto; width: min(100%, calc(var(--hero-h) - clamp(48px, 8vh, 96px)), 720px); height: auto; aspect-ratio: 1; border-radius: 24px; box-shadow: 0 30px 60px -30px rgba(16, 40, 72, .35); }
   .hs--dark .hs__img img { box-shadow: 0 30px 60px -30px rgba(0, 0, 0, .6); }
-  .hs__copy { justify-content: center; padding: 40px clamp(24px, 5vw, 80px) 80px max(var(--gutter), calc((100vw - var(--wrap)) / 2)); }
+  .hs__copy { justify-content: center; padding: 40px clamp(24px, 5vw, 80px) 40px max(var(--gutter), calc((100vw - var(--wrap)) / 2)); }
   .hs__chips li { font-size: 14px; padding: 6px 13px; }
   .hs__ui { left: max(var(--gutter), calc((100vw - var(--wrap)) / 2)); right: auto; width: min(440px, 40vw); bottom: clamp(18px, 4vh, 40px); }
 }

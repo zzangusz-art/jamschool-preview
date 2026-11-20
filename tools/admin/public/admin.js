@@ -199,13 +199,13 @@
     const paidToday = paid.filter(o => o.day === tday);
     const payBy = dates.map(dt => paid.filter(o => o.day === dt)), paySum = payBy.map(l => l.reduce((a, o) => a + o.amount, 0));
     const src7 = sumObj(last7.map(d => d.sources)), ent7 = last7.reduce((a, d) => a + d.entries, 0);
-    const recent = orders.slice(0, 5);
+    const recent = orders.filter(o => !o.failStage).slice(0, 5);   // 결제 실패·중단은 '결제 주문 › 결제 실패'에서
     v.innerHTML = `${s ? persistNote(s) : ''}<div class="kpis">
         <div class="kpi"><span>오늘 방문자</span><b>${num(today.uv)}명</b><small>${delta(today.uv, yday.uv)} 어제 ${num(yday.uv)}명</small></div>
         <div class="kpi"><span>최근 7일 방문자</span><b>${num(u7)}명</b><small>${delta(u7, up7)} 직전 7일 ${num(up7)}명</small></div>
         <div class="kpi"><span>오늘 결제</span><b>${num(paidToday.length)}건</b><small>${won(paidToday.reduce((a, o) => a + o.amount, 0))}</small></div>
         <div class="kpi"><span>발송 전 주문</span><b>${num(p ? p.todo : 0)}건</b><small>${p && p.todo ? '<a href="#/payments" id="go-todo">보낼 주문 보기 →</a>' : '보낼 주문 없음'}</small></div></div>
-      ${p && p.tasks ? (() => { const t = p.tasks, items = [['todo', '신규 주문(발주 확인 전)', t.new], ['todo', '상품 준비 중(송장 입력 전)', t.prep], ['late', '출고 지연', t.late], ['claim', '취소·반품·교환 처리 중', t.claim], ['claim', '손님 새 요청', t.claimCustomer], ['issue', '결제 확인 필요', t.check], ['rv', '승인 대기 구매평', t.rvPending]].filter(x => x[2]);
+      ${p && p.tasks ? (() => { const t = p.tasks, items = [['todo', '신규 주문(발주 확인 전)', t.new], ['todo', '상품 준비 중(송장 입력 전)', t.prep], ['late', '출고 지연', t.late], ['claim', '취소·반품·교환 처리 중', t.claim], ['claim', '손님 새 요청', t.claimCustomer], ['issue', '결제 확인 필요', t.check], ['failed', '결제 실패(최근 24시간, 카드 승인 안 됨)', t.failed], ['rv', '승인 대기 구매평', t.rvPending]].filter(x => x[2]);
         return `<div class="card todo-card"><h2>처리할 일</h2>${items.length ? `<div class="todo-list">${items.map(([st, label, n]) => `<a href="#/payments" data-go="${st}" class="${st === 'late' || label === '손님 새 요청' || st === 'issue' ? 'warn' : ''}"><span>${h(label)}</span><b>${num(n)}건</b></a>`).join('')}</div>` : '<p class="help">지금 처리할 주문이 없습니다.</p>'}</div>`; })() : ''}
       <div class="cols"><div class="card"><div class="ch"><div><h2>방문자</h2><p class="h-sub">최근 14일 · 마우스를 올리면 그날 숫자</p></div><a class="btn sm" href="#/traffic/30">자세히</a></div><div class="lcbox" id="d-visit">${s ? '' : empty('방문 기록을 불러오지 못했습니다.')}</div></div>
         <div class="card"><div class="ch"><div><h2>결제 금액</h2><p class="h-sub">최근 14일 결제 완료(취소 제외) · 14일 합계 ${won(paySum.reduce((a, b) => a + b, 0))}</p></div><a class="btn sm" href="#/payments">자세히</a></div><div class="lcbox" id="d-pay"></div></div></div>
@@ -448,28 +448,37 @@
     let rt; window.onresize = () => { clearTimeout(rt); rt = setTimeout(() => { if (location.hash !== here) { window.onresize = null; return; } lcDraw && lcDraw(); rsDraw(); rwDraw && rwDraw(); }, 150); };
   }
 
-  // ── 주문(결제 연동 전: 주문서 → 스마트스토어 결제)
+  // ── 주문 흐름(상품 조회 → 구매 클릭 → 주문서 → 홈페이지 결제). 결제는 모두 이 홈페이지(씨드페이먼츠)
   const PAY_NAME = { card: '카드', bank: '무통장입금', npay: '네이버페이', kakaopay: '카카오페이', 기타: '기타' };
   async function orders() {
     const P = period('orders'), { n, seg } = P;
-    const v = shell('주문', { desc: '사이트에서 구매 버튼을 누르고 주문서를 낸 흐름입니다.', tool: seg });
-    const s = await api('GET', `/api/admin/stats?${P.q}`), t = s.total, e = t.events || {};
-    const views = Object.values(t.products).reduce((a, p) => a + p.views, 0), buy = (e.buy_click || 0) + (e.cart_click || 0), sent = (e.store_click || 0) + (e.checkout_submit || 0);
+    const v = shell('주문', { desc: '상품을 보고 구매 버튼을 누른 뒤 주문서에서 홈페이지 결제까지 간 흐름입니다.', tool: seg });
+    const pf = P.pick ? P.from : kToday(+n - 1), pt = P.pick ? P.to : kToday(0);
+    const [s, pay] = await Promise.all([api('GET', `/api/admin/stats?${P.q}`), api('GET', `/api/admin/payments?from=${pf}&to=${pt}`).catch(() => null)]);
+    const t = s.total, e = t.events || {};
+    // 결제는 결제 주문 기록(실제 승인) 기준, 결제 실패 = 카드 승인 안 됨·결제창에서 취소·결제창 닫음
+    const po = pay ? pay.orders : [], paid = po.filter(o => o.status === 'paid'), failed = po.filter(o => o.failStage), failCard = failed.filter(o => o.failStage === 'approval');
+    const paidSum = paid.reduce((a, o) => a + o.amount, 0), byDay = d => paid.filter(o => o.day === d).length;
+    const views = Object.values(t.products).reduce((a, p) => a + p.views, 0), buy = (e.buy_click || 0) + (e.cart_click || 0);
     const step = (label, val, base, note) => `<div><span>${label}</span><b>${num(val)}</b><small>${base == null ? note : `${note} · ${pct(val, base)}`}</small></div>`;
-    const rows = Object.entries(t.products).map(([id, p]) => [id, p, t.orders.items[id] || 0]).sort((a, b) => b[1].views - a[1].views);
-    v.innerHTML = `${persistNote(s)}${ME.user.role === 'owner' ? `<div class="box info"><b>주문서까지 온 흐름입니다.</b> 홈페이지 결제로 실제 결제된 주문은 <a href="#/payments">결제 주문</a>에서 봅니다. 홈페이지 결제가 꺼져 있을 때는 '결제하기'를 누르면 같은 상품의 잠스쿨 스마트스토어로 넘어가 거기서 결제합니다. 실제 결제·배송은 <a href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어 판매자센터</a>에서 확인하세요.${s.ordersSince ? ` <br><small>주문 흐름은 ${h(s.ordersSince)}부터 셉니다(그 전은 시험 기록).</small>` : ''}</div>` : ''}
-      <div class="funnel">${step('상품 페이지 조회', views, null, '상품 상세를 연 수')}${step('구매·장바구니 클릭', buy, views, '조회 대비')}${step('주문서 제출', t.orders.n, buy || null, buy ? '클릭 대비' : '주문서에서 결제하기')}${step('스마트스토어로 이동', sent, null, 'N Pay·스마트스토어 버튼 포함')}</div>
-      <div class="kpis"><div class="kpi"><span>주문서 금액 합계</span><b>${won(t.orders.sum)}</b><small>참고용 — 실제 결제 금액 아님</small></div>
+    // 상품별: 조회(통계) + 결제 수량(결제 완료 주문). 조회 기록이 없어도 결제된 상품은 넣는다
+    const paidQty = {}; for (const o of paid) for (const l of o.lines || []) paidQty[l.id] = (paidQty[l.id] || 0) + l.qty;
+    const rows = [...new Set([...Object.keys(t.products), ...Object.keys(paidQty)])].map(id => [id, t.products[id] || { views: 0, buy: 0 }, t.orders.items[id] || 0, paidQty[id] || 0]).sort((a, b) => b[3] - a[3] || b[1].views - a[1].views);
+    const payBy = {}; for (const o of paid) payBy[o.payLabel || '기타'] = (payBy[o.payLabel || '기타'] || 0) + 1;
+    const clicks = top({ '구매하기(N Pay 포함)': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '회원가입': e.member_join || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]);
+    v.innerHTML = `${persistNote(s)}<div class="box info"><b>상품 조회부터 홈페이지 결제까지의 흐름입니다.</b> 결제는 모두 이 홈페이지(씨드페이먼츠 — 카드·네이버페이·카카오페이)에서 합니다. 결제된 주문의 발송·취소·환불은 <a href="#/payments">결제 주문</a>, 결제가 안 된 시도는 <a href="#/payments" data-go="failed">결제 주문 › 결제 실패</a>에서 봅니다.${s.ordersSince ? ` <br><small>주문서 숫자는 ${h(s.ordersSince)}부터 셉니다(그 전은 시험 기록).</small>` : ''}</div>
+      <div class="funnel">${step('상품 페이지 조회', views, null, '상품 상세를 연 수')}${step('구매·장바구니 클릭', buy, views, '조회 대비')}${step('주문서 제출', t.orders.n, buy || null, buy ? '클릭 대비 · 결제하기를 누름' : '결제하기를 누름')}${step('결제 완료', paid.length, t.orders.n || null, t.orders.n ? '주문서 대비' : '홈페이지 결제 승인')}</div>
+      <div class="kpis"><div class="kpi"><span>결제 금액</span><b>${won(paidSum)}</b><small>결제 완료 ${num(paid.length)}건 · 취소 전 금액</small></div>
+        <div class="kpi"><span>결제 실패</span><b>${num(failed.length)}건</b><small>${failed.length ? `${failCard.length ? `카드 승인 안 됨 ${num(failCard.length)}건 · ` : ''}<a href="#/payments" data-go="failed">보기 →</a>` : '결제가 안 된 시도 없음'}</small></div>
         <div class="kpi"><span>회원가입</span><b>${num(e.member_join)}</b><small>홈페이지 회원</small></div>
-        <div class="kpi"><span>전화 걸기</span><b>${num(e.call_click)}</b><small>휴대폰에서 번호 누름</small></div>
-        <div class="kpi"><span>카카오톡 문의</span><b>${num(e.kakao_click)}</b><small>상담 버튼</small></div></div>
-      ${n !== '1' ? `<div class="card"><h2>날짜별 주문서</h2><p class="h-sub">주문서를 내고 스마트스토어로 넘어간 수</p>${chart(s.days, [['orders', '#0B8ED2', '주문서 제출']])}</div>` : ''}
-      <div class="card"><h2>상품별</h2><p class="h-sub">조회 많은 순 · 구매 클릭률이 낮으면 가격·사진·상세페이지를 먼저 보세요</p>
-        ${rows.length ? `<table class="list"><thead><tr><th>상품</th><th class="r">조회</th><th class="r">구매 클릭</th><th class="r">클릭률</th><th class="r">주문서 수량</th><th></th></tr></thead><tbody>${rows.map(([id, p, q]) => `<tr><td><b>${h(s.names[id] || '상품 ' + id)}</b></td><td class="r">${num(p.views)}</td><td class="r">${num(p.buy)}</td><td class="r">${pct(p.buy, p.views)}</td><td class="r">${num(q)}</td><td class="r nw"><a class="btn sm" href="#/products/${h(id)}">고치기</a></td></tr>`).join('')}</tbody></table>` : empty('아직 상품을 본 기록이 없습니다.')}</div>
-      <div class="cols"><div class="card"><h2>고른 결제 수단</h2><p class="h-sub">주문서에서 고른 것(실제 결제는 스마트스토어)</p>${bars(top(t.orders.pay), t.orders.n, k => h(PAY_NAME[k] || k))}</div>
-        <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(top({ '구매하기': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '스마트스토어·N Pay': e.store_click || 0, '회원가입': e.member_join || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]), sum(e) - (e.checkout_submit || 0))}</div></div>`;
+        <div class="kpi"><span>전화·카카오톡</span><b>${num((e.call_click || 0) + (e.kakao_click || 0))}</b><small>전화 ${num(e.call_click)} · 카카오톡 ${num(e.kakao_click)}</small></div></div>
+      ${n !== '1' ? `<div class="card"><h2>날짜별 주문서·결제</h2><p class="h-sub">주문서에서 결제하기를 누른 수와 실제 결제 완료 수</p>${chart(s.days.map(d => ({ ...d, paid: byDay(d.date) })), [['orders', '#7CC3EA', '주문서 제출'], ['paid', '#0B6FA4', '결제 완료']])}</div>` : ''}
+      <div class="card"><h2>상품별</h2><p class="h-sub">결제 많은 순 · 결제 수량은 홈페이지 결제 완료 기준 · 구매 클릭률이 낮으면 가격·사진·상세페이지를 먼저 보세요</p>
+        ${rows.length ? `<table class="list"><thead><tr><th>상품</th><th class="r">조회</th><th class="r">구매 클릭</th><th class="r">클릭률</th><th class="r">주문서 수량</th><th class="r">결제 수량</th><th></th></tr></thead><tbody>${rows.map(([id, p, q, pq]) => `<tr><td><b>${h(s.names[id] || '상품 ' + id)}</b></td><td class="r">${num(p.views)}</td><td class="r">${num(p.buy)}</td><td class="r">${pct(p.buy, p.views)}</td><td class="r">${num(q)}</td><td class="r"><b>${num(pq)}</b></td><td class="r nw"><a class="btn sm" href="#/products/${h(id)}">고치기</a></td></tr>`).join('')}</tbody></table>` : empty('아직 상품을 본 기록이 없습니다.')}</div>
+      <div class="cols"><div class="card"><h2>결제 수단</h2><p class="h-sub">홈페이지에서 결제 완료된 주문 기준${paid.length ? '' : ' · 결제 전에는 주문서에서 고른 것'}</p>${paid.length ? bars(top(payBy), paid.length) : bars(top(t.orders.pay), t.orders.n, k => h(PAY_NAME[k] || k))}</div>
+        <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(clicks, clicks.reduce((a, x) => a + x[1], 0))}</div></div>`;
+    v.querySelectorAll('[data-go="failed"]').forEach(a => a.onclick = ev => { ev.preventDefault(); PAYF.range = P.pick ? 'pick' : n === '1' ? '0' : ['7', '30'].includes(n) ? n : 'pick'; PAYF.from = pf; PAYF.to = pt; PAYF.st = 'failed'; location.hash = '#/payments'; });
   }
-
   // ── 결제 주문(홈페이지 결제: 씨드페이먼츠) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
   const PST = { paid: 'live', cancelled: '', check: 'bad', failed: 'draft', approving: 'draft', ready: '' };
   const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
@@ -478,7 +487,9 @@
   const PAYF = { range: '30', from: '', to: '', st: 'paid' };
   const RANGES = [['0', '오늘'], ['1', '어제'], ['7', '최근 7일'], ['30', '최근 30일'], ['all', '전체 기간'], ['pick', '날짜 고르기']];
   const mdK = s => s ? `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일` : '';
-  const OST = [['todo', '발송 전'], ['late', '출고 지연'], ['ship', '배송 중'], ['done', '배송 완료'], ['claim', '취소·반품·교환'], ['refund', '환불'], ['paid', '결제 완료 전체'], ['issue', '확인 필요·결제 취소'], ['tries', '결제 시도 전체']];
+  const OST = [['todo', '발송 전'], ['late', '출고 지연'], ['ship', '배송 중'], ['done', '배송 완료'], ['claim', '취소·반품·교환'], ['refund', '환불'], ['paid', '결제 완료 전체'], ['issue', '확인 필요·결제 취소'], ['failed', '결제 실패'], ['tries', '결제 시도 전체']];
+  // 결제 실패 종류: approval = 카드 인증 뒤 승인 거절, auth = 결제창에서 취소·인증 실패, abandon = 결제창을 닫음(1시간 넘게 결과 없음)
+  const FST = { approval: '카드 승인 안 됨', auth: '결제창에서 취소·인증 실패', abandon: '결제창 닫음' };
   const kToday = (back = 0) => new Date(Date.now() + 9 * 3600e3 - back * 864e5).toISOString().slice(0, 10);
   const WDK = ['일', '월', '화', '수', '목', '금', '토'];
   const dayLabel = s => `${+s.slice(5, 7)}월 ${+s.slice(8, 10)}일 (${WDK[new Date(s + 'T00:00:00Z').getUTCDay()]})${s === kToday() ? ' · 오늘' : s === kToday(1) ? ' · 어제' : ''}`;
@@ -486,7 +497,7 @@
   const open = o => !!(o.claim && o.claim.open);
   const stOk = (o, st) => st === 'todo' ? o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && !open(o) : st === 'ship' ? o.status === 'paid' && o.fulfil === 'shipped' && !open(o)
     : st === 'done' ? o.status === 'paid' && o.fulfil === 'delivered' && !open(o) : st === 'claim' ? open(o) : st === 'refund' ? o.refunded > 0 : st === 'paid' ? o.status === 'paid'
-    : st === 'late' ? !!o.late : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : true;
+    : st === 'late' ? !!o.late : st === 'issue' ? ['check', 'cancelled', 'approving'].includes(o.status) : st === 'failed' ? !!o.failStage : true;
   // 서버가 준 엑셀 파일을 내려받기(이름은 Content-Disposition 의 filename*)
   async function download(url, data) {
     const res = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'X-Jam-Admin': '1', 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
@@ -505,7 +516,7 @@
     let ownerBox = '';
     if (owner) {
       const state = !d.keySet ? '<div class="box bad"><b>상점키가 없습니다.</b> Railway 변수 SEEDPAY_MERCHANT_KEY 를 넣어야 결제할 수 있습니다.</div>'
-        : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 스마트스토어로 넘어갑니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
+        : `<div class="box ${d.enabled ? 'ok' : 'info'}"><b>홈페이지 결제 ${d.enabled ? '켜짐' : '꺼짐'}</b> ${d.enabled ? '주문서에서 카드로 바로 결제합니다.' : '지금은 주문서에서 결제하기를 누르면 \'결제 점검 중\' 안내(전화·카카오톡 주문)가 뜹니다. 시험 결제는 장바구니에 상품을 담고 <a href="/checkout.html?pg=test" target="_blank" rel="noopener">주문서(시험 결제)</a>에서 할 수 있습니다(실제 결제되니 확인 후 취소).'}
           · 상점 ID ${h(d.mid)}${d.test ? ' · <b>씨드페이먼츠 테스트 서버(devpay)</b>' : ''}${d.dataDir ? '' : ' · <b>주의: 저장 볼륨(DATA_DIR)이 없어 재배포하면 주문 기록이 지워집니다</b>'}
           <br><small>결제통보 URL <code>${h(d.notiUrl)}</code> — 씨드페이먼츠 가맹점 관리자(mms.seedpayments.co.kr) → 가맹점정보 → 결제환경 설정 → 결제결과 통보관리에 신용카드용으로 등록하면, 가맹점 관리자에서 한 취소도 여기 반영됩니다.</small>
           ${d.relay ? `<br><small>한국 중계 ${d.relay.on ? `켜짐 <code>${h(d.relay.url)}</code>` : '꺼짐(Railway 변수 SEEDPAY_RELAY_URL 없음)'} · 중계 키 해시(중계 쪽 RELAY_KEY_SHA256 에 넣는 값, 비밀 아님) <code>${h(d.relay.keyHash || '-')}</code></small>` : ''}
@@ -522,26 +533,28 @@
     }
     // ── 이 기간 숫자
     const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => stOk(o, 'todo')), shipIn = paidIn.filter(o => stOk(o, 'ship')), claimIn = d.orders.filter(o => stOk(o, 'claim'));
-    const list = d.orders.filter(o => stOk(o, PAYF.st));
+    const list = d.orders.filter(o => stOk(o, PAYF.st)), failIn = d.orders.filter(o => o.failStage), failCard = failIn.filter(o => o.failStage === 'approval');
     const days = []; for (const o of list) { let g = days.find(x => x.day === o.day); if (!g) days.push(g = { day: o.day, list: [] }); g.list.push(o); }
     const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}" data-q="${h([o.moid, o.receiver, o.tel, o.invoice, o.memo2, ...o.items].join(' ').toLowerCase())}">
         <input type="checkbox" data-sel="${h(o.moid)}" ${o.status === 'paid' ? '' : 'disabled'} aria-label="${h(o.receiver)} 주문 고르기">
         <div class="o-time">${h(o.time)}</div>
         <div class="o-main"><p class="o-items">${o.items.map(h).join('<br>')}</p>
           <p class="o-to"><b>${h(o.receiver)}</b> · ${h(telFmt(o.tel))} · (${h(o.zip)}) ${h(o.addr)}${o.jeju ? ' · <b class="o-warn">제주·도서산간</b>' : ''}</p>
-          ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.memo2 ? `<p class="o-memo o-admin">관리자 메모: ${h(o.memo2)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${h(o.fail)}</p>` : ''}
+          ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.memo2 ? `<p class="o-memo o-admin">관리자 메모: ${h(o.memo2)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${o.failStage ? `<b class="${o.failStage === 'approval' ? 'o-warn' : ''}">${h(FST[o.failStage] || '결제 안 됨')}</b> · ` : ''}${h(o.fail)}</p>` : ''}
+          ${o.failStage ? `<p class="o-memo">주문자 ${h(o.buyer || o.receiver)}${o.member ? ` · 회원 ${h(o.member)}` : ' · 비회원'} — 돈은 빠져나가지 않았습니다${o.failStage === 'approval' ? '. 필요하면 손님께 연락해 다른 카드·네이버페이·카카오페이를 안내하세요' : ''}</p>` : ''}
           ${o.late ? `<p class="o-memo"><b class="o-warn">출고 지연</b> 출고 예정일(${h(mdK(o.due))})이 지났습니다</p>` : o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && o.due ? `<p class="o-memo">출고 예정 ${h(mdK(o.due))}</p>` : ''}${o.claim && o.claim.byCustomer && o.claim.open ? '<p class="o-memo"><b class="o-warn">손님이 직접 요청</b></p>' : ''}
           <p class="o-id">${h(o.moid)} · ${h(o.payLabel || '')}</p></div>
         <div class="o-side"><b>${won(o.amount)}</b><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.stageName ? `<span class="tag ${h(o.stageTone || '')}">${h(o.stageName)}</span>` : ''}${o.invoice ? `<a class="o-inv" href="${h(o.track)}" target="_blank" rel="noopener">${h(o.courier)} ${h(o.invoice)} ↗</a>` : ''}<a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></div></div>`;
     v.innerHTML = `${ownerBox}${d.shipReady ? '' : '<div class="box info"><b>배송 설정이 비어 있습니다.</b> <a href="#/shipset">배송 설정</a>에서 발송지·회수지 주소와 기본 택배사를 넣어 주세요(택배 엑셀·반품 안내에 쓰입니다).</div>'}${FLOW(d.autoDays)}
       <div class="card ofbar"><div class="seg wrap" role="group" aria-label="기간">${RANGES.map(([k, t]) => `<a href="#" data-range="${k}" class="${PAYF.range === k ? 'on' : ''}">${t}</a>`).join('')}</div>
         <div class="ofpick" ${PAYF.range === 'pick' ? '' : 'hidden'}><input type="date" id="of-from" value="${h(PAYF.from)}" aria-label="시작 날짜"> ~ <input type="date" id="of-to" value="${h(PAYF.to)}" aria-label="끝 날짜"><button class="btn sm" type="button" id="of-go">보기</button></div>
-        <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}${k === 'late' && d.tasks && d.tasks.late ? ` <b class="o-warn">${d.tasks.late}</b>` : k === 'claim' && d.tasks && d.tasks.claim ? ` <b class="o-warn">${d.tasks.claim}</b>` : ''}</a>`).join('')}</div>
+        <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}${k === 'late' && d.tasks && d.tasks.late ? ` <b class="o-warn">${d.tasks.late}</b>` : k === 'claim' && d.tasks && d.tasks.claim ? ` <b class="o-warn">${d.tasks.claim}</b>` : k === 'failed' && failIn.length ? ` <b class="o-warn">${failIn.length}</b>` : ''}</a>`).join('')}</div>
         <input type="search" id="o-q" class="o-q" placeholder="주문번호·이름·전화·송장·상품 찾기" aria-label="주문 찾기"></div>
       <div class="kpis"><div class="kpi"><span>결제 완료</span><b>${num(paidIn.length)}건</b><small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
         <div class="kpi"><span>발송 전</span><b>${num(todoIn.length)}건</b><small>${d.tasks && d.tasks.late ? `<b class="o-warn">출고 지연 ${num(d.tasks.late)}건</b> · ` : ''}${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
         <div class="kpi"><span>배송 중</span><b>${num(shipIn.length)}건</b><small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div>
         <div class="kpi"><span>취소·반품·교환 진행</span><b>${num(claimIn.length)}건</b><small>${d.tasks && d.tasks.claimCustomer ? `손님 새 요청 ${num(d.tasks.claimCustomer)}건 · ` : ''}${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
+      ${failIn.length && PAYF.st !== 'failed' ? `<p class="help">이 기간 결제가 안 된 시도 ${num(failIn.length)}건${failCard.length ? `(카드 승인 안 됨 <b class="o-warn">${num(failCard.length)}건</b>)` : ''} — <a href="#" data-st="failed">결제 실패 보기</a></p>` : ''}
       ${d.sms ? '' : '<p class="help">손님 안내 문자(결제 완료·발송·환불)가 아직 연결되지 않았습니다 — <a href="#/shipset">배송 설정 › 손님 안내 문자</a></p>'}
       <div class="obar"><label class="chk"><input type="checkbox" id="o-all"> 보이는 결제 완료 주문 모두 고르기</label><span class="o-n" id="o-n">0건 고름</span>
         <select id="o-fmt" aria-label="엑셀 양식">${(d.formats || []).map(([k, t]) => `<option value="${h(k)}">${h(t)}</option>`).join('')}</select>
@@ -613,7 +626,7 @@
       try {
         const r = await api('GET', '/api/admin/payments-probe');
         const a = r.approval || {}, where = [r.country, r.city, r.org].filter(Boolean).join(' · ');
-        const head = r.via === 'relay' ? (r.verdict === 'ok' ? `<b>한국 중계 서버를 거쳐 씨드 승인 서버에 정상 연결됩니다.</b> 중계 ${h(r.relayUrl)}${r.relay.region ? ` (${h(r.relay.region)})` : ''}${r.relay.db ? ` · 정지 방지 DB 기록 ${r.relay.db.ok ? '정상' : '실패'}` : ''} · 처리 ${h((r.relay.stats || {}).ok ?? 0)}건(실패 ${h((r.relay.stats || {}).fail ?? 0)})` : `<b>중계 서버 이상:</b> ${h(r.relay.error || '응답 없음')} — 이 상태에서는 결제창을 열지 않고 스마트스토어 결제를 안내합니다.`)
+        const head = r.via === 'relay' ? (r.verdict === 'ok' ? `<b>한국 중계 서버를 거쳐 씨드 승인 서버에 정상 연결됩니다.</b> 중계 ${h(r.relayUrl)}${r.relay.region ? ` (${h(r.relay.region)})` : ''}${r.relay.db ? ` · 정지 방지 DB 기록 ${r.relay.db.ok ? '정상' : '실패'}` : ''} · 처리 ${h((r.relay.stats || {}).ok ?? 0)}건(실패 ${h((r.relay.stats || {}).fail ?? 0)})` : `<b>중계 서버 이상:</b> ${h(r.relay.error || '응답 없음')} — 이 상태에서는 결제창을 열지 않고 손님께 잠시 뒤 다시 시도하거나 고객센터로 연락해 달라고 안내합니다.`)
           : r.verdict === 'ok' ? '<b>씨드 승인 서버가 이 서버의 요청을 받습니다.</b>' : r.verdict === 'blocked' ? '<b>씨드 승인 서버가 이 서버를 막고 있습니다(HTTP 403).</b> 이 상태로는 카드 인증 뒤 승인이 되지 않아 주문이 \'확인 필요\'로 남습니다. 씨드페이먼츠에 아래 IP 등록(또는 해외 IP 허용)을 요청해야 합니다.' : `<b>씨드 승인 서버 응답 이상</b>(${h(a.status || a.error || '?')})`;
         $('#probe-out').innerHTML = `<div class="box ${r.verdict === 'ok' ? 'ok' : 'bad'}" style="margin-top:10px">${head}<br><small>이 서버가 나가는 IP <code>${h(r.ip || '확인 못 함')}</code>${where ? ` (${h(where)})` : ''}${r.region ? ` · Railway 지역 ${h(r.region)}` : ''} · 승인 주소 응답 ${h(a.status || a.error || '-')}${a.server ? ` (${h(a.server)})` : ''} · 결제창 스크립트 ${h(r.script.status || r.script.error)} · ${h(new Date(r.at).toLocaleString('ko-KR'))}</small></div>`;
       } catch (e) { $('#probe-out').innerHTML = ''; fail(e); }
@@ -622,7 +635,7 @@
     const tg = $('#pay-toggle');
     if (tg) tg.onclick = async () => {
       const on = !d.enabled;
-      if (!confirm(on ? '홈페이지 결제를 켤까요? 주문서에서 바로 카드 결제가 됩니다. 시험 결제와 취소를 먼저 확인했는지 확인해 주세요.' : '홈페이지 결제를 끌까요? 주문서에서 결제하기를 누르면 다시 스마트스토어로 넘어갑니다.')) return;
+      if (!confirm(on ? '홈페이지 결제를 켤까요? 주문서에서 바로 카드 결제가 됩니다. 시험 결제와 취소를 먼저 확인했는지 확인해 주세요.' : '홈페이지 결제를 끌까요? 주문서에서 결제하기를 누르면 결제 대신 \'결제 점검 중\' 안내(전화·카카오톡 주문)가 뜹니다.')) return;
       tg.disabled = true;
       try { await api('POST', '/api/admin/payments-settings', { enabled: on }); toast(on ? '홈페이지 결제를 켰습니다' : '홈페이지 결제를 껐습니다'); payments(); }
       catch (e) { toast(e.message); tg.disabled = false; }
@@ -1102,7 +1115,7 @@
     v.innerHTML = `${ptabs(id, 'info')}<div class="card"><h2>기본 정보</h2><p class="h-sub">상품 카드와 상품 페이지 위쪽에 보이는 내용</p>
       <label for="p-name">상품명 <small>상품 페이지 제목에 쓰입니다</small></label><input type="text" id="p-name" value="${h(p.name)}">
       <div class="row"><div><label for="p-short">짧은 이름 <small>카드·메뉴</small></label><input type="text" id="p-short" value="${h(p.short)}"></div>
-        <div><label for="p-store">스마트스토어 링크 <small>있으면 N Pay 버튼</small></label><input type="text" id="p-store" value="${h(p.store)}"></div></div>
+        <div><label for="p-store">스마트스토어 링크 <small>참고용 — 사이트에는 보이지 않음(N Pay 는 홈페이지 결제)</small></label><input type="text" id="p-store" value="${h(p.store)}"></div></div>
       <label for="p-sum">한 줄 요약</label><input type="text" id="p-sum" value="${h(p.summary)}">
       <div class="row"><div><label for="p-rating">평점 <small>별점 평균(0~5, 예: 4.87)</small></label><input type="number" id="p-rating" step="0.01" min="0" max="5" value="${h(p.rating)}"></div><div><label for="p-reviews">구매평 수 <small>상품 카드·상품 페이지에 보임</small></label><input type="number" id="p-reviews" min="0" value="${h(p.reviews)}"></div></div>
       ${o ? `<p class="box">판매가·정가는 <a href="#/products/${p.id}/options">옵션</a> 탭의 조합별 가격표에서 정합니다. 가장 싼 조합 가격(지금 ${won(p.price)})이 '~원부터'로 보입니다.</p>` : `<div class="row"><div><label for="p-list">정가</label><input type="number" id="p-list" value="${h(p.list)}"></div><div><label for="p-price">판매가</label><input type="number" id="p-price" value="${h(p.price)}"></div></div>`}

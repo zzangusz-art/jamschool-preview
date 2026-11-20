@@ -135,16 +135,18 @@
     toast('장바구니에 담았습니다.', { action: '보기', onAction: () => openLayer('cart') });
   }
   // 구매하기: 고른 옵션만 주문서로(장바구니는 그대로). 결제 방식은 data.js CHECKOUT.mode 를 따른다
-  function doBuy(e) {
+  // pay: 주문서에서 미리 고를 결제 수단(N Pay 버튼 → 'npay')
+  function doBuy(e, pay) {
     if (needOptions()) return;
     const opener = e && e.currentTarget;
     closeLayer($('#buy'));
-    setTimeout(() => SHOP.buyNow(items(), opener), 80);
+    setTimeout(() => SHOP.buyNow(items(), opener, pay), 80);
   }
   $('#pd-cart').addEventListener('click', doCart);
-  $('#pd-buy').addEventListener('click', doBuy);
+  $('#pd-buy').addEventListener('click', e => doBuy(e));
+  if ($('#pd-npay')) $('#pd-npay').addEventListener('click', e => doBuy(e, 'npay'));
   $('#sh-cart').addEventListener('click', doCart);
-  $('#sh-buy').addEventListener('click', doBuy);
+  $('#sh-buy').addEventListener('click', e => doBuy(e));
   $('#pd-share').addEventListener('click', async () => {
     const data = { title: p.name, url: location.href.split('#')[0] };
     try {

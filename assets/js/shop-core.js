@@ -104,14 +104,15 @@
   function openOrderModal(items, opener) {
     const p = P(items && items[0] ? items[0].id : 29) || P(29);
     $('#order-mall').href = RENDER.href(p);
-    const np = $('#order-npay');
-    if (p.store) { np.hidden = false; np.href = p.store; } else np.hidden = true;
+    store.sset(BUY_K, JSON.stringify(items || []));
+    $('#order-mall').href = 'checkout.html?buy=now';
+    $('#order-npay').href = 'checkout.html?buy=now&pay=npay';
     openLayer('order', opener);
   }
-  function buyNow(items, opener) {
+  function buyNow(items, opener, pay) {
     if (CHECKOUT.mode === 'handoff') { openOrderModal(items, opener); return; }
     store.sset(BUY_K, JSON.stringify(items));
-    location.href = 'checkout.html?buy=now';
+    location.href = 'checkout.html?buy=now' + (/^[a-z]+$/.test(pay || '') ? `&pay=${pay}` : '');
   }
   function checkoutCart(keys, opener) {
     if (CHECKOUT.mode === 'handoff') { openOrderModal(cart.items, opener); return; }

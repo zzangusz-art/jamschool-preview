@@ -1,4 +1,4 @@
-// 결제 주문 알림(텔레그램 봇) — seedpay.mjs 가 결제 완료(paid) 저장 직후와 '확인 필요'(check) 때 부른다
+// 결제 주문 알림(텔레그램 봇) — seedpay.mjs 가 결제 완료(paid) 저장 직후, '확인 필요'(check) 때, 카드 인증 뒤 승인이 안 됐을 때(failed) 부른다
 //   환경 변수(Railway 에만 넣는다. 공개 저장소라 코드·커밋에 값을 쓰지 않는다):
 //     NOTIFY_TELEGRAM_TOKEN    BotFather 가 준 봇 토큰(비밀)
 //     NOTIFY_TELEGRAM_CHAT_ID  알림 받을 대화방 ID(여러 곳이면 쉼표로). 모르면 비워 두고 봇에게 말을 건 뒤
@@ -25,14 +25,15 @@ async function tg(method, body) {
 }
 const sendAll = text => Promise.allSettled(CHATS().map(chat_id => tg('sendMessage', { chat_id, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true } })));
 
-// 알림 문구(HTML). kind: 'paid' | 'check'
+// 알림 문구(HTML). kind: 'paid' | 'check' | 'failed'
+const TITLE = { paid: '🛒 [잠스쿨] 새 결제 주문', check: '⚠️ [잠스쿨] 결제 확인 필요', failed: '❌ [잠스쿨] 결제 실패 — 카드 승인 안 됨(돈은 빠져나가지 않음)' };
 export function orderText(o, kind = 'paid', reason = '') {
   const lines = [
-    `<b>${kind === 'check' ? '⚠️ [잠스쿨] 결제 확인 필요' : '🛒 [잠스쿨] 새 결제 주문'}</b>`,
+    `<b>${TITLE[kind] || TITLE.paid}</b>`,
     `주문번호 ${esc(o.moid)}`,
     ...(o.items || []).map(x => `· ${esc(x.name)}${x.opt ? ` (${esc(x.opt)})` : ''} × ${esc(x.qty)}`),
     `금액 <b>${won(o.amount)}</b>${o.payLabel ? ` (${esc(o.payLabel)})` : ''}`,
-    ...(kind === 'check' && reason ? [`사유 ${esc(String(reason).slice(0, 200))}`] : []),
+    ...(kind !== 'paid' && reason ? [`사유 ${esc(String(reason).slice(0, 200))}`] : []),
     `<a href="${esc(adminLink(o.moid))}">관리자 화면에서 보기</a>`,
   ];
   return lines.join('\n');

@@ -266,7 +266,7 @@ async function ready(req) {
   const ip = clientIp(req);
   if (limited(ip)) throw new PayError(429, '잠시 뒤 다시 시도해 주세요.');
   // 중계 서버가 꺼졌거나 씨드가 막고 있으면 결제창을 열지 않는다(카드 인증 뒤 승인 실패로 손님이 기다리게 되는 일 방지)
-  if (relayOn() && !(await relayHealth()).ok) { log('ready', '중계 서버 이상 — 결제창 열지 않음'); throw new PayError(503, '지금은 홈페이지 결제를 쓸 수 없습니다. 잠시 뒤 다시 시도하거나 스마트스토어에서 결제해 주세요.'); }
+  if (relayOn() && !(await relayHealth()).ok) { log('ready', '중계 서버 이상 — 결제창 열지 않음'); throw new PayError(503, '지금은 홈페이지 결제를 쓸 수 없습니다. 잠시 뒤 다시 시도하거나 고객센터로 연락해 주세요.'); }
   let d; try { d = JSON.parse((await readBody(req, 16 * 1024)).toString('utf8')); } catch (e) { throw e instanceof PayError ? e : new PayError(400, '요청 형식 오류'); }
   const J = siteData();
   const m = pgMethods().find(x => x.id === d.method);
@@ -320,7 +320,8 @@ async function approve(data) {
   BUSY.add(o.moid);
   try {
     const fail = (status, msg) => {
-      o.status = status; o.fail = { msg: String(msg || '').slice(0, 300) }; hist(o, status, msg);
+      // stage: approval = 카드 인증까지 마친 뒤 승인 단계에서 안 됨, auth = 결제창에서 취소·인증 실패·확인 실패(승인 요청 전)
+      o.status = status; o.fail = { msg: String(msg || '').slice(0, 300), stage: o.pg && o.pg.tid ? 'approval' : 'auth' }; hist(o, status, msg);
       if (status === 'failed' && o.member && o.pointsUsed) try { MEMBER.release(o.member.id, o.moid); } catch { /* 3시간 뒤 저절로 풀림 */ }
       if (status === 'check') notifyOrder(o, 'check', o.fail.msg);   // 돈이 빠져나갔을 수 있는 주문 — 저장이 실패해도 알리도록 저장보다 먼저
       save(o); log(status, o.moid, msg); return done;
@@ -347,7 +348,9 @@ async function approve(data) {
     if (str(r.resultCd) !== '0000') {
       // 씨드 응답을 처리 기록에 남긴다(카드 번호·암호화 값 제외) — '미지정 오류(9999)'처럼 짧은 문구만 올 때 원인을 찾기 위해
       hist(o, '씨드 승인 응답', seedReply(r));
-      return fail('failed', `${str(r.resultMsg) || '승인 거절'} (${str(r.resultCd) || '코드 없음'})${str(r.resultCd) === '9999' ? ' — 카드사 승인이 되지 않았습니다. 다른 카드나 네이버페이·카카오페이로 다시 시도해 주세요' : ''}`);
+      const out = fail('failed', `${str(r.resultMsg) || '승인 거절'} (${str(r.resultCd) || '코드 없음'})${str(r.resultCd) === '9999' ? ' — 카드사 승인이 되지 않았습니다. 다른 카드나 네이버페이·카카오페이로 다시 시도해 주세요' : ''}`);
+      notifyOrder(o, 'failed', o.fail.msg);   // 손님이 카드 인증까지 했는데 승인이 안 된 주문 — 관리자가 바로 알고 연락할 수 있게
+      return out;
     }
     const rbad = str(r.tid) !== tid ? '거래번호' : r.mid != null && str(r.mid) !== MID() ? 'MID'
       : r.ordNo != null && str(r.ordNo) !== '' && str(r.ordNo) !== o.moid ? '주문번호' : toInt(r.goodsAmt) !== o.amount ? '금액' : '';
@@ -572,17 +575,21 @@ const kday = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0
 const ktime = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(11, 16);
 const isDay = s => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const allOrders = () => { let names = []; try { names = fs.readdirSync(DIR()).filter(f => /^JS\w+\.json$/.test(f)); } catch { names = []; } return names.map(f => load(f.slice(0, -5))).filter(Boolean); };
+// 결제창만 열고 1시간이 지나도록 결과가 없는 주문(창을 닫음·인증 중단) — 목록에서는 '결제 중단'
+const abandoned = o => o.status === 'ready' && Date.now() - Date.parse(o.createdAt) > 3600e3;
+const failStage = o => o.status === 'failed' ? ((o.fail && o.fail.stage) || (o.pg && o.pg.tid ? 'approval' : 'auth')) : abandoned(o) ? 'abandon' : '';
 export function listOrders({ all = false, from = '', to = '' } = {}) {
   const cfg = shipSettings(DIR()), hol = holidays();
   return allOrders()
-    .filter(o => all || ['paid', 'check', 'cancelled', 'approving'].includes(o.status))
+    .filter(o => all || ['paid', 'check', 'cancelled', 'approving', 'failed'].includes(o.status) || abandoned(o))
     .filter(o => (!isDay(from) || kday(o.createdAt) >= from) && (!isDay(to) || kday(o.createdAt) <= to))
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 1000)
     .map(o => {
       const f = fulfilNow(o, cfg), st = stageOf(o, cfg), c = o.claim;
-      return { moid: o.moid, createdAt: o.createdAt, day: kday(o.createdAt), time: ktime(o.createdAt), paidAt: o.paidAt || '', status: o.status, statusName: LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
+      return { moid: o.moid, createdAt: o.createdAt, day: kday(o.createdAt), time: ktime(o.createdAt), paidAt: o.paidAt || '', status: o.status, statusName: abandoned(o) ? '결제 중단' : LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
+        failStage: failStage(o), buyer: o.buyer ? o.buyer.name : '', member: o.member ? o.member.login || '' : '', lines: o.items.map(x => ({ id: String(x.id), qty: x.qty })),
         items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), qty: o.items.reduce((a, x) => a + x.qty, 0), receiver: o.receiver.name, tel: o.receiver.tel, zip: o.receiver.zip,
-        addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fail: (o.fail || {}).msg || '',
+        addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fail: (o.fail || {}).msg || (abandoned(o) ? '결제창에서 결제를 끝내지 않았습니다(창을 닫았거나 인증을 중단함)' : ''),
         fulfil: f.status, shippedAt: f.shippedAt || '', courier: f.invoice ? courierName(f.courier) : '', invoice: f.invoice || '', track: f.invoice ? trackUrl(f.courier, f.invoice) : '',
         stage: st.key, stageName: st.label, stageTone: st.tone, refunded: refundedOf(o), memo2: o.adminMemo || '',
         due: o.paidAt ? shipDue(o, cfg, hol) : '', late: isLate(o, cfg, hol),
@@ -593,9 +600,10 @@ export function listOrders({ all = false, from = '', to = '' } = {}) {
 export const todoCount = () => { const cfg = shipSettings(DIR()); return allOrders().filter(o => o.status === 'paid' && ['new', 'prep'].includes(fulfilNow(o, cfg).status) && !claimOpen(o.claim)).length; };
 // 어드민 홈 '처리할 일': 날짜와 상관없이 지금 손이 가야 하는 주문 수
 export function taskCounts() {
-  const cfg = shipSettings(DIR()), hol = holidays(), t = { new: 0, prep: 0, late: 0, claim: 0, claimCustomer: 0, check: 0 };
+  const cfg = shipSettings(DIR()), hol = holidays(), t = { new: 0, prep: 0, late: 0, claim: 0, claimCustomer: 0, check: 0, failed: 0 }, day = Date.now() - 864e5;
   for (const o of allOrders()) {
     if (o.status === 'check') t.check++;
+    if (failStage(o) === 'approval' && Date.parse(o.createdAt) > day) t.failed++;   // 최근 24시간 카드 승인 안 된 결제(손님에게 연락할 수 있게)
     if (o.status !== 'paid') continue;
     if (claimOpen(o.claim)) { t.claim++; if (o.claim.by === 'customer' && o.claim.status === 'requested') t.claimCustomer++; continue; }
     const f = fulfilNow(o, cfg).status;

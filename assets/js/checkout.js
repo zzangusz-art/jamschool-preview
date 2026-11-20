@@ -1,6 +1,6 @@
 /* 주문서: 주문 상품(바로 구매 또는 장바구니 선택분), 주문자·배송지(다음 우편번호), 결제 수단, 동의, 검증, 결제 요청
    결제: 서버(/api/pay/config)가 홈페이지 결제를 켜 두었으면(또는 ?pg=test 시험) 씨드페이먼츠 결제창으로 결제하고,
-   꺼져 있으면 같은 상품의 스마트스토어로 보낸다. 금액·주문 저장·승인은 서버(tools/pay/seedpay.mjs)가 한다 */
+   꺼져 있으면(점검 등) 결제 대신 고객센터 안내를 띄운다(다른 판매처로 보내지 않음). 금액·주문 저장·승인은 서버(tools/pay/seedpay.mjs)가 한다 */
 (function () {
   const { $, $$, won, esc, toast, openLayer, closeLayer, cart, store } = UI;
   const { OPT, CHECKOUT, CS } = JAM;
@@ -47,7 +47,7 @@
   if (hasMat) $$('.agree__item[data-mat]').forEach(el => { el.hidden = false; $('input', el).disabled = false; });
 
   // ───────── 회원: 로그인했으면 주문자·기본 배송지를 채우고 적립금을 쓸 수 있게 한다
-  //   적립금은 홈페이지 결제(씨드페이먼츠)가 켜졌을 때만 — 스마트스토어 결제로 넘어가면 못 쓴다. 쓸 금액은 서버(/api/pay/ready)가 다시 확인
+  //   적립금은 홈페이지 결제(씨드페이먼츠)가 켜졌을 때만 쓴다(결제 점검 중에는 숨김). 쓸 금액은 서버(/api/pay/ready)가 다시 확인
   let MEM = null, use = 0;
   const payAmt = () => total - use;
   function paint() {
@@ -126,17 +126,18 @@
         if (d) { e.preventDefault(); pickPay(payBtns[(i + d + payBtns.length) % payBtns.length], true); }
       });
     });
-    pickPay(payBtns[0]);
+    const want = qs.get('pay'), pre = want && payBtns.find(x => x.dataset.v === want);
+    pickPay(pre || payBtns[0]);
   }
   setupPay(CHECKOUT.pay);
   fetch('/api/pay/config', { cache: 'no-store' }).then(r => (r.ok ? r.json() : null)).then(c => {
     if (!c || !c.ready || !(c.enabled || pgTest) || !c.methods || !c.methods.length) return;
     PG = c;
-    $$('.co-pv').forEach(x => x.remove());   // '스마트스토어에서 결제' 안내
+    $$('.co-pv').forEach(x => x.remove());   // '결제 점검 중' 안내
     setupPay(c.methods);
     pointsUI();
     if (pgTest && !c.enabled) toast(c.test ? '시험 결제 모드입니다(씨드페이먼츠 테스트 서버).' : '시험 결제 모드입니다. 실제로 결제되니 확인 후 관리자 화면에서 취소해 주세요.');
-  }).catch(() => { /* 설정을 못 읽으면 스마트스토어 결제 그대로 */ });
+  }).catch(() => { /* 설정을 못 읽으면 결제 점검 안내 */ });
 
   // ───────── 동의
   const ags = () => $$('.ag').filter(x => !x.disabled);
@@ -275,23 +276,17 @@
     }
   }
 
-  // 결제가 꺼져 있을 때: 결제를 누르면 스마트스토어로 보낸다. 상품이 하나면 그 상품 페이지로 바로, 여러 개면 상품별 버튼
-  const storeOf = id => SHOP.P(id).store || CHECKOUT.storeHome;
+  // 결제가 꺼져 있을 때(관리자가 끔·점검): 다른 판매처로 보내지 않고 고객센터·카카오톡 안내
   // 어드민 '주문' 집계용(이름·연락처·주소는 보내지 않는다)
   function beaconSubmit() {
     if (window.jamAd) try { window.jamAd('checkout', { value: total }); } catch (e) { /* 광고 이벤트 실패는 무시 */ }
     try { navigator.sendBeacon && navigator.sendBeacon('/api/t', new Blob([JSON.stringify({ e: 'checkout_submit', total, pay, items: items.map(x => ({ id: x.id, qty: x.qty })) })], { type: 'application/json' })); } catch (e) { /* 집계 실패는 무시 */ }
   }
-  function toStore(opener) {
-    beaconSubmit();
-    const ids = [...new Set(items.map(x => x.id))];
-    if (ids.length === 1) { toast('스마트스토어로 이동합니다. 같은 옵션을 골라 결제해 주세요.'); setTimeout(() => { location.href = storeOf(ids[0]); }, 700); return; }
-    $('#pvm-list').innerHTML = ids.map(id => {
-      const p = SHOP.P(id), it = items.filter(x => x.id === id);
-      return `<li><span>${esc(p.short)}<small class="pvm__opt">${esc(it.map(x => `${x.opt || ''} ${x.qty}개`.trim()).join(' · '))}</small></span><span class="pvm__btns"><a class="btn btn--npay btn--sm" href="${esc(storeOf(id))}" target="_blank" rel="noopener">스마트스토어에서 결제</a></span></li>`;
-    }).join('');
+  function payOff(opener) {
+    $('#pvm-list').innerHTML = `<li><a class="btn btn--primary btn--block" href="${esc(CS.telHref)}">전화 주문 ${esc(CS.tel)}</a></li><li><a class="btn btn--line btn--block" href="${esc(CS.kakao)}" target="_blank" rel="noopener">카카오톡으로 주문 문의</a></li>`;
     openLayer('pvm', opener);
   }
+
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
@@ -305,7 +300,7 @@
       return;
     }
     const opener = e.submitter || $('#co-pay');
-    if (!PG) { toStore(opener); return; }
+    if (!PG) { payOff(opener); return; }
     await payPg();
   });
 })();

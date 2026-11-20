@@ -37,7 +37,10 @@ const STATS = await import('../admin/stats.mjs');
 
 // 1) 날짜별 목록·발송 전 수
 const all = PAY.listOrders({});
-assert.deepEqual(all.map(o => o.status).sort(), ['cancelled', 'paid', 'paid', 'paid']);
+// 결제창을 연 지 1시간이 넘은 주문은 '결제 중단'(결제 실패 탭)으로 보이고, 방금 연 결제창(10분 전)은 빠진다
+assert.deepEqual(all.map(o => o.status).sort(), ['cancelled', 'paid', 'paid', 'paid', 'ready']);
+const gone = all.find(o => o.status === 'ready'); assert.equal(gone.statusName, '결제 중단'); assert.equal(gone.failStage, 'abandon'); assert.match(gone.fail, /결제창/);
+assert.ok(!all.some(o => o.moid === ready));
 const todayList = PAY.listOrders({ from: kd(0), to: kd(0) });
 assert.ok(todayList.every(o => o.day === kd(0)) && todayList.some(o => o.moid === today), '오늘');
 assert.ok(!todayList.some(o => o.moid === old));

@@ -177,12 +177,18 @@ for (const [why, approve, net, status] of [
 }
 ok('망취소: 승인 시간 초과·응답 금액/거래번호 불일치 → 망취소, 망취소도 실패하면 \'확인 필요\' + 텔레그램 알림(사유 포함)');
 // 7. 승인 거절(카드 한도 등)은 망취소 없이 실패
-{ const g = await readyOrder(); calls = []; plan = { [APPROVE]: () => ({ resultCd: '3011', resultMsg: '카드 한도 초과' }) };
-  await ret(auth(g.fields)); const o = order(g.moid); assert.equal(o.status, 'failed'); assert.match(o.fail.msg, /한도/); assert.ok(!calls.some(c => c.url === NETC)); ok('승인 거절: 실패 표시, 망취소 없음'); }
+{ const g = await readyOrder(); calls = []; tgSent = []; plan = { [APPROVE]: () => ({ resultCd: '3011', resultMsg: '카드 한도 초과' }) };
+  await ret(auth(g.fields)); const o = order(g.moid); assert.equal(o.status, 'failed'); assert.match(o.fail.msg, /한도/); assert.equal(o.fail.stage, 'approval'); assert.ok(!calls.some(c => c.url === NETC));
+  await NOTIFY.settled(); assert.equal(tgSent.length, 1, '승인 거절 알림'); const t = tgSent[0].body.text; assert.match(t, /결제 실패/); assert.match(t, /사유 .*한도/); assert.ok(t.includes(`주문번호 ${g.moid}`));
+  const row = PAY.listOrders().find(x => x.moid === g.moid); assert.equal(row.failStage, 'approval'); assert.match(row.fail, /한도/);
+  assert.ok(PAY.taskCounts().failed >= 1);
+  ok('승인 거절: 실패 표시·망취소 없음·텔레그램 실패 알림(사유 포함)·어드민 목록 결제 실패·처리할 일'); }
 // 8. 관리자: 목록·발송·취소·켜기
 {
-  const list = PAY.listOrders(); assert.ok(list.some(x => x.moid === f.ordNo && x.status === 'paid')); assert.ok(list.every(x => x.status !== 'failed'));
-  assert.ok(PAY.listOrders({ all: true }).length > list.length);
+  // 기본 목록: 결제 완료·확인 필요·취소와 함께 결제 실패도(사유·단계). 방금 연 결제창(결제 전)은 '결제 시도 전체'에만
+  const list = PAY.listOrders(); assert.ok(list.some(x => x.moid === f.ordNo && x.status === 'paid')); assert.ok(list.some(x => x.status === 'failed' && x.failStage && x.fail));
+  assert.ok(list.every(x => x.status !== 'ready'));
+  assert.ok(PAY.listOrders({ all: true }).length >= list.length);
   const u = { id: 'owner1', name: '관리자', role: 'owner' };
   assert.equal(PAY.setFulfil(f.ordNo, 'shipped', u).fulfil.status, 'shipped');
   const tid = order(f.ordNo).pg.tid;
