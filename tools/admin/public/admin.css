@@ -48,6 +48,9 @@ h1,h2,h3{color:var(--ink);letter-spacing:-.02em}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:0 0 16px}
 .kpi{background:#fff;padding:18px 20px}.kpi span{display:block;font-size:13px;color:var(--sub)}.kpi b{display:block;font-size:28px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.03em;margin-top:2px}
 .kpi small{font-size:12.5px;color:var(--faint)}
+/* 결제 주문 숫자 칸의 건수 링크(누르면 그 탭 주문 목록으로) — 숫자처럼 보이되 밑줄로 누를 수 있음을 알림 */
+.kpi .kpi-n{display:block;width:max-content;font-size:28px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.03em;margin-top:2px;text-decoration:underline;text-decoration-color:var(--line);text-decoration-thickness:2px;text-underline-offset:6px}
+.kpi .kpi-n:hover,.kpi .kpi-n:focus-visible{color:var(--sky-ink);text-decoration-color:currentColor}.kpi .kpi-n.on{color:var(--sky-ink)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
 .seg a{padding:7px 14px;font-size:14px;color:var(--sub);text-decoration:none}.seg a.on{background:var(--ink);color:#fff;font-weight:700}
 /* 표 */
@@ -139,7 +142,7 @@ td.bar-td{width:46%}.bar span{flex:1;min-width:60px}
   .side .brand{margin:0;flex:1}.side .brand img{height:22px}.navbtn{display:inline-flex}
   .side nav{display:none;flex:0 0 100%;padding:6px 0 4px;max-height:calc(100vh - 60px);overflow:auto}.side .brand span{white-space:nowrap}.side.open nav{display:flex}
   .side nav a{padding:12px}.side nav a.on::before{display:none}.side .who{display:none}.side.open .who{display:block;flex:0 0 100%;margin:4px 0 0}
-  .main{padding:20px 14px 70px}.top h1{font-size:22px}.card{padding:18px 16px}.kpi{padding:14px}.kpi b{font-size:23px}
+  .main{padding:20px 14px 70px}.top h1{font-size:22px}.card{padding:18px 16px}.kpi{padding:14px}.kpi b,.kpi .kpi-n{font-size:23px}
   .grid{grid-template-columns:repeat(2,1fr);gap:10px}.pcard div{padding:10px}.pcard b{font-size:14px}
   .item{grid-template-columns:80px 1fr}.item .pic,.item .txt{width:80px;height:80px}.item .ctl{grid-column:1/-1;flex-direction:row;flex-wrap:wrap}
   .actions{margin-left:-14px;margin-right:-14px;padding:10px 14px;flex-wrap:nowrap}.actions .btn{flex:1 1 0;min-width:0;white-space:normal;text-align:center;font-size:13px;padding:8px 6px;line-height:1.3}

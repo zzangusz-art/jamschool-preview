@@ -535,6 +535,8 @@
     const paidIn = d.orders.filter(o => o.status === 'paid'), todoIn = paidIn.filter(o => stOk(o, 'todo')), shipIn = paidIn.filter(o => stOk(o, 'ship')), claimIn = d.orders.filter(o => stOk(o, 'claim'));
     const list = d.orders.filter(o => stOk(o, PAYF.st)), failIn = d.orders.filter(o => o.failStage), failCard = failIn.filter(o => o.failStage === 'approval');
     const days = []; for (const o of list) { let g = days.find(x => x.day === o.day); if (!g) days.push(g = { day: o.day, list: [] }); g.list.push(o); }
+    // 숫자 칸의 건수: 누르면 그 상태 탭으로 바꾸고 주문 목록으로 내려간다(지금 보고 있는 탭이면 진하게)
+    const kpiN = (st, label, n) => `<a href="#" class="kpi-n${PAYF.st === st ? ' on' : ''}" data-st="${st}" data-jump="1" aria-label="${h(label)} ${num(n)}건 — 주문 목록 보기">${num(n)}건</a>`;
     const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}" data-q="${h([o.moid, o.receiver, o.tel, o.invoice, o.memo2, ...o.items].join(' ').toLowerCase())}">
         <input type="checkbox" data-sel="${h(o.moid)}" ${o.status === 'paid' ? '' : 'disabled'} aria-label="${h(o.receiver)} 주문 고르기">
         <div class="o-time">${h(o.time)}</div>
@@ -550,10 +552,10 @@
         <div class="ofpick" ${PAYF.range === 'pick' ? '' : 'hidden'}><input type="date" id="of-from" value="${h(PAYF.from)}" aria-label="시작 날짜"> ~ <input type="date" id="of-to" value="${h(PAYF.to)}" aria-label="끝 날짜"><button class="btn sm" type="button" id="of-go">보기</button></div>
         <div class="seg wrap" role="group" aria-label="상태">${OST.map(([k, t]) => `<a href="#" data-st="${k}" class="${PAYF.st === k ? 'on' : ''}">${t}${k === 'late' && d.tasks && d.tasks.late ? ` <b class="o-warn">${d.tasks.late}</b>` : k === 'claim' && d.tasks && d.tasks.claim ? ` <b class="o-warn">${d.tasks.claim}</b>` : k === 'failed' && failIn.length ? ` <b class="o-warn">${failIn.length}</b>` : ''}</a>`).join('')}</div>
         <input type="search" id="o-q" class="o-q" placeholder="주문번호·이름·전화·송장·상품 찾기" aria-label="주문 찾기"></div>
-      <div class="kpis"><div class="kpi"><span>결제 완료</span><b>${num(paidIn.length)}건</b><small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
-        <div class="kpi"><span>발송 전</span><b>${num(todoIn.length)}건</b><small>${d.tasks && d.tasks.late ? `<b class="o-warn">출고 지연 ${num(d.tasks.late)}건</b> · ` : ''}${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
-        <div class="kpi"><span>배송 중</span><b>${num(shipIn.length)}건</b><small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div>
-        <div class="kpi"><span>취소·반품·교환 진행</span><b>${num(claimIn.length)}건</b><small>${d.tasks && d.tasks.claimCustomer ? `손님 새 요청 ${num(d.tasks.claimCustomer)}건 · ` : ''}${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
+      <div class="kpis"><div class="kpi"><span>결제 완료</span>${kpiN('paid', '결제 완료', paidIn.length)}<small>${won(paidIn.reduce((a, o) => a + o.amount, 0))}</small></div>
+        <div class="kpi"><span>발송 전</span>${kpiN('todo', '발송 전', todoIn.length)}<small>${d.tasks && d.tasks.late ? `<b class="o-warn">출고 지연 ${num(d.tasks.late)}건</b> · ` : ''}${d.todo !== todoIn.length ? `기간 밖까지 모두 ${num(d.todo)}건 · <a href="#" id="all-todo">모두 보기</a>` : '이 기간 기준'}</small></div>
+        <div class="kpi"><span>배송 중</span>${kpiN('ship', '배송 중', shipIn.length)}<small>${h(from ? (from === to ? dayLabel(from) : `${from} ~ ${to || '오늘'}`) : '전체 기간')}</small></div>
+        <div class="kpi"><span>취소·반품·교환 진행</span>${kpiN('claim', '취소·반품·교환 진행', claimIn.length)}<small>${d.tasks && d.tasks.claimCustomer ? `손님 새 요청 ${num(d.tasks.claimCustomer)}건 · ` : ''}${claimIn.length ? '<a href="#" data-st="claim">진행 중인 요청 보기</a>' : '진행 중인 요청 없음'}</small></div></div>
       ${failIn.length && PAYF.st !== 'failed' ? `<p class="help">이 기간 결제가 안 된 시도 ${num(failIn.length)}건${failCard.length ? `(카드 승인 안 됨 <b class="o-warn">${num(failCard.length)}건</b>)` : ''} — <a href="#" data-st="failed">결제 실패 보기</a></p>` : ''}
       ${d.sms ? '' : '<p class="help">손님 안내 문자(결제 완료·발송·환불)가 아직 연결되지 않았습니다 — <a href="#/shipset">배송 설정 › 손님 안내 문자</a></p>'}
       <div class="obar"><label class="chk"><input type="checkbox" id="o-all"> 보이는 결제 완료 주문 모두 고르기</label><span class="o-n" id="o-n">0건 고름</span>
@@ -577,7 +579,13 @@
     sync();
     // 기간·상태
     v.querySelectorAll('[data-range]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.range = a.dataset.range; if (PAYF.range === 'pick') { if (!PAYF.from) { PAYF.from = kToday(6); PAYF.to = kToday(); } } payments(); });
-    v.querySelectorAll('[data-st]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.st = a.dataset.st; payments(); });
+    v.querySelectorAll('[data-st]').forEach(a => a.onclick = e => { e.preventDefault(); PAYF.st = a.dataset.st; PAYF.jump = !!a.dataset.jump; payments(); });
+    // 숫자 칸에서 왔으면 그 탭의 주문 목록 첫 줄로(위에 붙는 선택 막대·휴대폰 머리 메뉴 높이만큼 띄움)
+    if (PAYF.jump) {
+      PAYF.jump = false;
+      const ib = $('#inv-box'), first = v.querySelector('.oday') || (ib && ib.nextElementSibling), bar = v.querySelector('.obar'), head = matchMedia('(max-width:820px)').matches ? 62 : 0;
+      if (first) scrollTo({ top: Math.max(0, first.getBoundingClientRect().top + scrollY - (bar ? bar.offsetHeight : 0) - head - 8), behavior: 'smooth' });
+    }
     // 찾기: 보이는 목록 안에서 바로 거른다(주문번호·이름·전화·송장·상품·관리자 메모)
     $('#o-q').addEventListener('input', e => {
       const q = e.target.value.trim().toLowerCase().replace(/-/g, '');
