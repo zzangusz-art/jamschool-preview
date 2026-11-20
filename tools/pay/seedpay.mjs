@@ -292,7 +292,7 @@ async function ready(req) {
     amount, total, pointsUsed: used, sub, ship, items, buyNow: !!d.buyNow, createdAt: nowIso(), pgEnv: TEST() ? 'test' : 'real',
     ...(mem ? { member: { id: mem.id, login: mem.login }, pointRate: pc.on ? pc.rate : 0 } : {}),
     buyer: { name, tel, email: mail }, receiver: { name: rname, tel: rtel, zip, addr1: a1, addr2: a2, memo: String(r.memo || '').trim().slice(0, 100), jeju: !!r.jeju || /^63/.test(zip) },
-    fulfil: { status: 'new' }, history: [],
+    fulfil: { status: 'new' }, history: [], device: isMobileUA(req.headers['user-agent']) ? '휴대폰' : 'PC',
   };
   hist(o, 'ready', `${m.label} ${amount}원${used ? ` (주문 ${total}원 - 적립금 ${used}원)` : ''}${mem ? ` · 회원 ${mem.login}` : ''}`); save(o);
   if (mem) MEMBER.addOrder(mem.id, moid);
@@ -325,7 +325,7 @@ async function approve(data) {
       if (status === 'check') notifyOrder(o, 'check', o.fail.msg);   // 돈이 빠져나갔을 수 있는 주문 — 저장이 실패해도 알리도록 저장보다 먼저
       save(o); log(status, o.moid, msg); return done;
     };
-    if (str(data.resultCd) !== '0000') return fail('failed', str(data.resultMsg) || '결제를 취소했거나 인증에 실패했습니다');
+    if (str(data.resultCd) !== '0000') { hist(o, '씨드 인증 응답', seedReply({ resultCd: data.resultCd, resultMsg: data.resultMsg, method: data.method, ediDate: data.ediDate })); return fail('failed', str(data.resultMsg) || '결제를 취소했거나 인증에 실패했습니다'); }
     const tid = str(data.tid), nonce = str(data.nonce), payData = str(data.payData), amt = str(data.goodsAmt), edi = str(data.ediDate), u = URLS();
     const bad = !tid || !nonce || !payData || !edi ? '인증 결과 값 누락'
       : str(data.mid) !== MID() ? 'MID 불일치'
@@ -344,7 +344,11 @@ async function approve(data) {
       const nc = await netCancel(o, tid, '승인 응답 없음');
       return fail(nc.ok ? 'failed' : 'check', `승인 응답을 받지 못해 ${nc.ok ? '결제를 취소했습니다' : '망취소도 실패 — 씨드페이먼츠 가맹점 관리자에서 거래 확인 필요'} (${e.message} / ${nc.msg})`);
     }
-    if (str(r.resultCd) !== '0000') return fail('failed', `${str(r.resultMsg) || '승인 거절'} (${str(r.resultCd) || '코드 없음'})`);
+    if (str(r.resultCd) !== '0000') {
+      // 씨드 응답을 처리 기록에 남긴다(카드 번호·암호화 값 제외) — '미지정 오류(9999)'처럼 짧은 문구만 올 때 원인을 찾기 위해
+      hist(o, '씨드 승인 응답', seedReply(r));
+      return fail('failed', `${str(r.resultMsg) || '승인 거절'} (${str(r.resultCd) || '코드 없음'})${str(r.resultCd) === '9999' ? ' — 카드사 승인이 되지 않았습니다. 다른 카드나 네이버페이·카카오페이로 다시 시도해 주세요' : ''}`);
+    }
     const rbad = str(r.tid) !== tid ? '거래번호' : r.mid != null && str(r.mid) !== MID() ? 'MID'
       : r.ordNo != null && str(r.ordNo) !== '' && str(r.ordNo) !== o.moid ? '주문번호' : toInt(r.goodsAmt) !== o.amount ? '금액' : '';
     if (rbad) {
@@ -370,6 +374,9 @@ async function approve(data) {
     return done;
   } finally { BUSY.delete(o.moid); }
 }
+
+// 씨드 응답 요약(처리 기록용): 카드 번호·암호화 값·서명은 빼고 짧게
+const seedReply = r => Object.entries(r || {}).filter(([k]) => !/card(No|Num)|payData|nonce|sign|hash|key/i.test(k)).map(([k, v]) => `${k}=${String(v).slice(0, 60)}`).join(' · ').slice(0, 290);
 
 // ───────── 3) 결제통보(Webhook): 승인 응답을 놓친 거래·가맹점 관리자에서 한 취소를 주문 상태에 맞춘다
 async function noti(req) {
