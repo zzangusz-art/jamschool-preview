@@ -379,7 +379,9 @@ async function approve(data) {
 }
 
 // 씨드 응답 요약(처리 기록용): 카드 번호·암호화 값·서명은 빼고 짧게
-const seedReply = r => Object.entries(r || {}).filter(([k]) => !/card(No|Num)|payData|nonce|sign|hash|key/i.test(k)).map(([k, v]) => `${k}=${String(v).slice(0, 60)}`).join(' · ').slice(0, 290);
+//   우리가 보낸 값을 되돌려 주는 항목(상품명·주문자 이름·주문번호·상점 ID·거래번호)과 빈 값은 빼서 카드사 코드 같은 뒷부분이 잘리지 않게
+const SEED_ECHO = new Set(['goodsNm', 'ordNm', 'ordNo', 'mbsReserved', 'mid', 'tid', 'ediDate', 'settleId']);
+const seedReply = r => Object.entries(r || {}).filter(([k, v]) => !/card(No|Num)|payData|nonce|sign|hash|key/i.test(k) && !SEED_ECHO.has(k) && v != null && String(v) !== '').map(([k, v]) => `${k}=${String(v).slice(0, 60)}`).join(' · ').slice(0, 290);
 
 // ───────── 3) 결제통보(Webhook): 승인 응답을 놓친 거래·가맹점 관리자에서 한 취소를 주문 상태에 맞춘다
 async function noti(req) {
