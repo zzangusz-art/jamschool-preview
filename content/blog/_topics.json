@@ -691,7 +691,9 @@
     "angle": "거실에서 낮잠·여름 거실 수면·손님 잠자리: 쓰고 나면 접어 벽에 세우기, 미끄럼 방지 바닥면, 겨울 전기장판과 함께, 아이·반려동물 있는 집은 방수 속커버. 「접는 매트리스 소파」 글과 겹치지 않게 거실 잠자리 중심.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "living-room-mattress",
+    "date": "2026-11-21"
   },
   {
     "id": "tri-fold-disposal",
@@ -704,7 +706,9 @@
     "angle": "버리기 전 2년 폼 교체 보증 대상인지 확인, 커버와 폼 분리, 일반적으로 지자체 대형폐기물 신고 후 배출(수수료·방법은 지자체마다 다르니 구청 안내 확인). 수수료 숫자는 쓰지 않는다.",
     "category": "사용 팁",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-disposal",
+    "date": "2026-11-21"
   },
   {
     "id": "folding-mattress-kids",
@@ -717,7 +721,9 @@
     "angle": "두 장 나란히, 방수 속커버, 접어서 청소, 유해물질·라돈 시험 결과. 아이 수면 효과는 말하지 않음.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-kids",
+    "date": "2026-11-21"
   },
   {
     "id": "tri-fold-car-camping",
