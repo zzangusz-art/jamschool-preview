@@ -736,7 +736,9 @@
     "angle": "멀티싱글 7cm 3.5kg, 접은 크기, 차박용으로 멀티싱글 안내. 차량 실내 치수는 직접 재라고 안내.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "tri-fold-car-camping",
+    "date": "2026-11-22"
   },
   {
     "id": "folding-bed-alternative",
@@ -749,7 +751,9 @@
     "angle": "접이식 침대(프레임)와 접이식 매트리스의 차이: 프레임 없이 바닥에, 보관 부피, 삐걱임 없음, 높이가 필요하면 기존 침대 위에. 높이가 낮다는 단점도 함께 써서 균형 있게.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-bed-alternative",
+    "date": "2026-11-22"
   },
   {
     "id": "folding-mattress-parents",
@@ -762,7 +766,9 @@
     "angle": "바닥 생활에 익숙하면 바닥형 12cm, 무게와 접고 펴기, 미끄럼 방지, 전기장판 사용, 구매평 속 부모님 선물.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "folding-mattress-parents",
+    "date": "2026-11-22"
   },
   {
     "id": "camping-mattress",
