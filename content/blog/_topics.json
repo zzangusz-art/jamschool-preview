@@ -781,7 +781,9 @@
     "angle": "텐트·글램핑 안에서: 멀티싱글 75cm와 무게, 접은 크기와 트렁크, 보관가방, 바닥 냉기와 12cm 두께, 젖은 바닥엔 방수 속커버, 다녀와서 말리기. 차박 글과 겹치지 않게 텐트 안 사용 중심.",
     "category": "생활 공간",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "camping-mattress",
+    "date": "2026-11-23"
   },
   {
     "id": "cervical-pillow",
@@ -794,7 +796,9 @@
     "angle": "잠스쿨 정착베개: 낮은 12cm·보통 13cm·높은 14cm(무게 1,200/1,400/1,600g), 0.7데니아 마이크로화이버 속통, 구성(겉커버·방수 속커버·더스트백). 목 질환·통증 효과는 쓰지 않음.",
     "category": "구매 가이드",
     "product": 43,
-    "status": "todo"
+    "status": "done",
+    "slug": "cervical-pillow",
+    "date": "2026-11-23"
   },
   {
     "id": "leg-pillow-height",
@@ -807,7 +811,9 @@
     "angle": "잠스쿨 다리베개 편안한 20cm·시원한 26cm·강력한 33cm(50×55cm), 겉커버·생활방수 속커버, 소파·침대에서 쓰는 장면. 부종·혈액순환 효과는 쓰지 않음.",
     "category": "구매 가이드",
     "product": 36,
-    "status": "todo"
+    "status": "done",
+    "slug": "leg-pillow-height",
+    "date": "2026-11-23"
   },
   {
     "id": "mattress-replace-timing",
