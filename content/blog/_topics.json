@@ -871,7 +871,9 @@
     "angle": "잠스쿨 삼각 등받이쿠션: 소파·침대에서 기대어 쉬는 용도, 색상 여러 가지(상품 이미지), 폭신한 쿠션감이 필요하면 다리베개로도 쓰는 안내(상세 문구). 허리 효과는 쓰지 않음.",
     "category": "생활 공간",
     "product": 38,
-    "status": "todo"
+    "status": "done",
+    "slug": "back-cushion",
+    "date": "2026-11-25"
   },
   {
     "id": "cervical-pillow-washing",
@@ -884,7 +886,9 @@
     "angle": "정착베개 제공고시: 미지근한 물·중성세제 단독, 건조기 금지, 그늘 실내 건조, 구성품(방수 속커버·더스트백).",
     "category": "사용 팁",
     "product": 43,
-    "status": "todo"
+    "status": "done",
+    "slug": "cervical-pillow-washing",
+    "date": "2026-11-25"
   },
   {
     "id": "leg-pillow-washing",
@@ -897,7 +901,9 @@
     "angle": "다리베개 제공고시: 30도 이하 단독 손세탁·울 코스, 지퍼 닫고 세탁망, 삶기·표백 금지, 그늘 건조, 생활방수 속커버·폼은 물세탁 금지.",
     "category": "사용 팁",
     "product": 36,
-    "status": "todo"
+    "status": "done",
+    "slug": "leg-pillow-washing",
+    "date": "2026-11-25"
   },
   {
     "id": "cool-mat-washing",
