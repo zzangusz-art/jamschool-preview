@@ -434,6 +434,52 @@
           "list": 317000
         }
       }
+    },
+    "41": {
+      "groups": [
+        {
+          "id": "gijoeb",
+          "name": "사이즈",
+          "note": "",
+          "price": false,
+          "values": [
+            {
+              "id": "vge2se",
+              "label": "슬림형"
+            },
+            {
+              "id": "v2788l",
+              "label": "와이드형"
+            }
+          ]
+        },
+        {
+          "id": "g826ol",
+          "name": "색상",
+          "note": "",
+          "price": true,
+          "values": [
+            {
+              "id": "v4d85d",
+              "label": "베이지"
+            },
+            {
+              "id": "v2okzo",
+              "label": "핑크"
+            }
+          ]
+        }
+      ],
+      "prices": {
+        "v4d85d": {
+          "price": 9900,
+          "list": 15900
+        },
+        "v2okzo": {
+          "price": 10900,
+          "list": 16900
+        }
+      }
     }
   }
 }
