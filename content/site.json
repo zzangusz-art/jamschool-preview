@@ -274,6 +274,64 @@
         }
       }
     },
+    "37": {
+      "groups": [
+        {
+          "id": "gj69j9",
+          "name": "사이즈",
+          "note": "라지, 미니",
+          "price": true,
+          "values": [
+            {
+              "id": "vrk0sa",
+              "label": "라지"
+            },
+            {
+              "id": "vsomxv",
+              "label": "미니"
+            }
+          ]
+        },
+        {
+          "id": "gwqw3r",
+          "name": "색상",
+          "note": "",
+          "price": false,
+          "values": [
+            {
+              "id": "v6j705",
+              "label": "베이비핑크",
+              "hex": "#F9E7F6"
+            },
+            {
+              "id": "vpv1wt",
+              "label": "머스터드",
+              "hex": "#EDE864"
+            },
+            {
+              "id": "v5pu1n",
+              "label": "스카이블루",
+              "hex": "#C8EEFE"
+            },
+            {
+              "id": "vuh5ho",
+              "label": "아이보리",
+              "hex": "#FEFFF5"
+            }
+          ]
+        }
+      ],
+      "prices": {
+        "vrk0sa": {
+          "price": 17900,
+          "list": 22900
+        },
+        "vsomxv": {
+          "price": 12900,
+          "list": 17900
+        }
+      }
+    },
     "39": {
       "groups": [
         {
