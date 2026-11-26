@@ -76,6 +76,10 @@ const IN_APP = [[/KAKAOTALK/i, '카카오톡 안 브라우저'], [/NAVER\(inapp|
   [/BAND\//i, '밴드 앱 안 브라우저'], [/\bLine\//i, '라인 앱 안 브라우저'], [/DaumApps|DaumDevice/i, '다음 앱 안 브라우저'], [/KAKAOSTORY/i, '카카오스토리 앱 안 브라우저'], [/; wv\)|WebView/i, '그 밖의 앱 안 브라우저']];
 export function directHow(req, ua, p) {
   let q; try { q = new URL(req.url, 'http://x').searchParams; } catch { q = new URLSearchParams(); }
+  return howOf(q, p, ua, String((req.headers || {})['sec-fetch-site'] || ''));
+}
+// sf: 브라우저가 알려 주는 요청 출처(서버에서만 앎, 없으면 ''). 주문 유입(브라우저 기록)에서는 null → 앱 안 브라우저가 아니면 '주소 입력·즐겨찾기·문자 등'
+function howOf(q, p, ua, sf) {
   if (p === '/order-complete' && q.get('o')) return '주문 조회 링크(문자·결제 화면)';
   if (q.get('write') === '1') return '구매평 쓰기 링크(문자·주문 조회)';
   if (q.has('gclid') || q.has('gbraid') || q.has('wbraid')) return '구글 광고';
@@ -83,12 +87,45 @@ export function directHow(req, ua, p) {
   if (q.has('NaPm') || q.has('n_media') || q.has('n_query')) return '네이버 광고·쇼핑 링크';
   if (q.has('ttclid')) return '틱톡 링크';
   const app = IN_APP.find(([re]) => re.test(ua)); if (app) return app[1];
-  const sf = String((req.headers || {})['sec-fetch-site'] || '');
   if (sf === 'none') return device(ua) === 'PC' ? 'PC 주소 입력·즐겨찾기' : '휴대폰 주소 입력·즐겨찾기·문자';
   if (sf === 'cross-site') return '출처를 숨긴 다른 사이트';
   if (sf === 'same-origin' || sf === 'same-site') return '사이트 안 이동(주소 없음)';
+  if (sf === null) return device(ua) === 'PC' ? '주소 입력·즐겨찾기 등' : '주소 입력·즐겨찾기·문자 등';
   return '알 수 없음';
 }
+
+// ───────── 결제 주문의 유입 경로(2026-11-26)
+//   사이트 스크립트(build.mjs TRACK_JS)가 손님 브라우저(localStorage jam_src)에 '들어온 곳'을 기억해 두고, 주문서가 결제를 시작할 때 함께 보낸다.
+//     last  = 마지막으로 바깥(검색·SNS·광고·다른 사이트)에서 들어온 때(30일 안, 그 사이 직접 방문은 덮지 않음) → '결제로 이어진 유입'
+//     first = 처음 들어온 때(90일 안) · sess = 이번 방문 첫 페이지 · n = 방문 횟수
+//   방문 집계와 같은 묶음(source)으로 나누고 검색어·캠페인·광고 표시를 붙인다. 이전 페이지 주소는 host+경로만(쿼리는 버리고 검색어만 따로)
+const AD_OF = q => q.has('gclid') || q.has('gbraid') || q.has('wbraid') ? '구글 광고' : q.has('NaPm') || q.has('n_media') || q.has('n_query') ? '네이버 광고·쇼핑' : q.has('fbclid') ? '인스타·페이스북' : q.has('ttclid') ? '틱톡' : '';
+function touchOf(t, ua, selfHost) {
+  if (!t || typeof t !== 'object') return null;
+  const at = Number(t.at); if (!(at > 1.6e12 && at < Date.now() + 864e5)) return null;
+  const ref = String(t.ref || '').slice(0, 500), qs = String(t.q || '').slice(0, 500);
+  const land = (String(t.land || '/').slice(0, 120).replace(/[^\w\-./가-힣]/g, '').replace(/index\.html$/, '').replace(/\.html$/, '')) || '/';
+  let q; try { q = new URLSearchParams(qs.replace(/^\?/, '')); } catch { q = new URLSearchParams(); }
+  const utm = (q.get('utm_source') || '').slice(0, 40);
+  const s = source(ref, selfHost, utm) || { group: '직접 방문', host: '' };   // 우리 사이트 주소가 이전 페이지면(드묾) 직접 방문으로
+  let refHost = '', refPath = '', kw = '';
+  try { const u = new URL(ref); refHost = u.hostname; refPath = u.pathname.slice(0, 80); kw = u.searchParams.get('query') || u.searchParams.get('q') || u.searchParams.get('wd') || ''; } catch { /* 주소 없음 */ }
+  kw = String(kw || q.get('utm_term') || q.get('n_query') || q.get('n_keyword') || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const camp = [q.get('utm_campaign'), q.get('utm_medium')].filter(Boolean).join(' · ').slice(0, 60), ad = AD_OF(q);
+  // 이전 주소 없이 광고·SNS 클릭 표시만 있으면(앱 안 브라우저가 주소를 안 보내는 일이 많음) '직접 방문' 대신 그 광고·SNS 로
+  const group = s.group === '직접 방문' && ad ? (/인스타|틱톡/.test(ad) ? 'SNS·영상' : ad) : s.group;
+  return { group, host: s.host || '', kw, camp, ad, how: group === '직접 방문' ? howOf(q, land, ua, null) : '', ref: refHost ? (refHost + refPath).slice(0, 120) : '', land, at: new Date(at).toISOString() };
+}
+export function orderSource(src, ua = '', selfHost = 'jamschool.kr') {
+  if (!src || typeof src !== 'object' || Array.isArray(src)) return null;
+  ua = String(ua || '');
+  const last = touchOf(src.last, ua, selfHost), first = touchOf(src.first, ua, selfHost), sess = touchOf(src.sess, ua, selfHost);
+  if (!last && !first && !sess) return null;
+  const n = Math.min(Math.max(Math.round(Number(src.n) || 1), 1), 9999), app = IN_APP.find(([re]) => re.test(ua));
+  return { last: last || sess || first, first: first || last || sess, sess: sess || last || first, visits: n, app: app ? app[1] : '' };
+}
+// 한 줄 설명(엑셀·알림·처리 기록): 네이버 검색 · 검색어 '접이식 매트리스' · 네이버 광고·쇼핑
+export const srcText = t => !t ? '' : [t.group, t.kw ? `검색어 '${t.kw}'` : '', t.host && !/검색$/.test(t.group) ? t.host : '', t.camp, t.ad && !t.group.includes(t.ad) ? t.ad : '', t.how].filter(Boolean).join(' · ');
 
 // 페이지 보기 1건(serve.mjs 가 html 200 응답 때 부른다)
 export function countPage(req, pathname, selfHost) {

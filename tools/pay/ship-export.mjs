@@ -5,6 +5,7 @@
 //     수량 열이 없어 상품 1개 = 1줄. 품목명은 상품별 3PL 이름 + 두께형(cm)_사이즈 / 색상(tools/pay/fulfil.mjs tplItemName, 이름·판매처 표시는 어드민 '배송 설정')
 //   전체 정보: 주문 1건 = 1줄, 결제·주문자·받는 분 전부(보관·정산 확인용)
 import { xlsx } from '../admin/xlsx.mjs';
+import { srcText } from '../admin/stats.mjs';   // '전체 정보' 엑셀의 유입 경로 열
 
 const tel = t => { const d = String(t || '').replace(/\D/g, ''); return d.replace(/^(02)(\d{3,4})(\d{4})$/, '$1-$2-$3').replace(/^(0\d{2})(\d{3,4})(\d{4})$/, '$1-$2-$3') || d; };
 const mobile = t => /^01\d/.test(String(t || '').replace(/\D/g, '')) ? tel(t) : '';
@@ -36,12 +37,12 @@ export function shipRows(orders, format, ctx = {}) {
         o.receiver.name, tel(o.receiver.tel), o.receiver.zip, o.receiver.addr1, o.receiver.addr2, o.receiver.memo || '', o.buyer.name, tel(o.buyer.tel), x.price * x.qty, o.receiver.jeju ? 'Y' : '']))],
   };
   if (format === 'full') return {
-    widths: [24, 17, 17, 10, 12, 12, 14, 8, 11, 11, 8, 50, 10, 15, 24, 10, 15, 9, 44, 24, 26, 12, 11, 16, 10],
-    rows: [['주문번호', '주문일시', '결제일시', '상태', '배송 단계', '결제수단', '카드', '할부', '승인번호', '결제 금액', '배송비', '상품', '주문자', '주문자 연락처', '주문자 이메일', '받는분', '받는분 연락처', '우편번호', '주소', '상세주소', '배송메시지', '제주·도서산간', '택배사', '송장번호', '환불액'],
+    widths: [24, 17, 17, 10, 12, 12, 14, 8, 11, 11, 8, 50, 10, 15, 24, 10, 15, 9, 44, 24, 26, 12, 11, 16, 10, 40],
+    rows: [['주문번호', '주문일시', '결제일시', '상태', '배송 단계', '결제수단', '카드', '할부', '승인번호', '결제 금액', '배송비', '상품', '주문자', '주문자 연락처', '주문자 이메일', '받는분', '받는분 연락처', '우편번호', '주소', '상세주소', '배송메시지', '제주·도서산간', '택배사', '송장번호', '환불액', '유입 경로'],
       ...orders.map(o => { const pg = o.pg || {}; return [o.moid, kdt(o.createdAt), kdt(o.paidAt), o.statusName || o.status, ({ new: '신규 주문', prep: '상품 준비 중', shipped: '배송 중', delivered: '배송 완료' })[(o.fulfil || {}).status || 'new'], o.payLabel || '',
         pg.cardName || '', pg.cardName ? quota(pg.cardQuota) : '', pg.authCode || '', o.amount, o.ship || 0, o.items.map(x => `${nm(x)} × ${x.qty}`).join(', '),
         o.buyer.name, tel(o.buyer.tel), o.buyer.email || '', o.receiver.name, tel(o.receiver.tel), o.receiver.zip, o.receiver.addr1, o.receiver.addr2, o.receiver.memo || '', o.receiver.jeju ? 'Y' : '',
-        (o.fulfil || {}).invoice ? COURIER[(o.fulfil || {}).courier] || '' : '', (o.fulfil || {}).invoice || '', (o.refunds || []).reduce((a, r) => a + (r.amount || 0), 0)]; })],
+        (o.fulfil || {}).invoice ? COURIER[(o.fulfil || {}).courier] || '' : '', (o.fulfil || {}).invoice || '', (o.refunds || []).reduce((a, r) => a + (r.amount || 0), 0), o.src && o.src.last ? srcText(o.src.last) : '']; })],
   };
   return {
     widths: [24, 10, 15, 15, 9, 60, 50, 6, 30, 12],

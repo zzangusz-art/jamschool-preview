@@ -465,6 +465,15 @@
     const paidQty = {}; for (const o of paid) for (const l of o.lines || []) paidQty[l.id] = (paidQty[l.id] || 0) + l.qty;
     const rows = [...new Set([...Object.keys(t.products), ...Object.keys(paidQty)])].map(id => [id, t.products[id] || { views: 0, buy: 0 }, t.orders.items[id] || 0, paidQty[id] || 0]).sort((a, b) => b[3] - a[3] || b[1].views - a[1].views);
     const payBy = {}; for (const o of paid) payBy[o.payLabel || '기타'] = (payBy[o.payLabel || '기타'] || 0) + 1;
+    // 결제 유입 경로(주문에 남긴 '들어온 곳' — 2026-11-26부터): 묶음별 건수·금액, 자세한 곳(검색어·사이트·캠페인·직접 방문 방법)
+    const srcBy = {}, srcSum = {}, srcDetail = {};
+    for (const o of paid) {
+      const t = o.src && o.src.last, g = t ? t.group : '기록 없음(11월 26일 전 주문 등)';
+      srcBy[g] = (srcBy[g] || 0) + 1; srcSum[g] = (srcSum[g] || 0) + o.amount;
+      // 검색 사이트는 검색어가 있을 때만(브라우저는 대개 검색어 없이 주소만 보냄 — 왼쪽 묶음과 겹치지 않게)
+      const k = !t ? '' : t.kw ? `검색어 '${t.kw}'` : t.camp ? `캠페인 ${t.camp}` : t.host && !/검색$/.test(t.group) ? t.host.replace(/^(www|m)\./, '').slice(0, 28) : t.how ? `직접 방문 · ${t.how}` : '';
+      if (k) srcDetail[k] = (srcDetail[k] || 0) + 1;
+    }
     const clicks = top({ '구매하기(N Pay 포함)': e.buy_click || 0, '장바구니 담기': e.cart_click || 0, '회원가입': e.member_join || 0, '전화': e.call_click || 0, '카카오톡': e.kakao_click || 0 }).filter(x => x[1]);
     v.innerHTML = `${persistNote(s)}<div class="box info"><b>상품 조회부터 홈페이지 결제까지의 흐름입니다.</b> 결제는 모두 이 홈페이지(씨드페이먼츠 — 카드·네이버페이·카카오페이)에서 합니다. 결제된 주문의 발송·취소·환불은 <a href="#/payments">결제 주문</a>, 결제가 안 된 시도는 <a href="#/payments" data-go="failed">결제 주문 › 결제 실패</a>에서 봅니다.${s.ordersSince ? ` <br><small>주문서 숫자는 ${h(s.ordersSince)}부터 셉니다(그 전은 시험 기록).</small>` : ''}</div>
       <div class="funnel">${step('상품 페이지 조회', views, null, '상품 상세를 연 수')}${step('구매·장바구니 클릭', buy, views, '조회 대비')}${step('주문서 제출', t.orders.n, buy || null, buy ? '클릭 대비 · 결제하기를 누름' : '결제하기를 누름')}${step('결제 완료', paid.length, t.orders.n || null, t.orders.n ? '주문서 대비' : '홈페이지 결제 승인')}</div>
@@ -475,6 +484,8 @@
       ${n !== '1' ? `<div class="card"><h2>날짜별 주문서·결제</h2><p class="h-sub">주문서에서 결제하기를 누른 수와 실제 결제 완료 수</p>${chart(s.days.map(d => ({ ...d, paid: byDay(d.date) })), [['orders', '#7CC3EA', '주문서 제출'], ['paid', '#0B6FA4', '결제 완료']])}</div>` : ''}
       <div class="card"><h2>상품별</h2><p class="h-sub">결제 많은 순 · 결제 수량은 홈페이지 결제 완료 기준 · 구매 클릭률이 낮으면 가격·사진·상세페이지를 먼저 보세요</p>
         ${rows.length ? `<table class="list"><thead><tr><th>상품</th><th class="r">조회</th><th class="r">구매 클릭</th><th class="r">클릭률</th><th class="r">주문서 수량</th><th class="r">결제 수량</th><th></th></tr></thead><tbody>${rows.map(([id, p, q, pq]) => `<tr><td><b>${h(s.names[id] || '상품 ' + id)}</b></td><td class="r">${num(p.views)}</td><td class="r">${num(p.buy)}</td><td class="r">${pct(p.buy, p.views)}</td><td class="r">${num(q)}</td><td class="r"><b>${num(pq)}</b></td><td class="r nw"><a class="btn sm" href="#/products/${h(id)}">고치기</a></td></tr>`).join('')}</tbody></table>` : empty('아직 상품을 본 기록이 없습니다.')}</div>
+      <div class="cols"><div class="card"><h2>결제 유입 경로</h2><p class="h-sub">결제 완료 주문이 마지막으로 어디서 들어왔는지(30일 안 바깥 유입 기준) · 주문별은 <a href="#/payments">결제 주문</a>에서</p>${paid.length ? bars(top(srcBy), paid.length, k => `${h(k)} <small class="sub">${won(srcSum[k])}</small>`) : empty('이 기간 결제 완료 주문이 없습니다.')}</div>
+        <div class="card"><h2>검색어·사이트·캠페인</h2><p class="h-sub">결제로 이어진 유입의 자세한 곳</p>${bars(top(srcDetail), paid.length)}</div></div>
       <div class="cols"><div class="card"><h2>결제 수단</h2><p class="h-sub">홈페이지에서 결제 완료된 주문 기준${paid.length ? '' : ' · 결제 전에는 주문서에서 고른 것'}</p>${paid.length ? bars(top(payBy), paid.length) : bars(top(t.orders.pay), t.orders.n, k => h(PAY_NAME[k] || k))}</div>
         <div class="card"><h2>버튼 클릭</h2><p class="h-sub">사이트에서 누른 버튼</p>${bars(clicks, clicks.reduce((a, x) => a + x[1], 0))}</div></div>`;
     v.querySelectorAll('[data-go="failed"]').forEach(a => a.onclick = ev => { ev.preventDefault(); PAYF.range = P.pick ? 'pick' : n === '1' ? '0' : ['7', '30'].includes(n) ? n : 'pick'; PAYF.from = pf; PAYF.to = pt; PAYF.st = 'failed'; location.hash = '#/payments'; });
@@ -482,6 +493,8 @@
   // ── 결제 주문(홈페이지 결제: 씨드페이먼츠) — 주문자·배송지 확인, 발송 처리, 결제 취소(관리자), 결제 켜기/끄기(관리자)
   const PST = { paid: 'live', cancelled: '', check: 'bad', failed: 'draft', approving: 'draft', ready: '' };
   const dt = s => s ? new Date(s).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  // 결제 유입 경로 한 줄(서버 stats.mjs srcText 와 같은 규칙): 네이버 검색 · 검색어 '접이식 매트리스' · 네이버 광고·쇼핑
+  const srcLabel = t => !t ? '' : [t.group, t.kw ? `검색어 '${t.kw}'` : '', t.host && !/검색$/.test(t.group) ? t.host : '', t.camp, t.ad && !t.group.includes(t.ad) ? t.ad : '', t.how].filter(Boolean).join(' · ');
   const telFmt = t => { const d = String(t || ''); return /^02/.test(d) ? d.replace(/^(02)(\d{3,4})(\d{4})$/, '$1-$2-$3') : /^1[5-9]\d{6}$/.test(d) ? d.replace(/^(\d{4})(\d{4})$/, '$1-$2') : d.replace(/^(\d{3})(\d{3,4})(\d{4})$/, '$1-$2-$3'); };   // 02(서울)·1588 같은 대표번호도
   // 결제 주문 화면 상태(자세히 보고 돌아와도 그대로): 기간·상태
   const PAYF = { range: '30', from: '', to: '', st: 'paid' };
@@ -540,7 +553,7 @@
       claim: '이 기간에 취소·반품·교환·환불 주문이 없습니다.', refund: '이 기간에 환불한 주문이 없습니다.', paid: '이 기간에 결제 완료된 주문이 없습니다.', issue: '이 기간에 확인 필요·결제 취소 주문이 없습니다.',
       failed: '이 기간에 결제가 안 된 시도가 없습니다.', tries: '이 기간에 결제 시도가 없습니다.' };
     const kpiN = (st, label, n) => `<a href="#" class="kpi-n${PAYF.st === st ? ' on' : ''}" data-st="${st}" data-jump="1" aria-label="${h(label)} ${num(n)}건 — 주문 목록 보기">${num(n)}건</a>`;
-    const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}" data-q="${h([o.moid, o.receiver, o.tel, o.invoice, o.memo2, ...o.items].join(' ').toLowerCase())}">
+    const row = o => `<div class="orow${o.status === 'paid' ? '' : ' off'}" data-q="${h([o.moid, o.receiver, o.tel, o.invoice, o.memo2, ...o.items, o.src && o.src.last ? srcLabel(o.src.last) : ''].join(' ').toLowerCase())}">
         <input type="checkbox" data-sel="${h(o.moid)}" ${o.status === 'paid' ? '' : 'disabled'} aria-label="${h(o.receiver)} 주문 고르기">
         <div class="o-time">${h(o.time)}</div>
         <div class="o-main"><p class="o-items">${o.items.map(h).join('<br>')}</p>
@@ -548,6 +561,7 @@
           ${o.memo ? `<p class="o-memo">배송 메모: ${h(o.memo)}</p>` : ''}${o.memo2 ? `<p class="o-memo o-admin">관리자 메모: ${h(o.memo2)}</p>` : ''}${o.fail && o.status !== 'paid' ? `<p class="o-memo">${o.failStage ? `<b class="${o.failStage === 'approval' ? 'o-warn' : ''}">${h(FST[o.failStage] || '결제 안 됨')}</b> · ` : ''}${h(o.fail)}</p>` : ''}
           ${o.failStage ? `<p class="o-memo">주문자 ${h(o.buyer || o.receiver)}${o.member ? ` · 회원 ${h(o.member)}` : ' · 비회원'} — 돈은 빠져나가지 않았습니다${o.failStage === 'approval' ? '. 필요하면 손님께 연락해 다른 카드·네이버페이·카카오페이를 안내하세요' : ''}</p>` : ''}
           ${o.late ? `<p class="o-memo"><b class="o-warn">출고 지연</b> 출고 예정일(${h(mdK(o.due))})이 지났습니다</p>` : o.status === 'paid' && ['new', 'prep'].includes(o.fulfil) && o.due ? `<p class="o-memo">출고 예정 ${h(mdK(o.due))}</p>` : ''}${o.claim && o.claim.byCustomer && o.claim.open ? '<p class="o-memo"><b class="o-warn">손님이 직접 요청</b></p>' : ''}
+          ${o.src && o.src.last ? `<p class="o-memo o-src">유입 <b>${h(srcLabel(o.src.last))}</b> · ${o.src.visits > 1 ? `${num(o.src.visits)}번째 방문` : '첫 방문'}${o.device ? ` · ${h(o.device)}` : ''}</p>` : ''}
           <p class="o-id">${h(o.moid)} · ${h(o.payLabel || '')}</p></div>
         <div class="o-side"><b>${won(o.amount)}</b><span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.stageName ? `<span class="tag ${h(o.stageTone || '')}">${h(o.stageName)}</span>` : ''}${o.invoice ? `<a class="o-inv" href="${h(o.track)}" target="_blank" rel="noopener">${h(o.courier)} ${h(o.invoice)} ↗</a>` : ''}<a class="btn sm" href="#/payments/${h(o.moid)}">자세히</a></div></div>`;
     v.innerHTML = `${ownerBox}${d.shipReady ? '' : '<div class="box info"><b>배송 설정이 비어 있습니다.</b> <a href="#/shipset">배송 설정</a>에서 발송지·회수지 주소와 기본 택배사를 넣어 주세요(택배 엑셀·반품 안내에 쓰입니다).</div>'}${FLOW(d.autoDays)}
@@ -731,6 +745,16 @@
         <label class="chk"><input type="radio" name="rf-v" value="manual"> 결제 밖 환불 기록(계좌 이체 등으로 이미 돌려준 금액, 결제 취소는 하지 않음)</label>
         <div class="actions static"><button class="btn danger" id="rf-go">환불하기</button></div>` : '<p class="help">환불 권한이 없습니다.</p>') : '';
     const refundCard = paid || refunds.length ? `<div class="card"><h2>환불</h2><p class="h-sub">결제 ${won(o.amount)} · 환불 ${won(o.refunded)} · 남은 금액 ${won(o.remain)}</p>${refundList}${refundForm}</div>` : '';
+    // ── 유입 경로 카드(2026-11-26부터 주문): 결제로 이어진 유입(마지막 바깥 유입) · 이번 방문 · 처음 들어온 곳 · 방문 횟수
+    const S = o.src, ago = (a, b) => { const m = Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 60000)); return m < 60 ? `${m}분` : m < 1440 ? `${Math.round(m / 60)}시간` : `${Math.round(m / 1440)}일`; };
+    const touchRow = t => `<b>${h(srcLabel(t))}</b> <small class="sub">${h(dt(t.at))} · 첫 페이지 ${h(t.land)}</small>`;
+    const srcCard = `<div class="card"><h2>유입 경로</h2><p class="h-sub">손님 브라우저가 기억해 둔 '들어온 곳'(이 홈페이지가 남긴 기록, 개인정보 없음)</p>${S && S.last ? dl([
+        ['결제로 이어진 유입', touchRow(S.last)], ['이전 페이지 주소', h(S.last.ref || '')],
+        ['이번 방문', S.sess && S.sess.at !== S.last.at ? touchRow(S.sess) : ''],
+        ['처음 들어온 곳', S.first && S.first.at !== S.last.at ? touchRow(S.first) : ''],
+        ['방문 횟수', `${num(S.visits)}번째 방문${S.first ? ` · 처음 들어온 때부터 주문까지 ${ago(S.first.at, o.createdAt)}` : ''}`],
+        ['기기·앱', h([o.device, S.app].filter(Boolean).join(' · '))],
+      ]) : '<p class="help">유입 기록이 없습니다 — 2026-11-26 전 주문이거나, 손님 브라우저가 기록을 막았거나(사생활 보호 모드 등) 지운 경우입니다.</p>'}</div>`;
     v.innerHTML = `${bar}<div class="cols"><div class="card"><h2>결제</h2><p class="h-sub">주문번호 ${h(o.moid)}</p>${dl([
         ['상태', `<span class="tag ${PST[o.status] || ''}">${h(o.statusName)}</span>${o.fail && o.status !== 'paid' ? ` ${h(o.fail.msg)}` : ''}`],
         ['결제 금액', `<b>${won(o.amount)}</b>${o.ship ? ` (배송비 ${won(o.ship)} 포함)` : ''}${o.refunded ? ` · 환불 ${won(o.refunded)}` : ''}`],
@@ -741,6 +765,7 @@
       ])}</div>${shipCard}</div>
       <div class="card"><h2>관리자 메모</h2><p class="h-sub">손님에게는 보이지 않습니다. 통화 내용·특이 사항을 남겨 두세요.</p><textarea id="am-t" rows="2" maxlength="500">${h(o.adminMemo || '')}</textarea><div class="actions static"><button class="btn sm" id="am-save">메모 저장</button></div></div>
       <div class="card"><h2>주문 상품</h2><table class="list"><thead><tr><th>상품</th><th>옵션</th><th class="r">수량</th><th class="r">금액</th></tr></thead><tbody>${o.items.map(x => `<tr><td>${h(x.name)}</td><td>${h(x.opt || '')}</td><td class="r">${x.qty}</td><td class="r">${won(x.price * x.qty)}</td></tr>`).join('')}</tbody></table></div>
+      ${srcCard}
       <div class="cols">${claimCard}${refundCard}</div>
       ${FLOW(d.autoDays)}
       <div class="card" style="margin-top:16px"><h2>처리 기록</h2>${dl((o.history || []).slice().reverse().map(x => [dt(x.at), h(`${x.ev}${x.note ? ' · ' + x.note : ''}`)]))}</div>`;

@@ -183,6 +183,23 @@ ok('망취소: 승인 시간 초과·응답 금액/거래번호 불일치 → �
   const row = PAY.listOrders().find(x => x.moid === g.moid); assert.equal(row.failStage, 'approval'); assert.match(row.fail, /한도/);
   assert.ok(PAY.taskCounts().failed >= 1);
   ok('승인 거절: 실패 표시·망취소 없음·텔레그램 실패 알림(사유 포함)·어드민 목록 결제 실패·처리할 일'); }
+// 7-2. 결제 유입 경로: 주문서가 보낸 '들어온 곳' → 주문·처리 기록·목록·결제 완료 알림에. 이상한 값은 버림
+{
+  const now = Date.now();
+  const src = { last: { ref: 'https://m.search.naver.com/search.naver?query=%EC%A0%91%EC%9D%B4%EC%8B%9D&where=m', q: '?n_media=27758&NaPm=ct%3Dx', land: '/product-29.html', at: now - 3600e3 },
+    first: { ref: 'https://blog.naver.com/x/1', q: '', land: '/blog/a.html', at: now - 3 * 864e5 }, sess: { ref: '', q: '', land: '/', at: now - 600e3 }, n: 3 };
+  const g = await readyOrder({ src }), o0 = order(g.moid);
+  assert.equal(o0.src.last.group, '네이버 검색'); assert.equal(o0.src.last.kw, '접이식'); assert.equal(o0.src.last.ad, '네이버 광고·쇼핑'); assert.equal(o0.src.last.land, '/product-29');
+  assert.equal(o0.src.first.group, '네이버(블로그·카페·쇼핑)'); assert.equal(o0.src.visits, 3); assert.equal(o0.src.sess.how, '주소 입력·즐겨찾기 등');
+  assert.ok(!JSON.stringify(o0.src).includes('where=m'), '이전 페이지 주소의 쿼리는 버림(검색어만 따로)');
+  assert.match(o0.history[0].note, /유입 네이버 검색/);
+  calls = []; tgSent = []; plan = { [APPROVE]: okApprove };
+  await ret(auth(g.fields)); assert.equal(order(g.moid).status, 'paid');
+  await NOTIFY.settled(); assert.ok(tgSent.some(x => /유입 네이버 검색 · 검색어 '접이식'/.test(x.body.text)), '결제 완료 알림에 유입');
+  assert.equal(PAY.listOrders().find(x => x.moid === g.moid).src.last.group, '네이버 검색');
+  for (const bad of [{ last: { at: 'x' } }, 'str', [1, 2], { last: { ref: 'https://evil.example', at: now + 9e9 } }]) { const b = await readyOrder({ src: bad }); assert.equal(order(b.moid).src, undefined, JSON.stringify(bad)); }
+  ok('결제 유입 경로: 네이버 검색·검색어·광고 표시·처음 들어온 곳·방문 횟수 저장, 처리 기록·목록·결제 완료 알림에 표시, 이상한 값은 버림');
+}
 // 8. 관리자: 목록·발송·취소·켜기
 {
   // 기본 목록: 결제 완료·확인 필요·취소와 함께 결제 실패도(사유·단계). 방금 연 결제창(결제 전)은 '결제 시도 전체'에만

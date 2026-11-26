@@ -5,6 +5,7 @@
 //                              어드민 '결제 주문' → '대화방 ID 찾기'를 누르면 알려 준다
 //   둘 중 하나라도 없으면 보내지 않는다. 결제 처리는 알림을 기다리지 않고(비동기), 실패는 로그만 남긴다.
 //   알림 내용: 주문번호·상품·수량·금액·어드민 링크. 이름·전화번호·주소·이메일·카드번호 같은 개인정보는 넣지 않는다(어드민에서 확인).
+import { srcText } from '../admin/stats.mjs';   // 결제 유입 경로 한 줄(개인정보 아님)
 const API = 'https://api.telegram.org';
 const TIMEOUT = 10000;
 const TOKEN = () => (process.env.NOTIFY_TELEGRAM_TOKEN || '').trim();
@@ -33,6 +34,7 @@ export function orderText(o, kind = 'paid', reason = '') {
     `주문번호 ${esc(o.moid)}`,
     ...(o.items || []).map(x => `· ${esc(x.name)}${x.opt ? ` (${esc(x.opt)})` : ''} × ${esc(x.qty)}`),
     `금액 <b>${won(o.amount)}</b>${o.payLabel ? ` (${esc(o.payLabel)})` : ''}`,
+    ...(o.src && o.src.last ? [`유입 ${esc(srcText(o.src.last))}`] : []),
     ...(kind !== 'paid' && reason ? [`사유 ${esc(String(reason).slice(0, 200))}`] : []),
     `<a href="${esc(adminLink(o.moid))}">관리자 화면에서 보기</a>`,
   ];

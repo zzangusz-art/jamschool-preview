@@ -238,6 +238,8 @@
   window.addEventListener('message', e => {
     if (pgSet && e.origin === pgSet.base && Array.isArray(e.data) && e.data[0] === 'FAIL') unlock('결제가 완료되지 않았습니다. 카드·결제 수단을 확인하고 다시 시도해 주세요.');
   });
+  // 들어온 곳(사이트 스크립트가 이 브라우저에 기억해 둔 것 — build.mjs SRC_JS): 주문에 '결제 유입 경로'로 남긴다. 없거나 못 읽으면 빈 값
+  const srcMemo = () => { try { return JSON.parse(localStorage.getItem('jam_src') || 'null'); } catch (e) { return null; } };
   async function payPg() {
     payButtons().forEach(b => { b.disabled = true; });
     const memo = f('r-memo').value === 'direct' ? f('r-memo-x').value.trim() : f('r-memo').value;
@@ -245,7 +247,7 @@
       const res = await fetch('/api/pay/ready', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          method: pay, buyNow, items: items.map(x => ({ key: x.key, qty: x.qty })), points: use,
+          method: pay, buyNow, items: items.map(x => ({ key: x.key, qty: x.qty })), points: use, src: srcMemo(),
           buyer: { name: f('b-name').value.trim(), tel: f('b-tel').value, email: f('b-mail').value.trim() },
           receiver: { name: f('r-name').value.trim(), tel: f('r-tel').value, zip: f('r-zip').value, addr1: f('r-addr1').value.trim(), addr2: f('r-addr2').value.trim(), memo, jeju: !$('#co-jeju').hidden },
         }),

@@ -78,7 +78,7 @@ assert.equal(p3.length, 1 + 2 + 1 + 1);
 assert.ok(p3.slice(1).every(r => /\(공\)$/.test(r[0]) && r[5] === 1));
 assert.deepEqual(p3.slice(1).map(r => r[7]).sort(), ['3단 매트리스 바닥형(12cm)_슈퍼싱글 / 아이보리', '3단 매트리스 침대형(7cm)_멀티싱글 / 그레이', '정착베개', '정착베개']);
 const fu = cells(unzip(shipExport(orders, 'full', ctx).buf)['xl/worksheets/sheet1.xml']);
-assert.equal(fu[0].length, 25); assert.equal(fu[0][4], '배송 단계');
+assert.equal(fu[0].length, 26); assert.equal(fu[0][4], '배송 단계'); assert.equal(fu[0][25], '유입 경로');   // 11-26 유입 경로 열 추가
 const cs = cells(unzip(shipExport(orders, 'courier', ctx).buf)['xl/worksheets/sheet1.xml']); assert.equal(cs[0][10], '송하인명'); assert.equal(fu.find(r => r[15] === '오늘손님')[9], 214800);
 ok('택배 접수용(주문 1줄·전화 하이픈·우편번호 08502·제주 표시·송하인)·3PL 발주서(샘플 열·상품 1개 1줄·품목명·판매처 표시)·전체 정보(배송 단계·송장·환불), 결제 완료만');
 

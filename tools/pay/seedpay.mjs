@@ -20,6 +20,7 @@ import { clientIp } from '../client-ip.mjs';
 import { notifyOrder } from './notify.mjs';
 import { applyFulfil, applyClaim, addRefund, refundedOf, stageOf, fulfilNow, customerView, shipSettings, saveShipSettings, saveSettleSettings, settleSettings, settlement, tplItemName, courierName, trackUrl, claimLabel, claimOpen, refundSuggest, FulfilError, COURIERS, CLAIM_TYPE, shipDue, isLate, dueLabel, customerClaim } from './fulfil.mjs';
 import { notifyClaim } from './notify.mjs';
+import { orderSource, srcText } from '../admin/stats.mjs';   // 결제 유입 경로(주문서가 보낸 '들어온 곳'을 방문 집계와 같은 묶음으로)
 import * as MEMBER from '../member/store.mjs';   // 홈페이지 회원·적립금(주문에 회원 표시, 적립금 사용·적립·회수)   // 손님이 직접 한 취소·반품·교환 요청을 텔레그램으로
 import { sendSms, msgSettings, saveMsgSettings, smsStatus, orderVars, fill, MSG_EVENTS } from './sms.mjs';   // 손님 안내 문자(솔라피)   // 배송·취소·반품·교환·환불·정산   // 결제 완료·확인 필요 주문 텔레그램 알림(기다리지 않음, 실패는 로그만)
 
@@ -286,15 +287,15 @@ async function ready(req) {
   if (wantPts > 0 && !mem) throw new PayError(401, '로그인이 풀렸습니다. 다시 로그인한 뒤 적립금을 써 주세요.');
   let used = 0;
   if (mem && wantPts > 0) { try { used = MEMBER.hold(mem.id, moid, wantPts, total); } catch (e) { throw new PayError(e.status || 400, e.message); } }
-  const amount = total - used, pc = MEMBER.pointCfg();
+  const amount = total - used, pc = MEMBER.pointCfg(), src = orderSource(d.src, String(req.headers['user-agent'] || ''), (process.env.CANONICAL_HOST || 'jamschool.kr').trim().toLowerCase().replace(/^www\./, ''));
   const o = {
     moid, token: crypto.randomBytes(24).toString('base64url'), status: 'ready', method: m.id, payMethod: METHOD[m.id], payLabel: m.label,
     amount, total, pointsUsed: used, sub, ship, items, buyNow: !!d.buyNow, createdAt: nowIso(), pgEnv: TEST() ? 'test' : 'real',
     ...(mem ? { member: { id: mem.id, login: mem.login }, pointRate: pc.on ? pc.rate : 0 } : {}),
     buyer: { name, tel, email: mail }, receiver: { name: rname, tel: rtel, zip, addr1: a1, addr2: a2, memo: String(r.memo || '').trim().slice(0, 100), jeju: !!r.jeju || /^63/.test(zip) },
-    fulfil: { status: 'new' }, history: [], device: isMobileUA(req.headers['user-agent']) ? '휴대폰' : 'PC',
+    fulfil: { status: 'new' }, history: [], device: isMobileUA(req.headers['user-agent']) ? '휴대폰' : 'PC', ...(src ? { src } : {}),
   };
-  hist(o, 'ready', `${m.label} ${amount}원${used ? ` (주문 ${total}원 - 적립금 ${used}원)` : ''}${mem ? ` · 회원 ${mem.login}` : ''}`); save(o);
+  hist(o, 'ready', `${m.label} ${amount}원${used ? ` (주문 ${total}원 - 적립금 ${used}원)` : ''}${mem ? ` · 회원 ${mem.login}` : ''}${src ? ` · 유입 ${srcText(src.last)}` : ''}`); save(o);
   if (mem) MEMBER.addOrder(mem.id, moid);
   const first = clean(items.length > 1 ? items[0].gname : items[0].name), more = items.length > 1 ? ` 외 ${items.length - 1}건` : '';
   const edi = kstStamp(), amt = String(amount), u = URLS();
@@ -589,7 +590,7 @@ export function listOrders({ all = false, from = '', to = '' } = {}) {
     .map(o => {
       const f = fulfilNow(o, cfg), st = stageOf(o, cfg), c = o.claim;
       return { moid: o.moid, createdAt: o.createdAt, day: kday(o.createdAt), time: ktime(o.createdAt), paidAt: o.paidAt || '', status: o.status, statusName: abandoned(o) ? '결제 중단' : LABEL[o.status] || o.status, amount: o.amount, payLabel: o.payLabel,
-        failStage: failStage(o), buyer: o.buyer ? o.buyer.name : '', member: o.member ? o.member.login || '' : '', lines: o.items.map(x => ({ id: String(x.id), qty: x.qty })),
+        failStage: failStage(o), buyer: o.buyer ? o.buyer.name : '', member: o.member ? o.member.login || '' : '', lines: o.items.map(x => ({ id: String(x.id), qty: x.qty })), src: o.src || null, device: o.device || '',
         items: o.items.map(x => `${x.name}${x.opt ? ` (${x.opt})` : ''} × ${x.qty}`), qty: o.items.reduce((a, x) => a + x.qty, 0), receiver: o.receiver.name, tel: o.receiver.tel, zip: o.receiver.zip,
         addr: `${o.receiver.addr1} ${o.receiver.addr2}`.trim(), memo: o.receiver.memo || '', jeju: !!o.receiver.jeju, fail: (o.fail || {}).msg || (abandoned(o) ? '결제창에서 결제를 끝내지 않았습니다(창을 닫았거나 인증을 중단함)' : ''),
         fulfil: f.status, shippedAt: f.shippedAt || '', courier: f.invoice ? courierName(f.courier) : '', invoice: f.invoice || '', track: f.invoice ? trackUrl(f.courier, f.invoice) : '',

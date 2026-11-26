@@ -28,12 +28,20 @@ const HEAD_TAGS = [
 const BODY_OPEN = tag('gtm') ? `<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=${tag('gtm')}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` : '';
 // 주요 클릭(스마트스토어·N Pay, 구매하기, 장바구니, 전화, 카카오, 공식몰 이동): 항상 사이트 자체 집계(/api/t → 어드민 유입·주문),
 // GTM·GA4 가 있으면 dataLayer·GA4 이벤트로도. GitHub Pages 미리보기엔 서버가 없어 보내지 않는다
+// 들어온 곳 기억(결제 유입 경로, 2026-11-26): 이 브라우저에만(localStorage jam_src, 서버로는 주문서가 결제를 시작할 때만 보냄 — tools/admin/stats.mjs orderSource)
+//   first = 처음 들어온 곳(90일) · last = 마지막으로 바깥(검색·SNS·광고·다른 사이트)에서 들어온 곳(30일, 그 사이 직접 방문은 덮지 않음) · sess = 이번 방문 첫 페이지 · n = 방문 횟수
+//   주문서·주문 완료 페이지와 결제창·카드사 페이지에서 돌아온 것은 세지 않는다
+const SRC_JS = `try{var P=location.pathname;if(!/checkout|order-complete/.test(P)){var R=document.referrer||'',X=false,H=location.hostname.replace(/^www\\./,'');try{var RH=new URL(R).hostname;X=RH.replace(/^(www|m)\\./,'')!==H&&!/seedpay|nicepay|inicis|kcp\\.|ksnet|kakaopay|pay\\.naver|nid\\.naver|payment|ansimclick|vpay|mpi\\.|acs\\./i.test(RH)}catch(x){}
+var Q=location.search||'',T=/[?&](utm_|gclid|gbraid|wbraid|fbclid|NaPm|n_media|n_query|ttclid)/i.test(Q),N=!sessionStorage.getItem('jam_s');sessionStorage.setItem('jam_s','1');
+if(N||X||T){var S={};try{S=JSON.parse(localStorage.getItem('jam_src')||'{}')||{}}catch(x){}var now=Date.now(),old=function(t,d){return!t||!(now-t.at<d*864e5)},E={ref:X?R.slice(0,300):'',q:Q.slice(0,300),land:P.slice(0,120),at:now};
+if(old(S.first,90))S.first=E;if(X||T||old(S.last,30))S.last=E;S.sess=E;if(N)S.n=(S.n||0)+1;localStorage.setItem('jam_src',JSON.stringify(S))}}}catch(x){}`;
 const TRACK_JS = `<script>(function(){var w=window,own=!/github\\.io$/.test(location.hostname);w.dataLayer=w.dataLayer||[];var pid=(location.pathname.match(/product-(\\d+)/)||[])[1];
 function send(n,p){w.dataLayer.push(Object.assign({event:'jam_'+n},p));if(typeof w.gtag==='function')w.gtag('event','jam_'+n,p);if(own&&navigator.sendBeacon)try{navigator.sendBeacon('/api/t',new Blob([JSON.stringify({e:n,id:pid})],{type:'application/json'}))}catch(x){}}
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a,button');if(!a)return;var h=a.getAttribute('href')||'',id=a.id||'',t=(a.textContent||'').replace(/\\s+/g,' ').trim().slice(0,40);
 if(/smartstore\\.naver\\.com/.test(h))send('store_click',{link_url:h,label:t});else if(/^tel:/.test(h))send('call_click',{link_url:h});
 else if(/kakao/.test(h))send('kakao_click',{link_url:h});else if(/jamschool\\.co\\.kr/.test(h))send('mall_click',{link_url:h,label:t});
-else if(/^(pd-buy|pd-npay|bb-buy|sh-buy)$/.test(id))send('buy_click',{label:t});else if(id==='sh-cart')send('cart_click',{label:t});},true);})();</script>`;
+else if(/^(pd-buy|pd-npay|bb-buy|sh-buy)$/.test(id))send('buy_click',{label:t});else if(id==='sh-cart')send('cart_click',{label:t});},true);
+${SRC_JS}})();</script>`;
 // 광고 픽셀(메타·카카오·구글 광고 전환·네이버 전환): 운영 주소(jamschool.kr)에서만 켠다. 페이지 보기는 자동, 상품 보기·장바구니·주문서·구매는 window.jamAd(종류, 값)로
 //   종류: view(상품 상세) · cart(장바구니 담기, ui.js) · checkout(주문서 제출, checkout.js) · purchase(결제 완료, complete.js — 주문번호당 한 번)
 const AD = { meta: tag('metaPixel'), kakao: tag('kakaoPixel'), ads: tag('googleAds'), label: tag('googleAdsPurchaseLabel') };
