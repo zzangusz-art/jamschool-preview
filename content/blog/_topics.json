@@ -916,7 +916,9 @@
     "angle": "쿨매트 제공고시: 세탁망·중성세제·울 코스, 30℃ 이하 찬물 손세탁, 표백제 금지, 건조기 수축, 세탁 부주의 교환·반품 불가.",
     "category": "사용 팁",
     "product": 44,
-    "status": "todo"
+    "status": "done",
+    "slug": "cool-mat-washing",
+    "date": "2026-11-26"
   },
   {
     "id": "mattress-return-policy",
@@ -929,7 +931,9 @@
     "angle": "14일 무료체험(기간 한정), 반품·교환 배송비(매트리스 왕복 36,000원 등), 7일 이내 접수, 압축 포장 개봉 주의, 제품 하자 무료, 환불 기간.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-return-policy",
+    "date": "2026-11-26"
   },
   {
     "id": "gray-or-ivory",
@@ -942,7 +946,9 @@
     "angle": "색상별 가격 같음, 방 분위기, 관리 측면(일반론 짧게), 아이보리 사진은 상품 이미지 기준.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "gray-or-ivory",
+    "date": "2026-11-26"
   },
   {
     "id": "multi-single-mattress",
