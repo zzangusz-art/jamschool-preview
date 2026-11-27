@@ -961,7 +961,9 @@
     "angle": "3단 접이식 멀티싱글 75×200cm: 체구 작은 분·아이·차박·캠핑·간이침대. 7cm 3.5kg 139,000원, 12cm 5.5kg 179,000원(2026년 10월 상세페이지 할인가 기준). 싱글(100cm)은 3단에 없음을 분명히.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "multi-single-mattress",
+    "date": "2026-11-27"
   },
   {
     "id": "mattress-firmness-newton",
@@ -974,7 +976,9 @@
     "angle": "KATRI 성적서 경도 129.3 N(KS M 6672:2016)을 단단함의 근거로 읽는 법. 다른 제품 수치는 만들지 않음. 「탄탄한·하드 매트리스」 글과 겹치지 않게 수치 읽기 중심.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-firmness-newton",
+    "date": "2026-11-27"
   },
   {
     "id": "mattress-test-report",
@@ -987,7 +991,9 @@
     "angle": "성적서에서 시험기관(KATRI·SGS·한일원자력), 시험 방법(KS M 6672), 결과 칸을 읽는 순서. 개별 시험 글로 내부 링크. 효능 표현 금지.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-test-report",
+    "date": "2026-11-27"
   },
   {
     "id": "multilayer-mattress-patent",
