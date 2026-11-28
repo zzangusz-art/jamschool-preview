@@ -1006,7 +1006,9 @@
     "angle": "특허 제10-2378668호 다층구조의 침대 매트리스(출원 2019. 06. 25, 등록 2022. 03. 22). 특허청 조회로 확인하는 법만, 특허 내용 해석·효과는 쓰지 않음.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "multilayer-mattress-patent",
+    "date": "2026-11-28"
   },
   {
     "id": "mattress-formaldehyde",
@@ -1019,7 +1021,9 @@
     "angle": "KATRI 한국의류시험연구원 폼알데하이드 검출 안 됨, 아릴아민·알레르기성 염료 통과(5mg 미만). 「유해물질 시험」 글과 겹치지 않게 폼알데하이드 항목 중심.",
     "category": "제품 이야기",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-formaldehyde",
+    "date": "2026-11-28"
   },
   {
     "id": "mattress-delivery",
@@ -1032,7 +1036,9 @@
     "angle": "오후 1시 이전 결제 확인 시 당일 출고(주말·공휴일 제외), 평균 1~3일, 로젠택배·대신택배, (기간 한정) 무료 배송, 압축 포장 복원 약 2일.",
     "category": "구매 가이드",
     "product": 29,
-    "status": "todo"
+    "status": "done",
+    "slug": "mattress-delivery",
+    "date": "2026-11-28"
   },
   {
     "id": "wfh-mattress",
